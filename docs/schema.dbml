@@ -1,0 +1,178 @@
+// CampaignSystem — Veritabanı Şeması
+// dbdiagram.io
+
+// ─────────────────────────────────────────────
+// SÖZLÜK TABLOLARI
+// ─────────────────────────────────────────────
+
+Table SEGMENT {
+  Id int [pk, increment]
+  SegmentCode varchar(10) [not null, unique]
+  SegmentName varchar(100) [not null]
+  IsActive boolean [not null, default: true]
+}
+
+Table PRODUCT {
+  Id int [pk, increment]
+  ProductCode varchar(10) [not null, unique]
+  ProductName varchar(100) [not null]
+  IsActive boolean [not null, default: true]
+}
+
+Table MERCHANT {
+  Id int [pk, increment]
+  MerchantNumber varchar(20) [not null, unique]
+  MerchantName varchar(200) [not null]
+  MCC varchar(4)
+  IsActive boolean [not null, default: true]
+}
+
+Table TRANSACTION_CODE {
+  Id int [pk, increment]
+  Code varchar(10) [not null, unique]
+  Name varchar(100) [not null]
+  IsActive boolean [not null, default: true]
+}
+
+// ─────────────────────────────────────────────
+// MÜŞTERİ VE KART
+// ─────────────────────────────────────────────
+
+Table CUSTOMER {
+  Id int [pk, increment]
+  CustomerNumber varchar(20) [not null, unique]
+  Gender varchar(1)
+  SegmentId int [ref: > SEGMENT.Id]
+  IsActive boolean [not null, default: true]
+}
+
+Table CARD {
+  Id int [pk, increment]
+  CustomerId int [not null, ref: > CUSTOMER.Id]
+  ProductId int [not null, ref: > PRODUCT.Id]
+  CardType varchar(1) [note: 'A = Asil, E = Ek']
+  IsActive boolean [not null, default: true]
+
+  Indexes {
+    CustomerId
+  }
+}
+
+// ─────────────────────────────────────────────
+// KAMPANYA TANIMI
+// ─────────────────────────────────────────────
+
+Table CAMPAIGN {
+  Id int [pk, increment]
+  Name varchar(200) [not null]
+  Description varchar(1000)
+  CampaignType varchar(10) [not null, note: 'MASS = katilim beklenmez, SI = katilim gerekir']
+  StartDate datetime [not null]
+  EndDate datetime [not null]
+  MinimumAmount decimal(18,2) [note: 'islem basina alt sinir']
+  MaximumAmount decimal(18,2) [note: 'islem basina ust sinir']
+  MinimumTransactionCount int [note: 'odul esigi']
+  RewardPoint decimal(18,2) [note: 'esik basina kazanc']
+  EarningType varchar(2) [note: 'TK = Tek Kazanim, SK = Surekli Kazanim']
+  MaxRewardCount int [note: '0 = sinirsiz']
+  Level varchar(1) [not null, note: 'K = Kart Bazli, M = Musteri Bazli']
+  Status varchar(20) [not null]
+  IsActive boolean [not null, default: true]
+}
+
+// ─────────────────────────────────────────────
+// KAMPANYA KRİTERLERİ (ara tablolar)
+// ─────────────────────────────────────────────
+
+Table CAMPAIGN_SEGMENT {
+  CampaignId int [ref: > CAMPAIGN.Id]
+  SegmentId int [ref: > SEGMENT.Id]
+
+  Indexes {
+    (CampaignId, SegmentId) [pk]
+  }
+}
+
+Table CAMPAIGN_PRODUCT {
+  CampaignId int [ref: > CAMPAIGN.Id]
+  ProductId int [ref: > PRODUCT.Id]
+
+  Indexes {
+    (CampaignId, ProductId) [pk]
+  }
+}
+
+Table CAMPAIGN_MERCHANT {
+  CampaignId int [ref: > CAMPAIGN.Id]
+  MerchantId int [ref: > MERCHANT.Id]
+
+  Indexes {
+    (CampaignId, MerchantId) [pk]
+  }
+}
+
+Table CAMPAIGN_TRANSACTION_CODE {
+  CampaignId int [ref: > CAMPAIGN.Id]
+  TransactionCodeId int [ref: > TRANSACTION_CODE.Id]
+
+  Indexes {
+    (CampaignId, TransactionCodeId) [pk]
+  }
+}
+
+// ─────────────────────────────────────────────
+// KATILIM
+// ─────────────────────────────────────────────
+
+Table CAMPAIGN_PARTICIPATION {
+  CampaignId int [ref: > CAMPAIGN.Id]
+  CustomerId int [ref: > CUSTOMER.Id]
+  ParticipationDate datetime [not null]
+  Status varchar(20) [not null]
+
+  Indexes {
+    (CampaignId, CustomerId) [pk]
+  }
+}
+
+// ─────────────────────────────────────────────
+// İŞLEM VERİSİ
+// ─────────────────────────────────────────────
+
+Table TRANSACTION {
+  Id bigint [pk, increment]
+  Rrn varchar(24) [unique, note: 'islemin benzersiz referansi']
+  CardId int [not null, ref: > CARD.Id]
+  CustomerId int [not null, ref: > CUSTOMER.Id]
+  MerchantId int [ref: > MERCHANT.Id]
+  TransactionCodeId int [not null, ref: > TRANSACTION_CODE.Id]
+  TransactionDate datetime [not null]
+  Amount decimal(18,2) [not null]
+  IsReversed boolean [not null, default: false]
+
+  Indexes {
+    (CustomerId, TransactionDate)
+    (CardId, TransactionDate)
+    MerchantId
+  }
+}
+
+// ─────────────────────────────────────────────
+// ÖDÜL (kampanya sonu batch yazar)
+// ─────────────────────────────────────────────
+
+Table CAMPAIGN_REWARD {
+  Id bigint [pk, increment]
+  CampaignId int [not null, ref: > CAMPAIGN.Id]
+  CustomerId int [not null, ref: > CUSTOMER.Id]
+  CardId int [null, ref: > CARD.Id, note: 'null = musteri bazli (Level = M)']
+  QualifyingCount int [not null, note: 'uygun islem adedi']
+  EarnedCount int [not null, note: 'hak edilen odul adedi, tavan oncesi']
+  RewardPoint decimal(18,2) [not null, note: 'verilen puan']
+  Status varchar(20) [not null]
+  RewardDate datetime [not null]
+
+  Indexes {
+    (CampaignId, CustomerId, CardId) [unique]
+  }
+}
