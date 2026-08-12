@@ -22,5 +22,10 @@ public class TransactionCodeConfiguration : IEntityTypeConfiguration<Transaction
             .IsRequired();
 
         builder.HasIndex(x => x.Code).IsUnique();
+
+        builder.HasData(
+            new TransactionCode { Id = 1, Code = "SA", Name = "Sale" },
+            new TransactionCode { Id = 2, Code = "NA", Name = "Cash Advance" },
+            new TransactionCode { Id = 3, Code = "OD", Name = "Debt Payment" });
     }
 }

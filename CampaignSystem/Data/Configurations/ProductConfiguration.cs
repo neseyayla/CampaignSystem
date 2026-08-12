@@ -22,5 +22,13 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
             .IsRequired();
 
         builder.HasIndex(x => x.ProductCode).IsUnique();
+
+        builder.HasData(
+            new Product { Id = 1, ProductCode = "201", ProductName = "Visa Classic" },
+            new Product { Id = 2, ProductCode = "202", ProductName = "MasterCard Classic" },
+            new Product { Id = 3, ProductCode = "203", ProductName = "Visa Gold" },
+            new Product { Id = 4, ProductCode = "204", ProductName = "MasterCard Gold" },
+            new Product { Id = 5, ProductCode = "205", ProductName = "Platinum Plus" },
+            new Product { Id = 6, ProductCode = "206", ProductName = "Platinum Plus Metal" });
     }
 }
