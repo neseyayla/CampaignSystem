@@ -22,5 +22,14 @@ public class SegmentConfiguration : IEntityTypeConfiguration<Segment>
             .IsRequired();
 
         builder.HasIndex(x => x.SegmentCode).IsUnique();
+
+        // Reference data. Ids are fixed so that a campaign definition can refer to the
+        // same segment on every machine and in every environment.
+        builder.HasData(
+            new Segment { Id = 1, SegmentCode = "OGR", SegmentName = "Student" },
+            new Segment { Id = 2, SegmentCode = "PER", SegmentName = "Company Employee" },
+            new Segment { Id = 3, SegmentCode = "CFT", SegmentName = "Farmer" },
+            new Segment { Id = 4, SegmentCode = "EVH", SegmentName = "Homemaker" },
+            new Segment { Id = 5, SegmentCode = "EMK", SegmentName = "Retiree" });
     }
 }
