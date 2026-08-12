@@ -20,10 +20,14 @@ public class CampaignParticipationConfiguration : IEntityTypeConfiguration<Campa
             .IsUnicode(false)
             .IsRequired();
 
-        // One enrollment per campaign, customer and card. SQL Server treats two NULLs as
-        // equal inside a unique index, which is exactly what is wanted here: a customer
-        // can hold only one customer level enrollment (CardId null) per campaign.
-        builder.HasIndex(x => new { x.CampaignId, x.CustomerId, x.CardId }).IsUnique();
+        // One enrollment per campaign, customer and card. HasFilter(null) is required:
+        // EF Core otherwise adds "WHERE [CardId] IS NOT NULL" to any unique index over a
+        // nullable column, which would let a customer enroll at customer level — the case
+        // that carries a null CardId — any number of times. Without the filter SQL Server
+        // compares two NULLs as equal, so that enrollment can exist only once.
+        builder.HasIndex(x => new { x.CampaignId, x.CustomerId, x.CardId })
+            .IsUnique()
+            .HasFilter(null);
 
         builder.HasOne(x => x.Campaign)
             .WithMany(x => x.Participations)

@@ -19,9 +19,14 @@ public class CampaignRewardConfiguration : IEntityTypeConfiguration<CampaignRewa
         builder.Property(x => x.RewardDate).HasColumnType("datetime2");
 
         // Guards against a double reward if the batch job is run twice for the same
-        // campaign. For a customer level reward CardId is null, and the single-NULL
-        // behaviour of SQL Server unique indexes limits that to one row per customer.
-        builder.HasIndex(x => new { x.CampaignId, x.CustomerId, x.CardId }).IsUnique();
+        // campaign. HasFilter(null) is required: EF Core otherwise adds
+        // "WHERE [CardId] IS NOT NULL" to any unique index over a nullable column, which
+        // would leave customer level rewards — the ones that carry a null CardId — with no
+        // protection at all. Without the filter SQL Server compares two NULLs as equal, so
+        // a customer can hold only one customer level reward per campaign.
+        builder.HasIndex(x => new { x.CampaignId, x.CustomerId, x.CardId })
+            .IsUnique()
+            .HasFilter(null);
 
         builder.HasOne(x => x.Campaign)
             .WithMany(x => x.Rewards)
