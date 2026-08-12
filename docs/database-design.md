@@ -171,7 +171,7 @@ Customer group.
 | Column | Type | Notes |
 |---|---|---|
 | Id | int | PK, identity |
-| SegmentCode | nvarchar(10) | UNIQUE, NOT NULL |
+| SegmentCode | varchar(10) | UNIQUE, NOT NULL |
 | SegmentName | nvarchar(100) | NOT NULL |
 
 ### PRODUCT
@@ -180,7 +180,7 @@ Card product (Classic, Gold, Platinum, etc.)
 | Column | Type | Notes |
 |---|---|---|
 | Id | int | PK, identity |
-| ProductCode | nvarchar(10) | UNIQUE, NOT NULL |
+| ProductCode | varchar(10) | UNIQUE, NOT NULL |
 | ProductName | nvarchar(100) | NOT NULL |
 
 ### MERCHANT
@@ -188,7 +188,7 @@ Card product (Classic, Gold, Platinum, etc.)
 | Column | Type | Notes |
 |---|---|---|
 | Id | int | PK, identity |
-| MerchantNumber | nvarchar(20) | UNIQUE, NOT NULL (BKM ID) |
+| MerchantNumber | varchar(20) | UNIQUE, NOT NULL (BKM ID) |
 | MerchantName | nvarchar(200) | NOT NULL |
 | IsActive | bit | default 1 |
 
@@ -198,7 +198,7 @@ Transaction type.
 | Column | Type | Notes |
 |---|---|---|
 | Id | int | PK, identity |
-| Code | nvarchar(10) | UNIQUE, NOT NULL |
+| Code | varchar(10) | UNIQUE, NOT NULL |
 | Name | nvarchar(100) | NOT NULL |
 
 ---
@@ -210,8 +210,8 @@ Transaction type.
 | Column | Type | Notes |
 |---|---|---|
 | Id | int | PK, identity |
-| CustomerNumber | nvarchar(20) | UNIQUE, NOT NULL |
-| Gender | char(1) | null — `E` / `K` |
+| CustomerNumber | varchar(20) | UNIQUE, NOT NULL |
+| Gender | varchar(1) | null — `E` = male, `K` = female |
 | SegmentId | int | FK → SEGMENT, null |
 | IsActive | bit | default 1 |
 
@@ -222,7 +222,7 @@ Transaction type.
 | Id | int | PK, identity |
 | CustomerId | int | FK → CUSTOMER, NOT NULL |
 | ProductId | int | FK → PRODUCT, NOT NULL |
-| CardType | char(1) | `A` = primary, `E` = supplementary |
+| CardType | varchar(1) | null — `A` = primary, `E` = supplementary |
 | IsActive | bit | default 1 |
 
 Index: `(CustomerId)`
@@ -240,15 +240,15 @@ The clear card number is **never stored in any table** (PCI DSS).
 | Id | int | PK, identity |
 | Name | nvarchar(200) | NOT NULL |
 | Description | nvarchar(1000) | null |
-| CampaignType | nvarchar(10) | NOT NULL — `MASS` = no enrollment, `SI` = enrollment required |
+| CampaignType | varchar(10) | NOT NULL — `MASS` = no enrollment, `SI` = enrollment required |
 | StartDate | datetime2 | NOT NULL |
 | EndDate | datetime2 | NOT NULL |
 | MinimumAmount | decimal(18,2) | null — lower bound per transaction |
 | MaximumAmount | decimal(18,2) | null — upper bound per transaction |
 | RewardPoint | decimal(18,2) | null — points per qualifying transaction |
 | MaxRewardAmount | decimal(18,2) | null — reward cap for the whole campaign |
-| EarningType | nvarchar(2) | `TK` = one-time, `SK` = recurring |
-| Status | nvarchar(20) | NOT NULL |
+| EarningType | varchar(2) | NOT NULL — `K` = accumulate per card, `M` = accumulate per customer |
+| Status | varchar(20) | NOT NULL — stored as the enum member name, e.g. `Published` |
 | IsActive | bit | default 1 |
 
 Index: `(Status, EndDate)` — the campaign selection query of the batch job
@@ -281,9 +281,11 @@ Enrollment record for campaigns where `CampaignType = SI`.
 | CustomerId | int | FK → CUSTOMER, NOT NULL |
 | CardId | int | FK → CARD, null — null for customer level enrollment |
 | ParticipationDate | datetime2 | NOT NULL |
-| Status | nvarchar(20) | NOT NULL |
+| Status | varchar(20) | NOT NULL — stored as the enum member name, e.g. `Active` |
 
-UNIQUE: `(CampaignId, CustomerId, CardId)`
+**UNIQUE: `(CampaignId, CustomerId, CardId)` — deliberately unfiltered**
+
+The index must cover the rows where `CardId` is null, because those are the customer level enrollments. SQL Server compares two NULLs as equal inside a unique index, so an unfiltered index limits a customer to one customer level enrollment per campaign. EF Core adds `WHERE CardId IS NOT NULL` to such an index by default, which would remove exactly that protection; the configuration overrides it with `HasFilter(null)`.
 
 > Enrollment is the customer's intent; eligibility is the batch job's decision. Eligibility is not stored in this table.
 
@@ -298,7 +300,7 @@ The main table read by the batch job. It will be the largest table in the system
 | Column | Type | Notes |
 |---|---|---|
 | Id | **bigint** | PK, identity — int is not enough |
-| Rrn | nvarchar(24) | UNIQUE, null — unique business key of the transaction |
+| Rrn | varchar(24) | UNIQUE, null — unique business key of the transaction |
 | CardId | int | FK → CARD, NOT NULL |
 | CustomerId | int | FK → CUSTOMER, NOT NULL |
 | MerchantId | int | FK → MERCHANT, null |
@@ -332,9 +334,11 @@ The result table written by the end-of-campaign batch job.
 | RewardPoint | decimal(18,2) | NOT NULL — points granted |
 | RewardDate | datetime2 | NOT NULL |
 
-**UNIQUE: `(CampaignId, CustomerId, CardId)`**
+**UNIQUE: `(CampaignId, CustomerId, CardId)` — deliberately unfiltered**
 
 This constraint prevents double rewards at the database level. If the batch job runs twice by mistake, the second run fails instead of silently creating duplicate rows. Do not rely on application-level checks alone — add the constraint.
+
+The index must stay unfiltered for the same reason as in CAMPAIGN_PARTICIPATION: a customer level reward carries a null `CardId`, and a `WHERE CardId IS NOT NULL` filter would exclude precisely those rows from the constraint. Customer level campaigns — the `M` earning type — would then be the only ones left unprotected against a duplicate run.
 
 ---
 
@@ -356,21 +360,26 @@ qualifying transactions =
 
 If a criteria junction table has no rows for the campaign, that criterion is not applied — the campaign is unrestricted on that dimension.
 
-Then, based on the earning type:
+`EarningType` then decides at which level those transactions are grouped, and therefore how many reward rows one customer receives:
 
 ```
-QualifyingCount = number of qualifying transactions
+IF EarningType = 'K'    -- accumulate per card
+    GROUP BY CardId     -- one reward row per card, CardId populated
+ELSE                    -- 'M', accumulate per customer
+    GROUP BY CustomerId -- one reward row per customer, CardId left null
+                        -- transactions from all of the customer's cards are pooled
 
-IF EarningType = 'TK'   -- one-time earning
-    reward = Campaign.RewardPoint
-ELSE                    -- 'SK' recurring earning
-    reward = QualifyingCount * Campaign.RewardPoint
+for each group:
+    QualifyingCount = number of qualifying transactions in the group
+    reward          = QualifyingCount * Campaign.RewardPoint
 
-IF Campaign.MaxRewardAmount IS NOT NULL
-    reward = MIN(reward, Campaign.MaxRewardAmount)
+    IF Campaign.MaxRewardAmount IS NOT NULL
+        reward = MIN(reward, Campaign.MaxRewardAmount)
 
-write to CAMPAIGN_REWARD
+    write to CAMPAIGN_REWARD
 ```
+
+A customer holding three cards therefore receives three reward rows under `K` and a single pooled row under `M`. The null `CardId` of an `M` row is not missing data — it states that the reward belongs to the customer rather than to any one card.
 
 ---
 
@@ -431,7 +440,7 @@ Seed data loaded on first setup.
 | MinimumAmount | 250.00 |
 | RewardPoint | 50.00 |
 | MaxRewardAmount | 500.00 |
-| EarningType | SK |
+| EarningType | K (accumulate per card) |
 | Status | Published |
 
 **Criteria junction tables**
@@ -450,6 +459,9 @@ Seed data loaded on first setup.
 ## Design rules
 
 - Money and point fields are **`decimal(18,2)`** — never `float` / `double`
+- Code columns are **`varchar`**, human-readable columns are **`nvarchar`**. Codes (`SegmentCode`, `ProductCode`, `MerchantNumber`, `CustomerNumber`, `Rrn`, and every enum code column) only ever hold ASCII, so Unicode storage would double their size for nothing. Names and descriptions are `nvarchar` so Turkish characters survive
+- Enums are persisted as **strings**, not as the integer values C# assigns, so a row read straight from the database is readable and a reordering of the enum members cannot change the meaning of stored data
+- Dates are **`datetime2`**, not `datetime` — wider range, higher precision, same storage
 - The clear card number is **never stored in any table** (PCI DSS)
 - Deletion is **soft delete** (`IsActive = 0`) — rows are never physically removed
 - No campaign rule is hardcoded; the scope is always read from the junction tables

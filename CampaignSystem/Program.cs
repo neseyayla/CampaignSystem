@@ -1,3 +1,6 @@
+using CampaignSystem.Data;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -5,6 +8,21 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+// The connection string is supplied by User Secrets in development and by an
+// environment variable in every other environment; appsettings.json only holds an
+// empty placeholder so the required key is discoverable.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "ConnectionStrings:DefaultConnection is not configured. In development, set it with: " +
+        "dotnet user-secrets set \"ConnectionStrings:DefaultConnection\" \"<value>\" --project CampaignSystem");
+}
+
+builder.Services.AddDbContext<CampaignDbContext>(options =>
+    options.UseSqlServer(connectionString));
 
 
 
