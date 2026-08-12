@@ -1,0 +1,176 @@
+// CampaignSystem — Database Schema
+// Source: dbdiagram.io — this file is the single source of truth for the schema.
+// When the schema changes: update this file first, then the entity, then the migration.
+
+// ─────────────────────────────────────────────
+// LOOKUP TABLES
+// ─────────────────────────────────────────────
+
+Table SEGMENT {
+  Id int [pk, increment]
+  SegmentCode varchar(10) [not null, unique]
+  SegmentName varchar(100) [not null]
+}
+
+Table PRODUCT {
+  Id int [pk, increment]
+  ProductCode varchar(10) [not null, unique]
+  ProductName varchar(100) [not null]
+}
+
+Table MERCHANT {
+  Id int [pk, increment]
+  MerchantNumber varchar(20) [not null, unique]
+  MerchantName varchar(200) [not null]
+  IsActive boolean [not null, default: true]
+}
+
+Table TRANSACTION_CODE {
+  Id int [pk, increment]
+  Code varchar(10) [not null, unique]
+  Name varchar(100) [not null]
+}
+
+// ─────────────────────────────────────────────
+// CUSTOMER AND CARD
+// ─────────────────────────────────────────────
+
+Table CUSTOMER {
+  Id int [pk, increment]
+  CustomerNumber varchar(20) [not null, unique]
+  Gender varchar(1) [note: 'E = male, K = female']
+  SegmentId int [ref: > SEGMENT.Id]
+  IsActive boolean [not null, default: true]
+}
+
+Table CARD {
+  Id int [pk, increment]
+  CustomerId int [not null, ref: > CUSTOMER.Id]
+  ProductId int [not null, ref: > PRODUCT.Id]
+  CardType varchar(1) [note: 'A = primary, E = supplementary']
+  IsActive boolean [not null, default: true]
+
+  Indexes {
+    CustomerId
+  }
+}
+
+// ─────────────────────────────────────────────
+// CAMPAIGN DEFINITION
+// ─────────────────────────────────────────────
+
+Table CAMPAIGN {
+  Id int [pk, increment]
+  Name varchar(200) [not null]
+  Description varchar(1000)
+  CampaignType varchar(10) [not null, note: 'MASS = no enrollment needed, SI = enrollment required']
+  StartDate datetime [not null]
+  EndDate datetime [not null]
+  MinimumAmount decimal(18,2) [note: 'lower bound per transaction']
+  MaximumAmount decimal(18,2) [note: 'upper bound per transaction']
+  RewardPoint decimal(18,2) [note: 'points earned per qualifying transaction']
+  MaxRewardAmount decimal(18,2) [note: 'reward cap for the whole campaign']
+  EarningType varchar(2) [not null, note: 'K = accumulate per card, M = accumulate per customer']
+  Status varchar(20) [not null]
+  IsActive boolean [not null, default: true]
+
+  Indexes {
+    (Status, EndDate) [note: 'campaign selection query of the batch job']
+  }
+}
+
+// ─────────────────────────────────────────────
+// CAMPAIGN CRITERIA (junction tables)
+// ─────────────────────────────────────────────
+
+Table CAMPAIGN_SEGMENT {
+  CampaignId int [ref: > CAMPAIGN.Id]
+  SegmentId int [ref: > SEGMENT.Id]
+
+  Indexes {
+    (CampaignId, SegmentId) [pk]
+  }
+}
+
+Table CAMPAIGN_PRODUCT {
+  CampaignId int [ref: > CAMPAIGN.Id]
+  ProductId int [ref: > PRODUCT.Id]
+
+  Indexes {
+    (CampaignId, ProductId) [pk]
+  }
+}
+
+Table CAMPAIGN_MERCHANT {
+  CampaignId int [ref: > CAMPAIGN.Id]
+  MerchantId int [ref: > MERCHANT.Id]
+
+  Indexes {
+    (CampaignId, MerchantId) [pk]
+  }
+}
+
+Table CAMPAIGN_TRANSACTION_CODE {
+  CampaignId int [ref: > CAMPAIGN.Id]
+  TransactionCodeId int [ref: > TRANSACTION_CODE.Id]
+
+  Indexes {
+    (CampaignId, TransactionCodeId) [pk]
+  }
+}
+
+// ─────────────────────────────────────────────
+// ENROLLMENT
+// ─────────────────────────────────────────────
+
+Table CAMPAIGN_PARTICIPATION {
+  Id bigint [pk, increment]
+  CampaignId int [not null, ref: > CAMPAIGN.Id]
+  CustomerId int [not null, ref: > CUSTOMER.Id]
+  CardId int [ref: > CARD.Id, note: 'null = customer level enrollment']
+  ParticipationDate datetime [not null]
+  Status varchar(20) [not null]
+
+  Indexes {
+    (CampaignId, CustomerId, CardId) [unique]
+  }
+}
+
+// ─────────────────────────────────────────────
+// TRANSACTION DATA
+// ─────────────────────────────────────────────
+
+Table TRANSACTION {
+  Id bigint [pk, increment]
+  Rrn varchar(24) [unique, note: 'retrieval reference number, unique business key']
+  CardId int [not null, ref: > CARD.Id]
+  CustomerId int [not null, ref: > CUSTOMER.Id]
+  MerchantId int [ref: > MERCHANT.Id]
+  TransactionCodeId int [not null, ref: > TRANSACTION_CODE.Id]
+  TransactionDate datetime [not null]
+  Amount decimal(18,2) [not null]
+
+  Indexes {
+    (CustomerId, TransactionDate)
+    (CardId, TransactionDate)
+    MerchantId
+  }
+}
+
+// ─────────────────────────────────────────────
+// REWARD (written by the end-of-campaign batch job)
+// ─────────────────────────────────────────────
+
+Table CAMPAIGN_REWARD {
+  Id bigint [pk, increment]
+  CampaignId int [not null, ref: > CAMPAIGN.Id]
+  CustomerId int [not null, ref: > CUSTOMER.Id]
+  CardId int [ref: > CARD.Id, note: 'null = customer level reward']
+  QualifyingCount int [not null, note: 'number of qualifying transactions']
+  RewardPoint decimal(18,2) [not null, note: 'points granted']
+  RewardDate datetime [not null]
+
+  Indexes {
+    (CampaignId, CustomerId, CardId) [unique, note: 'guards against duplicate rewards']
+  }
+}

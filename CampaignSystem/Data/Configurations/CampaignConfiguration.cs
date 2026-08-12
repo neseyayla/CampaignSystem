@@ -1,0 +1,54 @@
+using CampaignSystem.Data.Converters;
+using CampaignSystem.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace CampaignSystem.Data.Configurations;
+
+public class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
+{
+    public void Configure(EntityTypeBuilder<Campaign> builder)
+    {
+        builder.ToTable("CAMPAIGN");
+
+        builder.HasKey(x => x.Id);
+
+        builder.Property(x => x.Name)
+            .HasMaxLength(200)
+            .IsRequired();
+
+        builder.Property(x => x.Description)
+            .HasMaxLength(1000);
+
+        builder.Property(x => x.CampaignType)
+            .HasConversion(EnumCodeConverters.CampaignTypeToCode)
+            .HasMaxLength(10)
+            .IsUnicode(false)
+            .IsRequired();
+
+        builder.Property(x => x.StartDate).HasColumnType("datetime2");
+        builder.Property(x => x.EndDate).HasColumnType("datetime2");
+
+        builder.Property(x => x.MinimumAmount).HasColumnType("decimal(18,2)");
+        builder.Property(x => x.MaximumAmount).HasColumnType("decimal(18,2)");
+        builder.Property(x => x.RewardPoint).HasColumnType("decimal(18,2)");
+        builder.Property(x => x.MaxRewardAmount).HasColumnType("decimal(18,2)");
+
+        builder.Property(x => x.EarningType)
+            .HasConversion(EnumCodeConverters.EarningTypeToCode)
+            .HasMaxLength(2)
+            .IsUnicode(false)
+            .IsRequired();
+
+        // Stored as the enum member name; the values are longer than two characters and
+        // are only read by this application, so a short code buys nothing here.
+        builder.Property(x => x.Status)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsUnicode(false)
+            .IsRequired();
+
+        // The batch job selects campaigns to evaluate by status and end date.
+        builder.HasIndex(x => new { x.Status, x.EndDate });
+    }
+}
