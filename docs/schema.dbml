@@ -70,7 +70,7 @@ Table CAMPAIGN {
   MaximumAmount decimal(18,2) [note: 'upper bound per transaction']
   RewardPoint decimal(18,2) [note: 'points earned per qualifying transaction']
   MaxRewardAmount decimal(18,2) [note: 'reward cap for the whole campaign']
-  EarningType varchar(2) [note: 'TK = one-time earning, SK = recurring earning']
+  EarningType varchar(2) [not null, note: 'K = accumulate per card, M = accumulate per customer']
   Status varchar(20) [not null]
   IsActive boolean [not null, default: true]
 
