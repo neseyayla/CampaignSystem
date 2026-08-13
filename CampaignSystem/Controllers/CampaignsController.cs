@@ -63,4 +63,44 @@ public class CampaignsController(ICampaignService campaignService) : ControllerB
 
         return deleted ? NoContent() : NotFound();
     }
+
+    /// <summary>
+    /// The campaign's scope. An empty list means the campaign is unrestricted on that
+    /// dimension rather than that it matches nothing.
+    /// </summary>
+    [HttpGet("{id:int}/criteria")]
+    [ProducesResponseType<CampaignCriteriaDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<CampaignCriteriaDto>> GetCriteria(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var criteria = await campaignService.GetCriteriaAsync(id, cancellationToken);
+
+        return criteria is null ? NotFound() : Ok(criteria);
+    }
+
+    /// <summary>
+    /// Replaces the campaign's whole scope. Criteria left out of the request are removed,
+    /// so sending the same body twice produces the same result.
+    /// </summary>
+    [HttpPut("{id:int}/criteria")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetCriteria(
+        int id,
+        CampaignCriteriaDto dto,
+        CancellationToken cancellationToken)
+    {
+        var outcome = await campaignService.SetCriteriaAsync(id, dto, cancellationToken);
+
+        return outcome.Status switch
+        {
+            SetCriteriaStatus.Success => NoContent(),
+            SetCriteriaStatus.CampaignNotFound => NotFound(),
+            SetCriteriaStatus.InvalidReference => BadRequest(outcome.Error),
+            _ => StatusCode(StatusCodes.Status500InternalServerError)
+        };
+    }
 }
