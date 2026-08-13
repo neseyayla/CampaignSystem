@@ -7,7 +7,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// OpenAPI 3.0 zorlanıyor çünkü Swagger UI, .NET 10'un varsayılanı olan 3.1'deki
+// dizi tipli (union) parametre şemalarını (ör. int route parametreleri için
+// "type": ["integer","string"]) düzgün işleyemiyor ve "Required field is not
+// provided" hatası veriyor.
+builder.Services.AddOpenApi(options =>
+{
+    options.OpenApiVersion = Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_0;
+});
 
 // The connection string is supplied by User Secrets in development and by an
 // environment variable in every other environment; appsettings.json only holds an
