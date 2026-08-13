@@ -1,4 +1,5 @@
 using CampaignSystem.Data;
+using CampaignSystem.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,6 +24,11 @@ if (string.IsNullOrWhiteSpace(connectionString))
 
 builder.Services.AddDbContext<CampaignDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+// Registered as an open generic: one registration covers IRepository<Segment>,
+// IRepository<Campaign> and every other entity. Scoped, so a request shares one
+// repository — and therefore one DbContext — across all the services it touches.
+builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 
 
 
