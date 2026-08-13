@@ -1,12 +1,18 @@
+using System.Text.Json.Serialization;
 using CampaignSystem.Data;
 using CampaignSystem.Repositories;
+using CampaignSystem.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+// Enums travel as their names ("Mass", "CardBased") rather than as the integers C#
+// assigns them. Readable in Swagger, and adding an enum member cannot silently change
+// the meaning of a value an existing client sends.
+builder.Services.AddControllers().AddJsonOptions(options =>
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
@@ -29,6 +35,8 @@ builder.Services.AddDbContext<CampaignDbContext>(options =>
 // IRepository<Campaign> and every other entity. Scoped, so a request shares one
 // repository — and therefore one DbContext — across all the services it touches.
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+
+builder.Services.AddScoped<ICampaignService, CampaignService>();
 
 
 
