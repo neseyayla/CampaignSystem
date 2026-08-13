@@ -12,14 +12,18 @@ Order of change: `schema.dbml` → entity class → migration. Never the other w
 
 ## Business flow
 
-1. A campaign is defined by the business development team
-2. The campaign is approved and published (`Status`)
-3. If the campaign requires enrollment (`CampaignType = SI`), customers enroll
-4. Customer transactions accumulate over the campaign period
-5. The batch job runs when the campaign ends
-6. Qualifying transactions are identified, rewards are calculated and posted
+1. A campaign is defined by the business development team, together with its criteria
+2. It waits until its start date (`Status = Pending`)
+3. The start date arrives and the campaign runs (`Status = Ongoing`)
+4. If the campaign requires enrollment (`CampaignType = SI`), customers enroll
+5. Customer transactions accumulate over the campaign period
+6. The end date passes and the batch job takes the campaign up (`Status = Loading`)
+7. Qualifying transactions are identified, rewards are calculated and posted
+8. The campaign is closed (`Status = Ended`)
 
 Evaluation happens **once** — the batch job runs a single time after the campaign ends.
+
+`Status` follows the batch pipeline, not an approval chain: `Pending → Ongoing → Loading → Ended`.
 
 ---
 
@@ -248,7 +252,7 @@ The clear card number is **never stored in any table** (PCI DSS).
 | RewardPoint | decimal(18,2) | null — points per qualifying transaction |
 | MaxRewardAmount | decimal(18,2) | null — reward cap for the whole campaign |
 | EarningType | varchar(2) | NOT NULL — `K` = accumulate per card, `M` = accumulate per customer |
-| Status | varchar(20) | NOT NULL — stored as the enum member name, e.g. `Published` |
+| Status | varchar(20) | NOT NULL — stored as the enum member name: `Pending`, `Ongoing`, `Loading`, `Ended` |
 | IsActive | bit | default 1 |
 
 Index: `(Status, EndDate)` — the campaign selection query of the batch job
@@ -441,7 +445,7 @@ Seed data loaded on first setup.
 | RewardPoint | 50.00 |
 | MaxRewardAmount | 500.00 |
 | EarningType | K (accumulate per card) |
-| Status | Published |
+| Status | Ongoing |
 
 **Criteria junction tables**
 
