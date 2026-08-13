@@ -16,4 +16,19 @@ public interface ICampaignService
 
     /// <summary>Soft delete — clears IsActive. Returns false when the campaign is not found.</summary>
     Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The campaign's current scope. Returns null when no active campaign carries that id.
+    /// An empty list means the campaign is unrestricted on that dimension.
+    /// </summary>
+    Task<CampaignCriteriaDto?> GetCriteriaAsync(int campaignId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Replaces the campaign's whole scope with the one given. Criteria not present in the
+    /// request are removed, so sending the same request twice leaves the same result.
+    /// </summary>
+    Task<SetCriteriaOutcome> SetCriteriaAsync(
+        int campaignId,
+        CampaignCriteriaDto dto,
+        CancellationToken cancellationToken = default);
 }
