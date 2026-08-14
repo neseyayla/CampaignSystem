@@ -1,9 +1,13 @@
 -- CampaignSystem — development test data
 --
--- Creates five customers, ten cards and two hundred transactions in September 2026, so
--- that reward calculation can be exercised against data that is deliberately mixed: some
--- of it matches a typical campaign's criteria and some of it does not. Data that matched
+-- Creates five customers, ten cards and two hundred transactions in July 2026, so that
+-- reward calculation can be exercised against data that is deliberately mixed: some of it
+-- matches a typical campaign's criteria and some of it does not. Data that matched
 -- everything would prove nothing about the filtering.
+--
+-- July is chosen because rewards are calculated once a campaign has ended. Transactions
+-- dated in the future would leave the campaign running and nothing to evaluate. It also
+-- lines up with the sample July campaign in database-design.md.
 --
 -- Development only. Never run against a real database.
 --
@@ -63,7 +67,7 @@ JOIN CUSTOMER c ON c.CustomerNumber = v.CustomerNumber;
 -- ─────────────────────────────────────────────
 -- Transactions
 -- ─────────────────────────────────────────────
--- Two hundred rows spread over September 2026. Values are derived from the row number
+-- Two hundred rows spread over July 2026. Values are derived from the row number
 -- rather than randomised, so the same script always produces the same data and a reward
 -- total can be checked by hand.
 --
@@ -97,7 +101,7 @@ SELECT
         WHEN n.n % 17 = 0 THEN 3   -- debt payment
         ELSE 1                     -- sale
     END,
-    DATEADD(HOUR, (n.n * 13) % 719, '2026-09-01T00:00:00'),
+    DATEADD(HOUR, (n.n * 13) % 719, '2026-07-01T00:00:00'),
     CAST(50 + ((n.n * 37) % 1951) AS decimal(18, 2))
 FROM Numbers n
 JOIN @Cards cd ON cd.Ordinal = n.n % 10;
@@ -136,5 +140,5 @@ WHERE t.Amount >= 250.00
   AND t.TransactionCodeId = 1     -- sale
   AND cd.ProductId IN (3, 4, 5, 6)
   AND c.SegmentId IN (2, 3)
-  AND t.TransactionDate >= '2026-09-01'
-  AND t.TransactionDate <  '2026-10-01';
+  AND t.TransactionDate >= '2026-07-01'
+  AND t.TransactionDate <  '2026-08-01';
