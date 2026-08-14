@@ -48,6 +48,7 @@ builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IParticipationService, ParticipationService>();
 builder.Services.AddScoped<ISegmentService, SegmentService>();
+builder.Services.AddScoped<IProductService, ProductService>();
 
 
 
