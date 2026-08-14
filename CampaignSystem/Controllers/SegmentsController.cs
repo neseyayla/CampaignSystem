@@ -1,111 +1,83 @@
+using CampaignSystem.DTOs;
+using CampaignSystem.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using CampaignSystem.Entities;
-using CampaignSystem.Dtos;
-using CampaignSystem.Repositories;
 
-namespace CampaignSystem.Controllers
+namespace CampaignSystem.Controllers;
+
+[ApiController]
+[Route("api/segments")]
+public class SegmentsController(ISegmentService segmentService) : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class SegmentsController : ControllerBase
+    [HttpGet]
+    [ProducesResponseType<List<SegmentDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<SegmentDto>>> GetAll(CancellationToken cancellationToken)
     {
-        private readonly IRepository<Segment> _repository;
-        public SegmentsController(IRepository<Segment> repository)
+        return Ok(await segmentService.GetAllAsync(cancellationToken));
+    }
+
+    [HttpGet("{id:int}")]
+    [ProducesResponseType<SegmentDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SegmentDto>> GetById(int id, CancellationToken cancellationToken)
+    {
+        var segment = await segmentService.GetByIdAsync(id, cancellationToken);
+
+        return segment is null ? NotFound() : Ok(segment);
+    }
+
+    [HttpPost]
+    [ProducesResponseType<SegmentDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<SegmentDto>> Create(
+        CreateSegmentDto dto,
+        CancellationToken cancellationToken)
+    {
+        var result = await segmentService.CreateAsync(dto, cancellationToken);
+
+        return result.Status switch
         {
-            _repository = repository;
-        }
+            ResultStatus.Success => CreatedAtAction(
+                nameof(GetById), new { id = result.Value!.Id }, result.Value),
+            ResultStatus.Conflict => Conflict(result.Error),
+            _ => StatusCode(StatusCodes.Status500InternalServerError)
+        };
+    }
 
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<object>>> GetSegments()
+    [HttpPut("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Update(
+        int id,
+        UpdateSegmentDto dto,
+        CancellationToken cancellationToken)
+    {
+        var result = await segmentService.UpdateAsync(id, dto, cancellationToken);
+
+        return result.Status switch
         {
-            var segments = await _repository.GetAllAsync();
+            ResultStatus.Success => NoContent(),
+            ResultStatus.NotFound => NotFound(),
+            ResultStatus.Conflict => Conflict(result.Error),
+            _ => StatusCode(StatusCodes.Status500InternalServerError)
+        };
+    }
 
-            var result = segments.Select(s => new
-            {
-                s.Id,
-                s.SegmentCode,
-                s.SegmentName,
-            });
+    /// <summary>Hard delete — Segment carries no IsActive flag.</summary>
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
+    {
+        var result = await segmentService.DeleteAsync(id, cancellationToken);
 
-            return Ok(result);
-        }
-
-        [HttpPost]
-        public async Task<ActionResult<object>> PostSegments(CreateSegmentRequest request)
+        return result.Status switch
         {
-            var segment = new Segment
-            {
-                SegmentCode = request.SegmentCode,
-                SegmentName = request.SegmentName
-            };
-
-            try
-            {
-                await _repository.AddAsync(segment);
-                await _repository.SaveChangesAsync();
-            }
-            catch (DbUpdateException)
-            {
-                return Conflict($"'{request.SegmentCode}' kodlu bir segment zaten mevcut. Lütfen farklı bir kod kullanın.");
-            }
-
-            return Ok(new
-            {
-                segment.Id,
-                segment.SegmentCode,
-                segment.SegmentName
-            });
-        }
-
-        [HttpPut("{id}")]
-        public async Task<ActionResult<object>> PutSegments(int id, CreateSegmentRequest request)
-        {
-            var segment = await _repository.GetByIdAsync(id);
-            if (segment is null)
-            {
-                return NotFound();
-            }
-
-            segment.SegmentCode = request.SegmentCode;
-            segment.SegmentName = request.SegmentName;
-
-            try
-            {
-                await _repository.SaveChangesAsync();
-            }
-            catch (DbUpdateException)
-            {
-                return Conflict($"'{request.SegmentCode}' kodu başka bir segment tarafından kullanılıyor. Lütfen farklı bir kod kullanın.");
-            }
-
-            return Ok(new
-            {
-                segment.Id,
-                segment.SegmentCode,
-                segment.SegmentName
-            });
-        }
-
-        [HttpDelete("{id}")]
-        public async Task<ActionResult<object>> DeleteSegments(int id)
-        {
-            var segment = await _repository.GetByIdAsync(id);
-            if (segment is null)
-            {
-                return NotFound();
-            }
-
-            try
-            {
-                _repository.Remove(segment);
-                await _repository.SaveChangesAsync();
-                return NoContent();
-            }
-            catch (DbUpdateException)
-            {
-                return Conflict("Bu istek veri tabanı kuralları gereği gerçekleştirelimiyor (kullanımda olan segment)");
-            }
-        }
+            ResultStatus.Success => NoContent(),
+            ResultStatus.NotFound => NotFound(),
+            ResultStatus.Conflict => Conflict(result.Error),
+            _ => StatusCode(StatusCodes.Status500InternalServerError)
+        };
     }
 }
