@@ -250,7 +250,7 @@ The clear card number is **never stored in any table** (PCI DSS).
 | MinimumAmount | decimal(18,2) | null — lower bound per transaction |
 | MaximumAmount | decimal(18,2) | null — upper bound per transaction |
 | RewardPoint | decimal(18,2) | null — points per qualifying transaction |
-| MaxRewardAmount | decimal(18,2) | null — reward cap for the whole campaign |
+| MaxRewardAmount | decimal(18,2) | null — reward cap, applied per reward row (see below) |
 | EarningType | varchar(2) | NOT NULL — `K` = accumulate per card, `M` = accumulate per customer |
 | Status | varchar(20) | NOT NULL — stored as the enum member name: `Pending`, `Ongoing`, `Loading`, `Ended` |
 | IsActive | bit | default 1 |
@@ -384,6 +384,17 @@ for each group:
 ```
 
 A customer holding three cards therefore receives three reward rows under `K` and a single pooled row under `M`. The null `CardId` of an `M` row is not missing data — it states that the reward belongs to the customer rather than to any one card.
+
+### What MaxRewardAmount caps
+
+The cap applies to each reward row, so it follows whatever unit the campaign accumulates in:
+
+| EarningType | Unit | A cap of 500 means |
+|---|---|---|
+| `M` — per customer | customer | the customer earns at most 500 from this campaign |
+| `K` — per card | card | each of the customer's cards earns at most 500 |
+
+No separate field says which: whoever defines the campaign already chose the unit through `EarningType`, and the cap follows it.
 
 ---
 
