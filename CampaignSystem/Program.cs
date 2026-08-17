@@ -45,6 +45,11 @@ builder.Services.AddDbContext<CampaignDbContext>(options =>
 builder.Services.Configure<RewardCalculationOptions>(
     builder.Configuration.GetSection(RewardCalculationOptions.SectionName));
 
+builder.Services.Configure<DailyBatchOptions>(
+    builder.Configuration.GetSection(DailyBatchOptions.SectionName));
+
+builder.Services.AddHostedService<DailyBatchHostedService>();
+
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 
 builder.Services.AddScoped<ICampaignService, CampaignService>();
