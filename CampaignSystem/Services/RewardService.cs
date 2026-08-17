@@ -1,8 +1,10 @@
+using CampaignSystem.Configuration;
 using CampaignSystem.Data;
 using CampaignSystem.DTOs;
 using CampaignSystem.Entities;
 using CampaignSystem.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace CampaignSystem.Services;
 
@@ -18,8 +20,12 @@ namespace CampaignSystem.Services;
 /// were written twice, the figure shown to the customer during the campaign and the points
 /// actually granted at the end would eventually disagree.
 /// </summary>
-public class RewardService(CampaignDbContext context) : IRewardService
+public class RewardService(
+    CampaignDbContext context,
+    IOptions<RewardCalculationOptions> options) : IRewardService
 {
+    private int DaysAfterCampaignEnd => options.Value.DaysAfterCampaignEnd;
+
     public async Task<ServiceResult<RewardPreviewDto>> PreviewAsync(
         int campaignId,
         int customerId,
@@ -80,16 +86,20 @@ public class RewardService(CampaignDbContext context) : IRewardService
             return ServiceResult<RewardCalculationResultDto>.NotFound();
         }
 
-        if (campaign.Status != CampaignStatus.Ongoing)
+        // Rewards are calculated once the campaign period is over. Loading is exactly that
+        // state: ended, not yet paid. Pending and Ongoing are too early, Ended is too late.
+        if (campaign.CurrentStatus != CampaignStatus.Loading)
         {
             return ServiceResult<RewardCalculationResultDto>.Invalid(
-                $"Only an Ongoing campaign can be evaluated; this one is {campaign.Status}.");
+                $"Rewards are calculated once a campaign has ended and is awaiting loading; this one is {campaign.CurrentStatus}.");
         }
 
-        if (campaign.EndDate > DateTime.Now)
+        var loadingDate = campaign.EndDate.AddDays(DaysAfterCampaignEnd);
+
+        if (DateTime.Now < loadingDate)
         {
             return ServiceResult<RewardCalculationResultDto>.Invalid(
-                $"The campaign runs until {campaign.EndDate:yyyy-MM-dd} and cannot be evaluated yet.");
+                $"Rewards for this campaign are loaded on {loadingDate:yyyy-MM-dd}, which has not arrived yet.");
         }
 
         // Belt and braces: the status check above already covers this, but rewards are
@@ -99,8 +109,6 @@ public class RewardService(CampaignDbContext context) : IRewardService
             return ServiceResult<RewardCalculationResultDto>.Conflict(
                 "This campaign has already been evaluated. Recalculating would rewrite rewards that customers have been given.");
         }
-
-        campaign.Status = CampaignStatus.Loading;
 
         var qualifying = await QualifyingTransactions(campaign, cancellationToken);
         var qualifyingCount = qualifying.Count;
@@ -121,6 +129,9 @@ public class RewardService(CampaignDbContext context) : IRewardService
 
         context.CampaignRewards.AddRange(rewards);
 
+        // The one status worth storing: that the batch has run. Nothing in the dates can
+        // tell us this, least of all for a campaign where nobody qualified and no reward
+        // rows were written.
         campaign.Status = CampaignStatus.Ended;
 
         // The rewards and the closing status are written together. A crash in between would
