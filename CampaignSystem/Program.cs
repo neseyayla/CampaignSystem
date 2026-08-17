@@ -53,6 +53,7 @@ builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IParticipationService, ParticipationService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IRewardService, RewardService>();
+builder.Services.AddScoped<IDailyBatchService, DailyBatchService>();
 builder.Services.AddScoped<ISegmentService, SegmentService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IMerchantService, MerchantService>();
