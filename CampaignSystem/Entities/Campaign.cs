@@ -31,12 +31,31 @@ public class Campaign
     /// <summary>Points earned per qualifying transaction.</summary>
     public decimal? RewardPoint { get; set; }
 
-    /// <summary>Reward cap for the whole campaign.</summary>
+    /// <summary>
+    /// Reward cap. Applied to each reward row, so it follows whatever unit the campaign
+    /// accumulates in: per customer under <see cref="EarningType.CustomerBased"/>, per card
+    /// under <see cref="EarningType.CardBased"/>.
+    /// </summary>
     public decimal? MaxRewardAmount { get; set; }
 
     public EarningType EarningType { get; set; }
 
+    /// <summary>
+    /// Where the campaign stands: Pending, Ongoing, Loading or Ended.
+    ///
+    /// Stored rather than worked out from the dates on every read, so that a query, a report
+    /// or anyone looking at the table sees the same answer the application does. Keeping it
+    /// truthful is the daily batch's job — it advances campaigns whose start or end date has
+    /// arrived, then loads the rewards of the ones that are due.
+    /// </summary>
     public CampaignStatus Status { get; set; }
+
+    /// <summary>
+    /// Whether transactions accumulate per card, which decides how many reward rows one
+    /// customer receives. Kept here rather than in a service so the reward batch and the
+    /// enrollment rules cannot read it differently.
+    /// </summary>
+    public bool AccumulatesPerCard => EarningType == EarningType.CardBased;
 
     public bool IsActive { get; set; } = true;
 
