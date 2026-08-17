@@ -88,10 +88,10 @@ public class RewardService(
 
         // Rewards are calculated once the campaign period is over. Loading is exactly that
         // state: ended, not yet paid. Pending and Ongoing are too early, Ended is too late.
-        if (campaign.CurrentStatus != CampaignStatus.Loading)
+        if (campaign.Status != CampaignStatus.Loading)
         {
             return ServiceResult<RewardCalculationResultDto>.Invalid(
-                $"Rewards are calculated once a campaign has ended and is awaiting loading; this one is {campaign.CurrentStatus}.");
+                $"Rewards are calculated once a campaign has ended and is awaiting loading; this one is {campaign.Status}.");
         }
 
         var loadingDate = campaign.EndDate.AddDays(DaysAfterCampaignEnd);
