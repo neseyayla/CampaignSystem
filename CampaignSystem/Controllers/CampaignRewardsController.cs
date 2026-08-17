@@ -22,6 +22,23 @@ public class CampaignRewardsController(IRewardService rewardService) : Controlle
     }
 
     /// <summary>
+    /// The campaign's rewards totalled per customer. A card based campaign writes one row
+    /// per card, so this is what to read when the question is what a customer received
+    /// rather than what each card earned.
+    /// </summary>
+    [HttpGet("summary")]
+    [ProducesResponseType<CampaignRewardSummaryDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<CampaignRewardSummaryDto>> GetSummary(
+        int campaignId,
+        CancellationToken cancellationToken)
+    {
+        var summary = await rewardService.GetCampaignSummaryAsync(campaignId, cancellationToken);
+
+        return summary is null ? NotFound() : Ok(summary);
+    }
+
+    /// <summary>
     /// What the customer would earn if the campaign were evaluated right now. Writes
     /// nothing, so it can be called while the campaign is still running and as often as
     /// the customer looks.
