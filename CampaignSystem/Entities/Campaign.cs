@@ -41,36 +41,14 @@ public class Campaign
     public EarningType EarningType { get; set; }
 
     /// <summary>
-    /// The stored status. Only <see cref="CampaignStatus.Ended"/> is meaningful here: it
-    /// records that the reward batch has run, which is the one thing that cannot be worked
-    /// out from the dates. Read <see cref="CurrentStatus"/> instead of this.
+    /// Where the campaign stands: Pending, Ongoing, Loading or Ended.
+    ///
+    /// Stored rather than worked out from the dates on every read, so that a query, a report
+    /// or anyone looking at the table sees the same answer the application does. Keeping it
+    /// truthful is the daily batch's job — it advances campaigns whose start or end date has
+    /// arrived, then loads the rewards of the ones that are due.
     /// </summary>
     public CampaignStatus Status { get; set; }
-
-    /// <summary>
-    /// Where the campaign actually stands. The first three states follow from the dates, so
-    /// storing them would only create a value that can go stale; the fourth is a fact about
-    /// what the batch has done, and that is what <see cref="Status"/> keeps.
-    /// </summary>
-    public CampaignStatus CurrentStatus
-    {
-        get
-        {
-            if (Status == CampaignStatus.Ended)
-            {
-                return CampaignStatus.Ended;
-            }
-
-            var now = DateTime.Now;
-
-            if (now < StartDate)
-            {
-                return CampaignStatus.Pending;
-            }
-
-            return now <= EndDate ? CampaignStatus.Ongoing : CampaignStatus.Loading;
-        }
-    }
 
     /// <summary>
     /// Whether transactions accumulate per card, which decides how many reward rows one
