@@ -47,6 +47,19 @@ dotnet run --project CampaignSystem
 
 Swagger UI is served at `/swagger`.
 
+## Trying the API
+
+Swagger UI at `/swagger` is enough to poke at a single endpoint. For the whole flow —
+customer, cards, campaign, criteria, transactions, reward batch — import
+`docs/CampaignSystem.postman_collection.json` into Postman and run the collection.
+
+Ids flow from one request to the next through collection variables, so nothing has to be
+copied by hand, and each request asserts what it expects. Running it after a change is the
+quickest way to see that the end-to-end behaviour still holds.
+
+The collection points at `http://localhost:5284`. HTTPS works too, but Postman rejects the
+self-signed development certificate until SSL verification is turned off.
+
 ## Layout
 
 ```
