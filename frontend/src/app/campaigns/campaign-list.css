@@ -1,0 +1,98 @@
+header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+h1 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+button,
+.button {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: #14181f;
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #fff;
+  color: #3c4149;
+  border-color: #c9ced6;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.state {
+  color: #5b616b;
+  padding: 1.5rem 0;
+}
+
+.state.error {
+  color: #b3261e;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #e6e8ec;
+}
+
+th {
+  font-weight: 600;
+  color: #5b616b;
+  border-bottom-width: 2px;
+}
+
+/* Amounts read faster right aligned — the digits line up by place value. */
+.numeric {
+  text-align: right;
+}
+
+.status {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  background: #eceff3;
+  color: #3c4149;
+}
+
+.status.ongoing {
+  background: #dcf3e4;
+  color: #17643a;
+}
+
+.status.loading {
+  background: #fdf0d5;
+  color: #7a5200;
+}
+
+.status.ended {
+  background: #eceff3;
+  color: #5b616b;
+}
