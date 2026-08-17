@@ -162,6 +162,88 @@ public class RewardService(CampaignDbContext context) : IRewardService
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<CampaignRewardSummaryDto?> GetCampaignSummaryAsync(
+        int campaignId,
+        CancellationToken cancellationToken = default)
+    {
+        var campaign = await context.Campaigns
+            .AsNoTracking()
+            .Where(c => c.Id == campaignId && c.IsActive)
+            .Select(c => new { c.Id, c.Name })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (campaign is null)
+        {
+            return null;
+        }
+
+        // Grouped by the database rather than in memory: only one row per customer comes
+        // back instead of every reward row.
+        var lines = await context.CampaignRewards
+            .AsNoTracking()
+            .Where(r => r.CampaignId == campaignId)
+            .GroupBy(r => new { r.CustomerId, r.Customer.CustomerNumber })
+            .Select(g => new CampaignRewardCustomerLineDto
+            {
+                CustomerId = g.Key.CustomerId,
+                CustomerNumber = g.Key.CustomerNumber,
+                RewardRows = g.Count(),
+                QualifyingCount = g.Sum(r => r.QualifyingCount),
+                TotalRewardPoint = g.Sum(r => r.RewardPoint)
+            })
+            .OrderByDescending(l => l.TotalRewardPoint)
+            .ToListAsync(cancellationToken);
+
+        return new CampaignRewardSummaryDto
+        {
+            CampaignId = campaign.Id,
+            CampaignName = campaign.Name,
+            CustomerCount = lines.Count,
+            TotalRewardPoint = lines.Sum(l => l.TotalRewardPoint),
+            Customers = lines
+        };
+    }
+
+    public async Task<CustomerRewardSummaryDto?> GetCustomerSummaryAsync(
+        int customerId,
+        CancellationToken cancellationToken = default)
+    {
+        var customer = await context.Customers
+            .AsNoTracking()
+            .Where(c => c.Id == customerId && c.IsActive)
+            .Select(c => new { c.Id, c.CustomerNumber })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (customer is null)
+        {
+            return null;
+        }
+
+        var lines = await context.CampaignRewards
+            .AsNoTracking()
+            .Where(r => r.CustomerId == customerId)
+            .GroupBy(r => new { r.CampaignId, r.Campaign.Name })
+            .Select(g => new CustomerRewardCampaignLineDto
+            {
+                CampaignId = g.Key.CampaignId,
+                CampaignName = g.Key.Name,
+                RewardRows = g.Count(),
+                QualifyingCount = g.Sum(r => r.QualifyingCount),
+                TotalRewardPoint = g.Sum(r => r.RewardPoint),
+                RewardDate = g.Max(r => r.RewardDate)
+            })
+            .OrderByDescending(l => l.RewardDate)
+            .ToListAsync(cancellationToken);
+
+        return new CustomerRewardSummaryDto
+        {
+            CustomerId = customer.Id,
+            CustomerNumber = customer.CustomerNumber,
+            TotalRewardPoint = lines.Sum(l => l.TotalRewardPoint),
+            Campaigns = lines
+        };
+    }
+
     /// <summary>
     /// The transactions that meet every one of the campaign's conditions.
     ///
