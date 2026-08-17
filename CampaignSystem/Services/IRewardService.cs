@@ -26,4 +26,21 @@ public interface IRewardService
     Task<List<RewardDto>?> GetByCampaignAsync(
         int campaignId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A campaign's rewards rolled up per customer, so the several rows a card based
+    /// campaign produces for one customer appear as one figure.
+    /// Null when the campaign is not found.
+    /// </summary>
+    Task<CampaignRewardSummaryDto?> GetCampaignSummaryAsync(
+        int campaignId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Everything one customer has earned, grouped by campaign.
+    /// Null when the customer is not found.
+    /// </summary>
+    Task<CustomerRewardSummaryDto?> GetCustomerSummaryAsync(
+        int customerId,
+        CancellationToken cancellationToken = default);
 }
