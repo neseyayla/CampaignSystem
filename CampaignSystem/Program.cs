@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using CampaignSystem.Configuration;
 using CampaignSystem.Data;
 using CampaignSystem.Repositories;
 using CampaignSystem.Services;
@@ -41,6 +42,9 @@ builder.Services.AddDbContext<CampaignDbContext>(options =>
 // Registered as an open generic: one registration covers IRepository<Segment>,
 // IRepository<Campaign> and every other entity. Scoped, so a request shares one
 // repository — and therefore one DbContext — across all the services it touches.
+builder.Services.Configure<RewardCalculationOptions>(
+    builder.Configuration.GetSection(RewardCalculationOptions.SectionName));
+
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 
 builder.Services.AddScoped<ICampaignService, CampaignService>();
