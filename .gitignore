@@ -483,3 +483,9 @@ $RECYCLE.BIN/
 
 # Session handoff notes — local only, not part of the project
 HANDOFF.md
+
+# Postman's local working copy. It rewrites the collection as one file per request when the
+# app folder is opened as a workspace; docs/CampaignSystem.postman_collection.json is the
+# version the repository keeps, so this would only be a second copy that drifts.
+.postman/
+postman/
