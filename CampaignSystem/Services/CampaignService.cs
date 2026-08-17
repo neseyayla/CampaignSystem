@@ -47,8 +47,8 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
             RewardPoint = dto.RewardPoint,
             MaxRewardAmount = dto.MaxRewardAmount,
 
-            // Decided here, never by the caller. A campaign that starts today is already
-            // running; one that starts later waits.
+            // The starting status follows from the dates. From here on the daily batch keeps
+            // it moving.
             Status = dto.StartDate <= DateTime.Now
                 ? CampaignStatus.Ongoing
                 : CampaignStatus.Pending,

@@ -48,6 +48,9 @@ public class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
             .IsUnicode(false)
             .IsRequired();
 
+        // Derived from EarningType rather than stored, so there is nothing to map.
+        builder.Ignore(x => x.AccumulatesPerCard);
+
         // The batch job selects campaigns to evaluate by status and end date.
         builder.HasIndex(x => new { x.Status, x.EndDate });
     }

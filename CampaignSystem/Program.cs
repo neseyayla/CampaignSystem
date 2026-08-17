@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using CampaignSystem.Configuration;
 using CampaignSystem.Data;
 using CampaignSystem.Repositories;
 using CampaignSystem.Services;
@@ -41,6 +42,14 @@ builder.Services.AddDbContext<CampaignDbContext>(options =>
 // Registered as an open generic: one registration covers IRepository<Segment>,
 // IRepository<Campaign> and every other entity. Scoped, so a request shares one
 // repository — and therefore one DbContext — across all the services it touches.
+builder.Services.Configure<RewardCalculationOptions>(
+    builder.Configuration.GetSection(RewardCalculationOptions.SectionName));
+
+builder.Services.Configure<DailyBatchOptions>(
+    builder.Configuration.GetSection(DailyBatchOptions.SectionName));
+
+builder.Services.AddHostedService<DailyBatchHostedService>();
+
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 
 builder.Services.AddScoped<ICampaignService, CampaignService>();
@@ -49,6 +58,7 @@ builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IParticipationService, ParticipationService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IRewardService, RewardService>();
+builder.Services.AddScoped<IDailyBatchService, DailyBatchService>();
 builder.Services.AddScoped<ISegmentService, SegmentService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IMerchantService, MerchantService>();
