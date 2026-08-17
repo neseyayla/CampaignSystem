@@ -329,7 +329,7 @@ public class RewardService(CampaignDbContext context) : IRewardService
     /// per card, or one per customer with every card pooled.
     /// </summary>
     private static List<RewardGroup> Group(IEnumerable<Transaction> transactions, Campaign campaign)
-        => campaign.EarningType == EarningType.CardBased
+        => campaign.AccumulatesPerCard
             ? transactions
                 .GroupBy(t => new { t.CustomerId, t.CardId })
                 .Select(g => new RewardGroup(g.Key.CustomerId, g.Key.CardId, g.Count()))

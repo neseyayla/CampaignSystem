@@ -47,8 +47,9 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
             RewardPoint = dto.RewardPoint,
             MaxRewardAmount = dto.MaxRewardAmount,
 
-            // Decided here, never by the caller. A campaign that starts today is already
-            // running; one that starts later waits.
+            // Only Ended is ever meaningful in this column; the value written here is just a
+            // sensible starting point. Callers read Campaign.CurrentStatus, which works the
+            // real answer out from the dates.
             Status = dto.StartDate <= DateTime.Now
                 ? CampaignStatus.Ongoing
                 : CampaignStatus.Pending,
@@ -292,7 +293,11 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
         RewardPoint = campaign.RewardPoint,
         MaxRewardAmount = campaign.MaxRewardAmount,
         EarningType = campaign.EarningType,
-        Status = campaign.Status,
+
+        // The derived status, not the stored column: a campaign whose end date has passed
+        // reads as Loading even though nothing has rewritten the row yet.
+        Status = campaign.CurrentStatus,
+
         IsActive = campaign.IsActive
     };
 }
