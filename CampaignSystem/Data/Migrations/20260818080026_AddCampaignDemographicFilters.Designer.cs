@@ -4,6 +4,7 @@ using CampaignSystem.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CampaignSystem.Data.Migrations
 {
     [DbContext(typeof(CampaignDbContext))]
-    partial class CampaignDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260818080026_AddCampaignDemographicFilters")]
+    partial class AddCampaignDemographicFilters
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -277,7 +280,6 @@ namespace CampaignSystem.Data.Migrations
                         .HasColumnType("varchar(20)");
 
                     b.Property<string>("Gender")
-                        .IsRequired()
                         .HasMaxLength(1)
                         .IsUnicode(false)
                         .HasColumnType("varchar(1)");

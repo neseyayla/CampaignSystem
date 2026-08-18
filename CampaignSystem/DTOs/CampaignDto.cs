@@ -30,6 +30,12 @@ public class CampaignDto
 
     public EarningType EarningType { get; set; }
 
+    /// <summary>Null when the campaign is open to every gender.</summary>
+    public Gender? Gender { get; set; }
+
+    /// <summary>Null when the campaign covers both primary and supplementary cards.</summary>
+    public CardType? CardType { get; set; }
+
     public CampaignStatus Status { get; set; }
 
     public bool IsActive { get; set; }
