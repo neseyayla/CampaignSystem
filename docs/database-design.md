@@ -110,6 +110,8 @@ erDiagram
         decimal  RewardPoint
         decimal  MaxRewardAmount
         string   EarningType
+        string   Gender
+        string   CardType
         string   Status
         boolean  IsActive
     }
@@ -215,7 +217,7 @@ Transaction type.
 |---|---|---|
 | Id | int | PK, identity |
 | CustomerNumber | varchar(20) | UNIQUE, NOT NULL |
-| Gender | varchar(1) | null — `E` = male, `K` = female |
+| Gender | varchar(1) | NOT NULL — `E` = male, `K` = female |
 | SegmentId | int | FK → SEGMENT, null |
 | IsActive | bit | default 1 |
 
@@ -252,6 +254,8 @@ The clear card number is **never stored in any table** (PCI DSS).
 | RewardPoint | decimal(18,2) | null — points per qualifying transaction |
 | MaxRewardAmount | decimal(18,2) | null — reward cap, applied per reward row (see below) |
 | EarningType | varchar(2) | NOT NULL — `K` = accumulate per card, `M` = accumulate per customer |
+| Gender | varchar(1) | null — `E` = male, `K` = female. Null places no restriction |
+| CardType | varchar(1) | null — `A` = primary, `E` = supplementary. Null covers both |
 | Status | varchar(20) | NOT NULL — stored as the enum member name: `Pending`, `Ongoing`, `Loading`, `Ended` |
 | IsActive | bit | default 1 |
 
@@ -360,9 +364,13 @@ qualifying transactions =
       AND TransactionCodeId  IN (CAMPAIGN_TRANSACTION_CODE)  -- only if rows exist
       AND Card.ProductId     IN (CAMPAIGN_PRODUCT)           -- only if rows exist
       AND Customer.SegmentId IN (CAMPAIGN_SEGMENT)           -- only if rows exist
+      AND Customer.Gender    = Campaign.Gender               -- only if the campaign sets one
+      AND Card.CardType      = Campaign.CardType             -- only if the campaign sets one
 ```
 
 If a criteria junction table has no rows for the campaign, that criterion is not applied — the campaign is unrestricted on that dimension.
+
+`Gender` and `CardType` sit on the campaign row rather than in a junction table, because the screen offers a single choice for each rather than a list. A null follows the same rule as an empty junction table: no restriction. A customer whose gender was never recorded is excluded once a campaign names one — an unknown value cannot be shown to match, and paying on a guess is worse than not paying.
 
 `EarningType` then decides at which level those transactions are grouped, and therefore how many reward rows one customer receives:
 

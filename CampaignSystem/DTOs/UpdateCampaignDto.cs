@@ -24,6 +24,12 @@ public class UpdateCampaignDto : IValidatableObject
     [Required]
     public EarningType EarningType { get; set; }
 
+    /// <summary>Leave empty to include every gender.</summary>
+    public Gender? Gender { get; set; }
+
+    /// <summary>Leave empty to include both primary and supplementary cards.</summary>
+    public CardType? CardType { get; set; }
+
     [Required]
     public DateTime StartDate { get; set; }
 
