@@ -313,6 +313,22 @@ public class RewardService(
                 t.Customer.SegmentId != null && segmentIds.Contains(t.Customer.SegmentId.Value));
         }
 
+        // The demographic filters follow the same rule as the criteria tables: a campaign
+        // that says nothing about gender or card type places no restriction on it.
+        //
+        // A customer whose gender was never recorded, or a card with no type, is excluded
+        // once the campaign narrows on that field — an unknown value cannot be shown to
+        // match, and paying on a guess is worse than not paying.
+        if (campaign.Gender is not null)
+        {
+            query = query.Where(t => t.Customer.Gender == campaign.Gender);
+        }
+
+        if (campaign.CardType is not null)
+        {
+            query = query.Where(t => t.Card.CardType == campaign.CardType);
+        }
+
         // Enrollment campaigns reach only the customers who signed up, and only through the
         // level they signed up at: a card level enrollment covers that one card, a customer
         // level enrollment covers all of them.
