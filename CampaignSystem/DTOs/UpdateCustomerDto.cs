@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using CampaignSystem.Enums;
 
 namespace CampaignSystem.DTOs;
@@ -8,7 +9,8 @@ namespace CampaignSystem.DTOs;
 /// </summary>
 public class UpdateCustomerDto
 {
-    public Gender? Gender { get; set; }
+    [Required]
+    public Gender Gender { get; set; }
 
     public int? SegmentId { get; set; }
 }

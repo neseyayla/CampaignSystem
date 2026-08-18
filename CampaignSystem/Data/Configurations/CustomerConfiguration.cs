@@ -21,7 +21,8 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         builder.Property(x => x.Gender)
             .HasConversion(EnumCodeConverters.GenderToCode)
             .HasMaxLength(1)
-            .IsUnicode(false);
+            .IsUnicode(false)
+            .IsRequired();
 
         builder.HasIndex(x => x.CustomerNumber).IsUnique();
 

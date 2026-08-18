@@ -10,7 +10,8 @@ public class CreateCustomerDto
     [MaxLength(20)]
     public string CustomerNumber { get; set; } = null!;
 
-    public Gender? Gender { get; set; }
+    [Required]
+    public Gender Gender { get; set; }
 
     /// <summary>Must name an existing segment when given.</summary>
     public int? SegmentId { get; set; }

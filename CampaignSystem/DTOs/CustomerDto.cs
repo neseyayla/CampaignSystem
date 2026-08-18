@@ -8,7 +8,7 @@ public class CustomerDto
 
     public string CustomerNumber { get; set; } = null!;
 
-    public Gender? Gender { get; set; }
+    public Gender Gender { get; set; }
 
     public int? SegmentId { get; set; }
 
