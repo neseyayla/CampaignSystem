@@ -11,7 +11,11 @@ public class Customer
 
     public string CustomerNumber { get; set; } = null!;
 
-    public Gender? Gender { get; set; }
+    /// <summary>
+    /// Recorded for every customer — the core banking system always supplies it, so a
+    /// campaign that narrows on gender never has to decide what an unknown value means.
+    /// </summary>
+    public Gender Gender { get; set; }
 
     public int? SegmentId { get; set; }
 
