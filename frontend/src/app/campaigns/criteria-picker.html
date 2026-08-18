@@ -1,0 +1,31 @@
+<fieldset>
+  <legend>{{ label() }}</legend>
+
+  <ul>
+    @for (option of options(); track option.id) {
+      <li>
+        <label>
+          <input
+            type="checkbox"
+            [checked]="isSelected(option.id)"
+            (change)="toggle(option.id, $any($event.target).checked)" />
+          <span class="code">{{ option.code }}</span>
+          <span class="name">{{ option.name }}</span>
+        </label>
+      </li>
+    } @empty {
+      <li class="empty">No options</li>
+    }
+  </ul>
+
+  <footer>
+    @if (selected().length === 0) {
+      <!-- The rule that trips people up: nothing ticked is the widest possible campaign,
+           not the narrowest. Saying so here is cheaper than explaining it afterwards. -->
+      <span class="hint">Nothing selected — no restriction on this criterion</span>
+    } @else {
+      <span class="count">{{ selected().length }} selected</span>
+      <button type="button" (click)="clear()">Clear</button>
+    }
+  </footer>
+</fieldset>
