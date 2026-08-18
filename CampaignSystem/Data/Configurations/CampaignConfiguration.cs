@@ -40,6 +40,18 @@ public class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
             .IsUnicode(false)
             .IsRequired();
 
+        // Optional demographic filters. Null is stored as NULL and means "no restriction",
+        // so nothing is written when the campaign does not narrow on that dimension.
+        builder.Property(x => x.Gender)
+            .HasConversion(EnumCodeConverters.GenderToCode)
+            .HasMaxLength(1)
+            .IsUnicode(false);
+
+        builder.Property(x => x.CardType)
+            .HasConversion(EnumCodeConverters.CardTypeToCode)
+            .HasMaxLength(1)
+            .IsUnicode(false);
+
         // Stored as the enum member name; the values are longer than two characters and
         // are only read by this application, so a short code buys nothing here.
         builder.Property(x => x.Status)
