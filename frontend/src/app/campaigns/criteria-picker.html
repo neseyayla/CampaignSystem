@@ -1,31 +1,50 @@
-<fieldset>
-  <legend>{{ label() }}</legend>
+<div class="field-label">{{ label() }}</div>
 
-  <ul>
-    @for (option of options(); track option.id) {
-      <li>
-        <label>
-          <input
-            type="checkbox"
-            [checked]="isSelected(option.id)"
-            (change)="toggle(option.id, $any($event.target).checked)" />
-          <span class="code">{{ option.code }}</span>
-          <span class="name">{{ option.name }}</span>
-        </label>
-      </li>
+<div class="picker-row">
+  <div class="chip-box">
+    @for (item of selectedItems(); track item.id) {
+      <div class="chip-row">
+        <button type="button" class="chip-remove" (click)="remove(item.id)" aria-label="Kaldır">×</button>
+        <span class="code">{{ item.code }}</span>
+        <span class="name">{{ item.name }}</span>
+      </div>
     } @empty {
-      <li class="empty">No options</li>
+      <div class="hint">Nothing selected — no restriction on this criterion</div>
     }
-  </ul>
+  </div>
 
-  <footer>
-    @if (selected().length === 0) {
-      <!-- The rule that trips people up: nothing ticked is the widest possible campaign,
-           not the narrowest. Saying so here is cheaper than explaining it afterwards. -->
-      <span class="hint">Nothing selected — no restriction on this criterion</span>
-    } @else {
-      <span class="count">{{ selected().length }} selected</span>
-      <button type="button" (click)="clear()">Clear</button>
-    }
-  </footer>
-</fieldset>
+  <button type="button" class="list-btn" (click)="openModal()">Listele</button>
+</div>
+
+@if (open()) {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <header>
+        <h3>{{ label() }}</h3>
+        <button type="button" class="modal-close" (click)="closeModal()" aria-label="Kapat">×</button>
+      </header>
+
+      <ul>
+        @for (option of options(); track option.id) {
+          <li>
+            <label>
+              <input
+                type="checkbox"
+                [checked]="isSelected(option.id)"
+                (change)="toggle(option.id, $any($event.target).checked)" />
+              <span class="code">{{ option.code }}</span>
+              <span class="name">{{ option.name }}</span>
+            </label>
+          </li>
+        } @empty {
+          <li class="empty">No options</li>
+        }
+      </ul>
+
+      <footer>
+        <span class="count">{{ selected().length }} selected</span>
+        <button type="button" class="done-btn" (click)="closeModal()">Tamam</button>
+      </footer>
+    </div>
+  </div>
+}

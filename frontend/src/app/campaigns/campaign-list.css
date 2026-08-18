@@ -3,11 +3,13 @@ header {
   align-items: baseline;
   justify-content: space-between;
   gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 h1 {
-  font-size: 1.25rem;
+  font-size: 1.4rem;
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .actions {
@@ -17,13 +19,14 @@ h1 {
 
 button,
 .button {
-  padding: 0.4rem 0.9rem;
+  padding: 0.5rem 1rem;
   border: 1px solid transparent;
-  border-radius: 4px;
-  background: #14181f;
-  color: #fff;
+  border-radius: 0;
+  background: #ffcc00;
+  color: #14181f;
   font: inherit;
   font-size: 0.85rem;
+  font-weight: 600;
   text-decoration: none;
   cursor: pointer;
 }
@@ -31,6 +34,7 @@ button,
 button.secondary {
   background: #fff;
   color: #3c4149;
+  font-weight: 500;
   border-color: #c9ced6;
 }
 
@@ -48,38 +52,63 @@ button:disabled {
   color: #b3261e;
 }
 
+.card {
+  border: 1px solid #e6e8ec;
+  border-radius: 0;
+  overflow: hidden;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 1rem;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 
 th,
 td {
   text-align: left;
-  padding: 0.55rem 0.75rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid #eef0f3;
+}
+
+thead th {
+  font-weight: 600;
+  color: #5b616b;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #fffbe8;
   border-bottom: 1px solid #e6e8ec;
 }
 
-th {
-  font-weight: 600;
-  color: #5b616b;
-  border-bottom-width: 2px;
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:hover td {
+  background: #fffdf5;
 }
 
 /* Amounts read faster right aligned — the digits line up by place value. */
 .numeric {
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .status {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border-radius: 10px;
-  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
   background: #eceff3;
   color: #3c4149;
+}
+
+.status.pending {
+  background: #eceff3;
+  color: #5b616b;
 }
 
 .status.ongoing {
