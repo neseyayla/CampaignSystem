@@ -40,6 +40,8 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
             Description = dto.Description,
             CampaignType = dto.CampaignType,
             EarningType = dto.EarningType,
+            Gender = dto.Gender,
+            CardType = dto.CardType,
             StartDate = dto.StartDate,
             EndDate = dto.EndDate,
             MinimumAmount = dto.MinimumAmount,
@@ -78,6 +80,8 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
         campaign.Description = dto.Description;
         campaign.CampaignType = dto.CampaignType;
         campaign.EarningType = dto.EarningType;
+        campaign.Gender = dto.Gender;
+        campaign.CardType = dto.CardType;
         campaign.StartDate = dto.StartDate;
         campaign.EndDate = dto.EndDate;
         campaign.MinimumAmount = dto.MinimumAmount;
@@ -292,6 +296,8 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
         RewardPoint = campaign.RewardPoint,
         MaxRewardAmount = campaign.MaxRewardAmount,
         EarningType = campaign.EarningType,
+        Gender = campaign.Gender,
+        CardType = campaign.CardType,
         Status = campaign.Status,
         IsActive = campaign.IsActive
     };

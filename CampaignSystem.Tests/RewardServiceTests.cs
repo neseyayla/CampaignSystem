@@ -234,4 +234,89 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         Assert.Equal(150m, cappedLine.EarnedBeforeCap);
         Assert.Equal(120m, cappedLine.RewardPoint);
     }
+
+    [Fact]
+    public async Task GenderFilter_ExcludesCustomersOfAnotherGender()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        // The scenario's customer is female; restricting the campaign to men must leave
+        // nothing behind.
+        var campaign = ScenarioBuilder.FinishedCampaign(EarningType.CardBased);
+        campaign.Gender = Gender.Male;
+
+        await ScenarioBuilder.CreateAsync(context, campaign);
+
+        var result = await CreateService(context).CalculateAsync(campaign.Id);
+
+        Assert.Equal(0, result.Value!.QualifyingTransactions);
+        Assert.Equal(0, result.Value.RewardsCreated);
+    }
+
+    [Fact]
+    public async Task GenderFilter_KeepsCustomersOfTheSameGender()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        var campaign = ScenarioBuilder.FinishedCampaign(EarningType.CardBased);
+        campaign.Gender = Gender.Female;
+
+        await ScenarioBuilder.CreateAsync(context, campaign);
+
+        var result = await CreateService(context).CalculateAsync(campaign.Id);
+
+        // Same five transactions as with no filter at all: naming the customer's own gender
+        // narrows nothing.
+        Assert.Equal(5, result.Value!.QualifyingTransactions);
+        Assert.Equal(250m, result.Value.TotalRewardPoint);
+    }
+
+    [Fact]
+    public async Task CardTypeFilter_KeepsOnlyCardsOfThatType()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        // Card A is primary and card B supplementary, so restricting to primary cards drops
+        // card B's two transactions and its whole reward row with them.
+        var campaign = ScenarioBuilder.FinishedCampaign(EarningType.CardBased);
+        campaign.CardType = CardType.Primary;
+
+        var scenario = await ScenarioBuilder.CreateAsync(context, campaign);
+
+        var result = await CreateService(context).CalculateAsync(campaign.Id);
+
+        Assert.Equal(3, result.Value!.QualifyingTransactions);
+        Assert.Equal(1, result.Value.RewardsCreated);
+        Assert.Equal(150m, result.Value.TotalRewardPoint);
+
+        var reward = await context.CampaignRewards.SingleAsync(r => r.CampaignId == campaign.Id);
+
+        Assert.Equal(scenario.CardA.Id, reward.CardId);
+    }
+
+    [Fact]
+    public async Task DemographicFiltersCombine_RatherThanReplacingEachOther()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        // Right gender, wrong card type: matching one condition is not enough.
+        var campaign = ScenarioBuilder.FinishedCampaign(EarningType.CardBased);
+        campaign.Gender = Gender.Female;
+        campaign.CardType = CardType.Supplementary;
+
+        var scenario = await ScenarioBuilder.CreateAsync(context, campaign);
+
+        var result = await CreateService(context).CalculateAsync(campaign.Id);
+
+        Assert.Equal(2, result.Value!.QualifyingTransactions);
+        Assert.Equal(100m, result.Value.TotalRewardPoint);
+
+        var reward = await context.CampaignRewards.SingleAsync(r => r.CampaignId == campaign.Id);
+
+        Assert.Equal(scenario.CardB.Id, reward.CardId);
+    }
 }
