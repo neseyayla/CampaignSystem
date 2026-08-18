@@ -41,6 +41,18 @@ public class Campaign
     public EarningType EarningType { get; set; }
 
     /// <summary>
+    /// Restricts the campaign to one gender. Null means no restriction, which is the same
+    /// rule the criteria junction tables follow: saying nothing includes everyone.
+    /// </summary>
+    public Gender? Gender { get; set; }
+
+    /// <summary>
+    /// Restricts the campaign to primary or to supplementary cards. Null covers both — the
+    /// "Hepsi" option on the screen this replaces.
+    /// </summary>
+    public CardType? CardType { get; set; }
+
+    /// <summary>
     /// Where the campaign stands: Pending, Ongoing, Loading or Ended.
     ///
     /// Stored rather than worked out from the dates on every read, so that a query, a report
