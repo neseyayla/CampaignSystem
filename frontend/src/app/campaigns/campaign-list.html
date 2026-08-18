@@ -13,32 +13,34 @@
 } @else if (campaigns().length === 0) {
   <p class="state">No campaigns yet.</p>
 } @else {
-  <table>
-    <thead>
-      <tr>
-        <th>Id</th>
-        <th>Name</th>
-        <th>Type</th>
-        <th>Earning</th>
-        <th>Status</th>
-        <th>Period</th>
-        <th class="numeric">Points</th>
-        <th class="numeric">Cap</th>
-      </tr>
-    </thead>
-    <tbody>
-      @for (campaign of campaigns(); track campaign.id) {
+  <div class="card">
+    <table>
+      <thead>
         <tr>
-          <td>{{ campaign.id }}</td>
-          <td>{{ campaign.name }}</td>
-          <td>{{ campaign.campaignType }}</td>
-          <td>{{ campaign.earningType }}</td>
-          <td><span class="status" [class]="campaign.status.toLowerCase()">{{ campaign.status }}</span></td>
-          <td>{{ campaign.startDate | date: 'dd.MM.yyyy' }} – {{ campaign.endDate | date: 'dd.MM.yyyy' }}</td>
-          <td class="numeric">{{ campaign.rewardPoint ?? '—' }}</td>
-          <td class="numeric">{{ campaign.maxRewardAmount ?? '—' }}</td>
+          <th>Id</th>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Earning</th>
+          <th>Status</th>
+          <th>Period</th>
+          <th class="numeric">Points</th>
+          <th class="numeric">Cap</th>
         </tr>
-      }
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        @for (campaign of campaigns(); track campaign.id) {
+          <tr>
+            <td>{{ campaign.id }}</td>
+            <td>{{ campaign.name }}</td>
+            <td>{{ campaign.campaignType }}</td>
+            <td>{{ campaign.earningType }}</td>
+            <td><span class="status" [class]="campaign.status.toLowerCase()">{{ campaign.status }}</span></td>
+            <td>{{ campaign.startDate | date: 'dd.MM.yyyy' }} – {{ campaign.endDate | date: 'dd.MM.yyyy' }}</td>
+            <td class="numeric">{{ campaign.rewardPoint ?? '—' }}</td>
+            <td class="numeric">{{ campaign.maxRewardAmount ?? '—' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
 }
