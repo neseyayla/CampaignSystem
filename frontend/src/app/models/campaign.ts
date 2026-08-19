@@ -72,3 +72,9 @@ export interface CampaignCriteria {
   merchantIds: number[];
   transactionCodeIds: number[];
 }
+
+/**
+ * What the update endpoint accepts. Same fields as CreateCampaign: the server decides id,
+ * status and isActive in both cases, so neither is ever sent.
+ */
+export type UpdateCampaign = CreateCampaign;

@@ -1,24 +1,31 @@
-<div class="field-head">
-  <span class="field-label">
-    {{ label() }}
-    @if (selected().length > 0) {
-      <span class="count">· {{ selected().length }} seçili</span>
-    }
-  </span>
-
-  <button type="button" class="list-btn" (click)="openModal()">Listele</button>
+<div class="field-label">
+  {{ label() }}
+  @if (selected().length > 0) {
+    <span class="count">· {{ selected().length }} seçili</span>
+  }
 </div>
 
-<div class="chip-box">
-  @for (item of selectedItems(); track item.id) {
-    <div class="chip-row">
-      <button type="button" class="chip-remove" (click)="remove(item.id)" aria-label="Kaldır">×</button>
-      <span class="code">{{ item.code }}</span>
-      <span class="name">{{ item.name }}</span>
-    </div>
-  } @empty {
-    <div class="hint">Kısıt yok — tümü dahil</div>
-  }
+<div class="chip-box-wrap">
+  <div class="chip-box">
+    @for (item of selectedItems(); track item.id) {
+      <div class="chip-row">
+        <button type="button" class="chip-remove" (click)="remove(item.id)" aria-label="Kaldır">×</button>
+        <span class="code">{{ item.code }}</span>
+        <span class="name">{{ item.name }}</span>
+      </div>
+    } @empty {
+      <div class="hint">Kısıt yok — tümü dahil</div>
+    }
+  </div>
+
+  <!-- Anchored to the box rather than to the box's contents, so it stays reachable when the
+       list of selections scrolls. -->
+  <button
+    type="button"
+    class="list-btn"
+    (click)="openModal()"
+    title="Listeden seç"
+    aria-label="Listeden seç">⋯</button>
 </div>
 
 @if (open()) {

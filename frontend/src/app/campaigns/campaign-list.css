@@ -125,3 +125,14 @@ tbody tr:hover td {
   background: #eceff3;
   color: #5b616b;
 }
+
+/* The name opens the record — the list's only way into the definition screen. */
+tbody a {
+  color: #14181f;
+  text-decoration: none;
+  border-bottom: 1px solid #e0c453;
+}
+
+tbody a:hover {
+  color: #5b616b;
+}

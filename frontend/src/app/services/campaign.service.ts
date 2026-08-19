@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { API_BASE_URL } from '../api-config';
-import { Campaign, CampaignCriteria, CreateCampaign } from '../models/campaign';
+import { Campaign, CampaignCriteria, CreateCampaign, UpdateCampaign } from '../models/campaign';
 
 /**
  * Everything the application knows about talking to the campaign endpoints.
@@ -27,6 +27,20 @@ export class CampaignService {
 
   create(campaign: CreateCampaign): Observable<Campaign> {
     return this.http.post<Campaign>(this.baseUrl, campaign);
+  }
+
+  /** Returns 204, so there is no body to read back — reload the campaign if it is needed. */
+  update(id: number, campaign: UpdateCampaign): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/${id}`, campaign);
+  }
+
+  /**
+   * Soft delete on the server: the row stays and its IsActive flag is cleared, so the rewards
+   * and enrolments that point at the campaign keep their meaning. It simply stops appearing
+   * in the list.
+   */
+  delete(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}`);
   }
 
   getCriteria(id: number): Observable<CampaignCriteria> {

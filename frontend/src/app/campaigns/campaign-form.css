@@ -150,11 +150,7 @@ input[type='checkbox'] {
   }
 }
 
-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.6rem;
-}
+
 
 button {
   padding: 0.6rem 1.3rem;
@@ -190,4 +186,76 @@ button:disabled {
    who the campaign reaches — so they belong in that section rather than in General. */
 .grid.demographics {
   margin-bottom: 1.25rem;
+}
+
+/* Screen head */
+
+.screen-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.record {
+  font-size: 0.8rem;
+  color: #5b616b;
+}
+
+.record.new {
+  color: #8b919a;
+  font-style: italic;
+}
+
+.notice.banner {
+  border: 1px solid #cfe6d6;
+  background: #f0f9f3;
+  color: #17643a;
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.destructive {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* A bordered button rather than an underlined link: deleting a campaign is a real action
+   and should not read as a footnote. */
+footer .delete-btn {
+  border: 1px solid #e6b3ae;
+  background: #fff;
+  color: #b3261e;
+}
+
+footer .delete-btn:hover:not(:disabled) {
+  background: #fdf0ef;
+}
+
+.confirm-text {
+  font-size: 0.85rem;
+  color: #b3261e;
+  font-weight: 600;
+}
+
+/* Filled red only on the button that actually deletes. */
+footer .danger {
+  border: 1px solid #b3261e;
+  background: #b3261e;
+  color: #fff;
+  font-weight: 600;
+}
+
+footer .danger:hover:not(:disabled) {
+  background: #8f1e18;
 }

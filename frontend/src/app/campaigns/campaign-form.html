@@ -1,4 +1,12 @@
-<h1>Batch Kampanya Tanım</h1>
+<header class="screen-head">
+  <h1>Batch Kampanya Tanım</h1>
+
+  @if (editing()) {
+    <span class="record">Kampanya No: <strong>{{ campaignId() }}</strong> · Durum: {{ status() }}</span>
+  } @else {
+    <span class="record new">Yeni kayıt</span>
+  }
+</header>
 
 <form [formGroup]="form" (ngSubmit)="save()">
   <section>
@@ -143,8 +151,37 @@
     <p class="error banner">{{ error() }}</p>
   }
 
+  @if (notice()) {
+    <p class="notice banner">{{ notice() }}</p>
+  }
+
   <footer>
+    @if (editing()) {
+      <!-- Kept apart from the save buttons: a destructive action should not sit under the
+           thumb that is reaching for Güncelle. -->
+      <div class="destructive">
+        @if (confirmingDelete()) {
+          <!-- The question is text and the answers are buttons. A single button reading
+               "Emin misiniz?" looks like a label, and it is not obvious what pressing it
+               means. -->
+          <span class="confirm-text">Kampanya silinsin mi?</span>
+          <button type="button" class="danger" (click)="confirmDelete()" [disabled]="saving()">
+            Evet
+          </button>
+          <button type="button" class="secondary" (click)="cancelDelete()">Hayır</button>
+        } @else {
+          <button type="button" class="delete-btn" (click)="askDelete()" [disabled]="saving()">
+            Sil
+          </button>
+        }
+      </div>
+    }
+
+    <span class="spacer"></span>
+
     <button type="button" class="secondary" (click)="cancel()" [disabled]="saving()">Vazgeç</button>
-    <button type="submit" [disabled]="saving()">{{ saving() ? 'Kaydediliyor…' : 'Kaydet' }}</button>
+    <button type="submit" [disabled]="saving()">
+      {{ saving() ? 'Kaydediliyor…' : editing() ? 'Güncelle' : 'Kaydet' }}
+    </button>
   </footer>
 </form>
