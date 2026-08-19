@@ -414,11 +414,11 @@ Seed data loaded on first setup.
 
 | SegmentCode | SegmentName |
 |---|---|
-| OGR | Student |
-| PER | Company Employee |
-| CFT | Farmer |
-| EVH | Homemaker |
-| EMK | Retiree |
+| OGR | Öğrenci |
+| PER | Şirket Çalışanı |
+| CFT | Çiftçi |
+| EVH | Ev Hanımı |
+| EMK | Emekli |
 
 ### PRODUCT
 
@@ -443,9 +443,9 @@ Seed data loaded on first setup.
 
 | Code | Name |
 |---|---|
-| SA | Sale |
-| NA | Cash Advance |
-| OD | Debt Payment |
+| SA | Satış |
+| NA | Nakit Avans |
+| OD | Borç Ödeme |
 
 ---
 
