@@ -5,7 +5,7 @@ import { forkJoin, switchMap } from 'rxjs';
 
 import { CampaignService } from '../services/campaign.service';
 import { LookupService } from '../services/lookup.service';
-import { CreateCampaign } from '../models/campaign';
+import { CardType, CreateCampaign, Gender } from '../models/campaign';
 import { LookupOption } from '../models/lookup';
 import { CriteriaPicker } from './criteria-picker';
 
@@ -39,6 +39,11 @@ export class CampaignForm {
     description: ['', Validators.maxLength(1000)],
     campaignType: ['Mass' as const, Validators.required],
     earningType: ['CardBased' as const, Validators.required],
+
+    // '' is the "all" option. It becomes null on the way out, which is how the API
+    // expresses "no restriction" — the same rule the criteria lists follow.
+    gender: [''],
+    cardType: [''],
     startDate: ['', Validators.required],
     endDate: ['', Validators.required],
     minimumAmount: [null as number | null],
@@ -87,6 +92,8 @@ export class CampaignForm {
       description: value.description || null,
       campaignType: value.campaignType,
       earningType: value.earningType,
+      gender: (value.gender || null) as Gender | null,
+      cardType: (value.cardType || null) as CardType | null,
 
       // A date input gives back a plain day. A campaign runs from the first moment of its
       // start date to the last moment of its end date, so the times are filled in here —

@@ -71,6 +71,33 @@
   <section>
     <h2>Card and customer criteria</h2>
 
+    <div class="grid demographics">
+      <label>
+        <span>Gender</span>
+        <select formControlName="gender">
+          <option value="">All genders</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+        </select>
+      </label>
+
+      <fieldset class="level">
+        <legend>Card type</legend>
+        <label class="radio">
+          <input type="radio" formControlName="cardType" value="" />
+          All
+        </label>
+        <label class="radio">
+          <input type="radio" formControlName="cardType" value="Primary" />
+          Primary cards
+        </label>
+        <label class="radio">
+          <input type="radio" formControlName="cardType" value="Supplementary" />
+          Supplementary cards
+        </label>
+      </fieldset>
+    </div>
+
     <div class="pickers">
       <app-criteria-picker
         label="Customer group"

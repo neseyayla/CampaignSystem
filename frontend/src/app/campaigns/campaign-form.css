@@ -171,3 +171,9 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+/* Gender and card type sit above the criteria lists: they narrow the same dimension —
+   who the campaign reaches — so they belong in that section rather than in General. */
+.grid.demographics {
+  margin-bottom: 1.25rem;
+}
