@@ -31,7 +31,7 @@
         @for (campaign of campaigns(); track campaign.id) {
           <tr>
             <td>{{ campaign.id }}</td>
-            <td>{{ campaign.name }}</td>
+            <td><a [routerLink]="['/campaigns', campaign.id]">{{ campaign.name }}</a></td>
             <td>{{ campaignTypeLabels[campaign.campaignType] }}</td>
             <td>{{ earningTypeLabels[campaign.earningType] }}</td>
             <td><span class="status" [class]="campaign.status.toLowerCase()">{{ statusLabels[campaign.status] }}</span></td>

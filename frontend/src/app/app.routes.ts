@@ -8,6 +8,9 @@ export const routes: Routes = [
   { path: 'campaigns', component: CampaignList, title: 'Kampanyalar' },
   { path: 'campaigns/new', component: CampaignForm, title: 'Batch Kampanya Tanım' },
 
+  // Same component: an id in the route is what puts it into edit mode.
+  { path: 'campaigns/:id', component: CampaignForm, title: 'Batch Kampanya Tanım' },
+
   // Anything unrecognised goes to the campaign list rather than a blank page.
   { path: '**', redirectTo: 'campaigns' }
 ];

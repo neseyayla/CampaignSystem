@@ -1,17 +1,8 @@
-/* Label and the button share a row, so the box gets the full width and the button no
-   longer floats beside a tall empty rectangle. */
-.field-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.6rem;
-  margin-bottom: 0.35rem;
-}
-
 .field-label {
   font-size: 0.85rem;
   font-weight: 600;
   color: #3c4149;
+  margin-bottom: 0.35rem;
 }
 
 .field-label .count {
@@ -19,11 +10,15 @@
   color: #17643a;
 }
 
+.chip-box-wrap {
+  position: relative;
+}
+
 /* Grows with its contents instead of standing at a fixed height: an empty criterion takes
    one line, and four empty ones no longer fill the screen. Beyond six or so entries it
    scrolls rather than pushing the rest of the form down. */
 .chip-box {
-  min-height: 2.1rem;
+  min-height: 2rem;
   max-height: 7rem;
   overflow-y: auto;
   border: 1px solid #c9ced6;
@@ -32,7 +27,7 @@
 }
 
 .hint {
-  padding: 0.4rem 0.7rem;
+  padding: 0.45rem 2.4rem 0.45rem 0.7rem;
   color: #8b919a;
   font-size: 0.8rem;
 }
@@ -42,6 +37,7 @@
   align-items: center;
   gap: 0.6rem;
   padding: 0.4rem 0.6rem;
+  padding-right: 2.4rem;
   border-bottom: 1px solid #eef0f3;
   font-size: 0.82rem;
 }
@@ -79,17 +75,31 @@
   color: #b3261e;
 }
 
+/* Attached to the right edge and as tall as the box, the way a browse button sits on a
+   classic form field. Pinned in a corner it looked detached, and it never lined up with the
+   text once the box grew. */
 .list-btn {
-  flex-shrink: 0;
-  padding: 0.2rem 0.7rem;
-  border-radius: 0;
-  border: 1px solid #c9ced6;
-  background: #fff;
-  color: #3c4149;
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 500;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-left: 1px solid #c9ced6;
+  background: #f7f8fa;
+  color: #5b616b;
+  font-size: 0.9rem;
+  line-height: 1;
   cursor: pointer;
+}
+
+.list-btn:hover {
+  background: #fff7d6;
+  color: #14181f;
 }
 
 /* Popup */
