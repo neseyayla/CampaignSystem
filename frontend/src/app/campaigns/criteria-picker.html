@@ -1,19 +1,24 @@
-<div class="field-label">{{ label() }}</div>
-
-<div class="picker-row">
-  <div class="chip-box">
-    @for (item of selectedItems(); track item.id) {
-      <div class="chip-row">
-        <button type="button" class="chip-remove" (click)="remove(item.id)" aria-label="Kaldır">×</button>
-        <span class="code">{{ item.code }}</span>
-        <span class="name">{{ item.name }}</span>
-      </div>
-    } @empty {
-      <div class="hint">Seçim yok — bu kriterde kısıt uygulanmaz</div>
+<div class="field-head">
+  <span class="field-label">
+    {{ label() }}
+    @if (selected().length > 0) {
+      <span class="count">· {{ selected().length }} seçili</span>
     }
-  </div>
+  </span>
 
   <button type="button" class="list-btn" (click)="openModal()">Listele</button>
+</div>
+
+<div class="chip-box">
+  @for (item of selectedItems(); track item.id) {
+    <div class="chip-row">
+      <button type="button" class="chip-remove" (click)="remove(item.id)" aria-label="Kaldır">×</button>
+      <span class="code">{{ item.code }}</span>
+      <span class="name">{{ item.name }}</span>
+    </div>
+  } @empty {
+    <div class="hint">Kısıt yok — tümü dahil</div>
+  }
 </div>
 
 @if (open()) {

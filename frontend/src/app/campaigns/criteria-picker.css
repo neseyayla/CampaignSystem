@@ -1,20 +1,30 @@
+/* Label and the button share a row, so the box gets the full width and the button no
+   longer floats beside a tall empty rectangle. */
+.field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.35rem;
+}
+
 .field-label {
   font-size: 0.85rem;
   font-weight: 600;
   color: #3c4149;
-  margin-bottom: 0.35rem;
 }
 
-.picker-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
+.field-label .count {
+  font-weight: 500;
+  color: #17643a;
 }
 
+/* Grows with its contents instead of standing at a fixed height: an empty criterion takes
+   one line, and four empty ones no longer fill the screen. Beyond six or so entries it
+   scrolls rather than pushing the rest of the form down. */
 .chip-box {
-  flex: 1;
-  min-width: 0;
-  height: 8rem;
+  min-height: 2.1rem;
+  max-height: 7rem;
   overflow-y: auto;
   border: 1px solid #c9ced6;
   border-radius: 0;
@@ -22,7 +32,7 @@
 }
 
 .hint {
-  padding: 0.6rem 0.7rem;
+  padding: 0.4rem 0.7rem;
   color: #8b919a;
   font-size: 0.8rem;
 }
@@ -71,7 +81,7 @@
 
 .list-btn {
   flex-shrink: 0;
-  padding: 0.45rem 0.9rem;
+  padding: 0.2rem 0.7rem;
   border-radius: 0;
   border: 1px solid #c9ced6;
   background: #fff;
