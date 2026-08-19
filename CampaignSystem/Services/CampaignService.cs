@@ -104,13 +104,47 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
             return false;
         }
 
-        // Soft delete. The row stays, and so do the rewards and enrollments that point at it.
-        campaign.IsActive = false;
+        // A campaign that has paid a reward or accepted an enrolment carries history worth
+        // keeping — and the foreign keys are Restrict, so the database would refuse to remove
+        // the row anyway. One that has neither is a mistyped record with nothing to protect,
+        // and leaving it behind only clutters the table.
+        var hasHistory =
+            await context.CampaignRewards.AnyAsync(r => r.CampaignId == id, cancellationToken) ||
+            await context.CampaignParticipations.AnyAsync(p => p.CampaignId == id, cancellationToken);
 
-        repository.Update(campaign);
+        if (hasHistory)
+        {
+            campaign.IsActive = false;
+            repository.Update(campaign);
+        }
+        else
+        {
+            // The criteria rows point at the campaign, so they go first — nothing else refers
+            // to them, and they carry no history of their own.
+            await RemoveCriteriaAsync(id, cancellationToken);
+
+            repository.Remove(campaign);
+        }
+
         await repository.SaveChangesAsync(cancellationToken);
 
         return true;
+    }
+
+    /// <summary>Clears every criteria row of a campaign that is about to be removed outright.</summary>
+    private async Task RemoveCriteriaAsync(int campaignId, CancellationToken cancellationToken)
+    {
+        context.CampaignSegments.RemoveRange(
+            await context.CampaignSegments.Where(x => x.CampaignId == campaignId).ToListAsync(cancellationToken));
+
+        context.CampaignProducts.RemoveRange(
+            await context.CampaignProducts.Where(x => x.CampaignId == campaignId).ToListAsync(cancellationToken));
+
+        context.CampaignMerchants.RemoveRange(
+            await context.CampaignMerchants.Where(x => x.CampaignId == campaignId).ToListAsync(cancellationToken));
+
+        context.CampaignTransactionCodes.RemoveRange(
+            await context.CampaignTransactionCodes.Where(x => x.CampaignId == campaignId).ToListAsync(cancellationToken));
     }
 
     public async Task<CampaignCriteriaDto?> GetCriteriaAsync(
