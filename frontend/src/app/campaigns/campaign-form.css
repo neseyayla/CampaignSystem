@@ -1,7 +1,9 @@
 :host {
   display: block;
-  max-width: 760px;
-  margin: 0 auto;
+
+  /* Wide enough to hold three columns of fields, capped so the labels do not drift far
+     from their inputs on a very wide monitor. */
+  max-width: 1400px;
 }
 
 h1 {
@@ -33,8 +35,14 @@ h2 {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem 1.25rem;
+}
+
+@media (max-width: 1200px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .grid.amounts {
@@ -132,8 +140,14 @@ input[type='checkbox'] {
 
 .pickers {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.25rem;
+}
+
+@media (max-width: 1200px) {
+  .pickers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 footer {

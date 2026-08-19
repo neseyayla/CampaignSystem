@@ -1,8 +1,35 @@
-<nav>
-  <span class="brand">Kampanya Sistemi</span>
-  <a routerLink="/campaigns" routerLinkActive="active">Kampanyalar</a>
-</nav>
+<div class="shell">
+  <header class="topbar">
+    <span class="brand">Kampanya Sistemi</span>
+  </header>
 
-<main>
-  <router-outlet />
-</main>
+  <nav class="sidebar">
+    <div class="menu-title">MENÜ</div>
+
+    <ul class="tree">
+      <li>
+        <span class="node root">Batch Kampanyalar</span>
+        <ul>
+          <li>
+            <a routerLink="/campaigns/new" routerLinkActive="active">Kampanya Tanım</a>
+          </li>
+          <li>
+            <a routerLink="/campaigns" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+              Kampanya Listesi
+            </a>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </nav>
+
+  <main>
+    <router-outlet />
+  </main>
+
+  <footer class="statusbar">
+    <span>KULLANICI/SİSTEM BİLGİLERİ</span>
+    <span class="spacer"></span>
+    <span>API: {{ apiBaseUrl }}</span>
+  </footer>
+</div>
