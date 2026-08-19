@@ -1,139 +1,139 @@
-<h1>New campaign</h1>
+<h1>Yeni Kampanya</h1>
 
 <form [formGroup]="form" (ngSubmit)="save()">
   <section>
-    <h2>General</h2>
+    <h2>Genel</h2>
 
     <div class="grid">
       <label class="wide">
-        <span>Campaign name</span>
+        <span>Kampanya Adı</span>
         <input type="text" formControlName="name" maxlength="200" />
         @if (invalid('name')) {
-          <small class="error">A name is required.</small>
+          <small class="error">Kampanya adı zorunludur.</small>
         }
       </label>
 
       <label>
-        <span>Campaign type</span>
+        <span>Kampanya Türü</span>
         <select formControlName="campaignType">
-          <option value="Mass">MASS — open to everyone</option>
-          <option value="EnrollmentRequired">SI — enrollment required</option>
+          <option value="Mass">MASS — herkese açık</option>
+          <option value="EnrollmentRequired">SI — katılım gerekli</option>
         </select>
       </label>
 
       <fieldset class="level">
-        <legend>Level</legend>
+        <legend>Seviye</legend>
         <label class="radio">
           <input type="radio" formControlName="earningType" value="CardBased" />
-          Card based
+          Kart Bazlı
         </label>
         <label class="radio">
           <input type="radio" formControlName="earningType" value="CustomerBased" />
-          Customer based
+          Müşteri Bazlı
         </label>
-        <small>Card based pays each card separately; customer based pools them into one reward.</small>
+        <small>Kart bazlıda her kart ayrı ödül kazanır, müşteri bazlıda kartlar tek ödülde toplanır.</small>
       </fieldset>
 
       <label class="wide">
-        <span>Description</span>
+        <span>Açıklama</span>
         <textarea formControlName="description" rows="2" maxlength="1000"></textarea>
       </label>
 
       <label>
-        <span>Start date</span>
+        <span>Başlangıç Tarihi</span>
         <input type="date" formControlName="startDate" />
         @if (invalid('startDate')) {
-          <small class="error">A start date is required.</small>
+          <small class="error">Başlangıç tarihi zorunludur.</small>
         }
       </label>
 
       <label>
-        <span>End date</span>
+        <span>Bitiş Tarihi</span>
         <input type="date" formControlName="endDate" />
         @if (invalid('endDate')) {
-          <small class="error">An end date is required.</small>
+          <small class="error">Bitiş tarihi zorunludur.</small>
         }
       </label>
 
       <label>
-        <span>Points per qualifying transaction</span>
+        <span>İşlem Başına Puan</span>
         <input type="number" formControlName="rewardPoint" min="0" step="0.01" />
       </label>
 
       <label>
-        <span>Maximum reward</span>
+        <span>Maksimum Ödül</span>
         <input type="number" formControlName="maxRewardAmount" min="0" step="0.01" />
-        <small>Applied per card on a card based campaign, per customer otherwise.</small>
+        <small>Kart bazlı kampanyada kart başına, müşteri bazlıda müşteri başına uygulanır.</small>
       </label>
     </div>
   </section>
 
   <section>
-    <h2>Card and customer criteria</h2>
+    <h2>Kart / Müşteri Kriterleri</h2>
 
     <div class="grid demographics">
       <label>
-        <span>Gender</span>
+        <span>Cinsiyet</span>
         <select formControlName="gender">
-          <option value="">All genders</option>
-          <option value="Male">Male</option>
-          <option value="Female">Female</option>
+          <option value="">Tüm cinsiyetler</option>
+          <option value="Male">Erkek</option>
+          <option value="Female">Kadın</option>
         </select>
       </label>
 
       <fieldset class="level">
-        <legend>Card type</legend>
+        <legend>Kart Türü</legend>
         <label class="radio">
           <input type="radio" formControlName="cardType" value="" />
-          All
+          Hepsi
         </label>
         <label class="radio">
           <input type="radio" formControlName="cardType" value="Primary" />
-          Primary cards
+          Asıl Kartlar
         </label>
         <label class="radio">
           <input type="radio" formControlName="cardType" value="Supplementary" />
-          Supplementary cards
+          Ek Kartlar
         </label>
       </fieldset>
     </div>
 
     <div class="pickers">
       <app-criteria-picker
-        label="Customer group"
+        label="Müşteri Grubu"
         [options]="segments()"
         [(selected)]="selectedSegments" />
 
       <app-criteria-picker
-        label="Product code"
+        label="Ürün Kodu"
         [options]="products()"
         [(selected)]="selectedProducts" />
     </div>
   </section>
 
   <section>
-    <h2>Transaction criteria</h2>
+    <h2>İşlem Kriterleri</h2>
 
     <div class="pickers">
       <app-criteria-picker
-        label="Transaction code"
+        label="İşlem Kodu"
         [options]="transactionCodes()"
         [(selected)]="selectedTransactionCodes" />
 
       <app-criteria-picker
-        label="Merchant"
+        label="Üye İşyeri"
         [options]="merchants()"
         [(selected)]="selectedMerchants" />
     </div>
 
     <div class="grid amounts">
       <label>
-        <span>Minimum amount</span>
+        <span>Min Tutar</span>
         <input type="number" formControlName="minimumAmount" min="0" step="0.01" />
       </label>
 
       <label>
-        <span>Maximum amount</span>
+        <span>Max Tutar</span>
         <input type="number" formControlName="maximumAmount" min="0" step="0.01" />
       </label>
     </div>
@@ -144,7 +144,7 @@
   }
 
   <footer>
-    <button type="button" class="secondary" (click)="cancel()" [disabled]="saving()">Cancel</button>
-    <button type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save campaign' }}</button>
+    <button type="button" class="secondary" (click)="cancel()" [disabled]="saving()">Vazgeç</button>
+    <button type="submit" [disabled]="saving()">{{ saving() ? 'Kaydediliyor…' : 'Kaydet' }}</button>
   </footer>
 </form>

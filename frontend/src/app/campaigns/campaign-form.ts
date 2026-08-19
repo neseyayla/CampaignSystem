@@ -67,7 +67,7 @@ export class CampaignForm {
         this.merchants.set(lists.merchants);
         this.transactionCodes.set(lists.transactionCodes);
       },
-      error: () => this.error.set('The reference lists could not be loaded. Is the API running?')
+      error: () => this.error.set('Referans listeleri yüklenemedi. API çalışıyor mu?')
     });
   }
 
@@ -80,7 +80,7 @@ export class CampaignForm {
     const value = this.form.getRawValue();
 
     if (value.endDate <= value.startDate) {
-      this.error.set('The end date has to be later than the start date.');
+      this.error.set('Bitiş tarihi başlangıç tarihinden sonra olmalıdır.');
       return;
     }
 
@@ -128,7 +128,7 @@ export class CampaignForm {
           this.error.set(
             typeof response.error === 'string'
               ? response.error
-              : 'The campaign could not be saved.'
+              : 'Kampanya kaydedilemedi.'
           );
         }
       });

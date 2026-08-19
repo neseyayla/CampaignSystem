@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 
 import { CampaignService } from '../services/campaign.service';
 import { Campaign } from '../models/campaign';
+import { campaignTypeLabels, earningTypeLabels, statusLabels } from '../models/labels';
 
 @Component({
   selector: 'app-campaign-list',
@@ -19,6 +20,10 @@ export class CampaignList {
   protected readonly campaigns = signal<Campaign[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
+
+  protected readonly campaignTypeLabels = campaignTypeLabels;
+  protected readonly earningTypeLabels = earningTypeLabels;
+  protected readonly statusLabels = statusLabels;
 
   constructor() {
     this.load();
@@ -36,7 +41,7 @@ export class CampaignList {
       // An empty table would say "there are no campaigns", which is a different statement
       // from "the API could not be reached". They must not look the same.
       error: () => {
-        this.error.set('The API could not be reached. Is it running on port 5284?');
+        this.error.set('Sunucuya ulaşılamadı. API çalışıyor mu?');
         this.loading.set(false);
       }
     });
