@@ -211,6 +211,46 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
     }
 
     [Fact]
+    public async Task RewardsAreLoadedOnTheDayTheyFallDue()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        // A campaign runs to the last second of its closing day and the batch runs in the
+        // small hours. Counting the wait in hours rather than days would leave a campaign
+        // that came due today looking a few hours short, and pay it a day late.
+        var campaign = ScenarioBuilder.FinishedCampaign(EarningType.CardBased);
+        campaign.EndDate = DateTime.Now.Date.AddDays(-5).AddHours(23).AddMinutes(59).AddSeconds(59);
+        campaign.StartDate = campaign.EndDate.AddDays(-30);
+
+        await ScenarioBuilder.CreateAsync(context, campaign);
+
+        var result = await CreateService(context, daysAfterCampaignEnd: 5).CalculateAsync(campaign.Id);
+
+        Assert.Equal(ResultStatus.Success, result.Status);
+    }
+
+    [Fact]
+    public async Task RewardsAreNotLoadedTheDayBeforeTheyFallDue()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        // One day short of the wait: the campaign ended four days ago and the business asked
+        // for five.
+        var campaign = ScenarioBuilder.FinishedCampaign(EarningType.CardBased);
+        campaign.EndDate = DateTime.Now.Date.AddDays(-4).AddHours(23).AddMinutes(59).AddSeconds(59);
+        campaign.StartDate = campaign.EndDate.AddDays(-30);
+
+        await ScenarioBuilder.CreateAsync(context, campaign);
+
+        var result = await CreateService(context, daysAfterCampaignEnd: 5).CalculateAsync(campaign.Id);
+
+        Assert.Equal(ResultStatus.Invalid, result.Status);
+        Assert.Equal(CampaignStatus.Loading, campaign.Status);
+    }
+
+    [Fact]
     public async Task Preview_MatchesWhatTheBatchWouldPay()
     {
         await using var context = fixture.CreateContext();

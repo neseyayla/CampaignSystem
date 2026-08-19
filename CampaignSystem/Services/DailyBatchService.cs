@@ -95,12 +95,17 @@ public class DailyBatchService(
         DailyBatchResultDto result,
         CancellationToken cancellationToken)
     {
-        var cutoff = now.AddDays(-options.Value.DaysAfterCampaignEnd);
+        // Compared by day rather than by instant. A campaign ends at 23:59:59 and the batch
+        // runs in the small hours, so comparing timestamps would find the campaign "not old
+        // enough" on the very day it comes due and pay it a day late. Everything that ended
+        // on or before (today minus the wait) is due, whatever the time of day.
+        var lastDueDay = now.Date.AddDays(-options.Value.DaysAfterCampaignEnd);
+        var cutoff = lastDueDay.AddDays(1);
 
         var due = await context.Campaigns
             .Where(c => c.IsActive
                         && c.Status == CampaignStatus.Loading
-                        && c.EndDate <= cutoff)
+                        && c.EndDate < cutoff)
             .Select(c => c.Id)
             .ToListAsync(cancellationToken);
 

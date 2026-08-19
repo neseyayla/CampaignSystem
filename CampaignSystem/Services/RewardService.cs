@@ -94,9 +94,11 @@ public class RewardService(
                 $"Rewards are calculated once a campaign has ended and is awaiting loading; this one is {campaign.Status}.");
         }
 
-        var loadingDate = campaign.EndDate.AddDays(DaysAfterCampaignEnd);
+        // The day the rewards fall due, counted in days rather than in hours: a campaign that
+        // ends at 23:59 on the 19th is five days old on the 24th, not on the 25th.
+        var loadingDate = campaign.EndDate.Date.AddDays(DaysAfterCampaignEnd);
 
-        if (DateTime.Now < loadingDate)
+        if (DateTime.Now.Date < loadingDate)
         {
             return ServiceResult<RewardCalculationResultDto>.Invalid(
                 $"Rewards for this campaign are loaded on {loadingDate:yyyy-MM-dd}, which has not arrived yet.");
