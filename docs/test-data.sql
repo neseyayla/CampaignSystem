@@ -1,144 +1,207 @@
--- CampaignSystem — development test data
+-- CampaignSystem — development data set
 --
--- Creates five customers, ten cards and two hundred transactions in July 2026, so that
--- reward calculation can be exercised against data that is deliberately mixed: some of it
--- matches a typical campaign's criteria and some of it does not. Data that matched
--- everything would prove nothing about the filtering.
+-- Fifty customers, roughly ninety cards and fifteen hundred transactions across June to
+-- August 2026. Large enough that a campaign's criteria visibly exclude people, small enough
+-- that the script runs in a second and a reward total can still be checked by hand.
 --
--- July is chosen because rewards are calculated once a campaign has ended. Transactions
--- dated in the future would leave the campaign running and nothing to evaluate. It also
--- lines up with the sample July campaign in database-design.md.
+-- Identifiers follow the shapes the real systems use rather than obvious placeholders:
+-- eight digit customer numbers and twelve digit retrieval reference numbers. Values are
+-- derived from the row number instead of being randomised, so every run produces the same
+-- data and a figure can be reproduced.
 --
 -- Development only. Never run against a real database.
---
--- Safe to run twice: it stops if the test customers are already there.
+-- Safe to run twice: it stops if the data is already there.
 --
 -- Usage: open in SSMS against the CampaignSystem database and execute.
 
 USE CampaignSystem;
 GO
 
-IF EXISTS (SELECT 1 FROM CUSTOMER WHERE CustomerNumber LIKE 'TEST%')
+IF EXISTS (SELECT 1 FROM CUSTOMER)
 BEGIN
-    PRINT 'Test data is already present. Nothing to do.';
+    PRINT 'Customer data is already present. Nothing to do.';
     RETURN;
 END
 
 BEGIN TRANSACTION;
 
 -- ─────────────────────────────────────────────
--- Customers — spread across segments on purpose
+-- Numbers
 -- ─────────────────────────────────────────────
--- Segments: 1 = Student, 2 = Company Employee, 3 = Farmer, 4 = Homemaker, 5 = Retiree
+-- A plain sequence the rest of the script derives everything from.
+
+WITH Numbers AS (
+    SELECT TOP (2000) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n
+    FROM sys.all_objects a CROSS JOIN sys.all_objects b
+)
+SELECT n INTO #N FROM Numbers;
+
+-- ─────────────────────────────────────────────
+-- Customers
+-- ─────────────────────────────────────────────
+-- Segments: 1 Öğrenci · 2 Şirket Çalışanı · 3 Çiftçi · 4 Ev Hanımı · 5 Emekli
+--
+-- The multiplier scatters the customer numbers so they do not read as a counter, while
+-- staying reproducible.
+--
+-- Gender is taken modulo 2 and the segment modulo 5. Those two are independent, so no
+-- segment ends up all male or all female — which would quietly turn a gender filter into a
+-- segment filter and make any figure drawn from this data misleading.
 
 INSERT INTO CUSTOMER (CustomerNumber, Gender, SegmentId, IsActive)
-VALUES
-    ('TEST0001', 'K', 3, 1),   -- Farmer
-    ('TEST0002', 'E', 2, 1),   -- Company Employee
-    ('TEST0003', 'K', 1, 1),   -- Student
-    ('TEST0004', 'E', 5, 1),   -- Retiree
-    ('TEST0005', 'K', 4, 1);   -- Homemaker
+SELECT
+    CAST(10000000 + ((n * 7919) % 8999999) AS varchar(20)),
+    CASE WHEN n % 2 = 0 THEN 'E' ELSE 'K' END,
+    ((n * 3) % 5) + 1,
+    1
+FROM #N
+WHERE n <= 50;
 
 -- ─────────────────────────────────────────────
--- Cards — two each, products deliberately mixed
+-- Cards
 -- ─────────────────────────────────────────────
--- Products: 1 = Visa Classic, 2 = MC Classic, 3 = Visa Gold,
---           4 = MC Gold, 5 = Platinum Plus, 6 = Platinum Plus Metal
+-- Products: 1 Visa Classic · 2 MC Classic · 3 Visa Gold · 4 MC Gold
+--           5 Platinum Plus · 6 Platinum Plus Metal
 --
--- A campaign restricted to Gold and above will therefore reach one card of some
--- customers and both cards of others. Card types: A = primary, E = supplementary.
+-- One card for everyone, a second for two thirds, a third for a quarter — about ninety in
+-- all. The first is always the primary card and the rest are supplementary, which is what
+-- the CardType criterion filters on.
+--
+-- Products are weighted the way a card portfolio actually looks: Classic common, Gold less
+-- so, Platinum rare. A campaign restricted to Platinum then reaches a genuinely small group.
+
+DECLARE @Cards TABLE (CustomerId int, ProductId int, CardType char(1));
+
+-- Primary card
+INSERT INTO @Cards (CustomerId, ProductId, CardType)
+SELECT c.Id,
+       CASE
+           WHEN (n * 11) % 100 < 45 THEN 1 + ((n * 7) % 2)   -- Classic, 45%
+           WHEN (n * 11) % 100 < 80 THEN 3 + ((n * 7) % 2)   -- Gold, 35%
+           ELSE                          5 + ((n * 7) % 2)   -- Platinum, 20%
+       END,
+       'A'
+FROM #N
+JOIN CUSTOMER c ON c.Id = (SELECT MIN(Id) FROM CUSTOMER) + n - 1
+WHERE n <= 50;
+
+-- Second card
+INSERT INTO @Cards (CustomerId, ProductId, CardType)
+SELECT c.Id,
+       CASE WHEN (n * 13) % 100 < 60 THEN 1 + ((n * 5) % 2) ELSE 3 + ((n * 5) % 2) END,
+       'E'
+FROM #N
+JOIN CUSTOMER c ON c.Id = (SELECT MIN(Id) FROM CUSTOMER) + n - 1
+WHERE n <= 50 AND n % 3 <> 0;
+
+-- Third card
+INSERT INTO @Cards (CustomerId, ProductId, CardType)
+SELECT c.Id, 1, 'E'
+FROM #N
+JOIN CUSTOMER c ON c.Id = (SELECT MIN(Id) FROM CUSTOMER) + n - 1
+WHERE n <= 50 AND n % 4 = 0;
 
 INSERT INTO CARD (CustomerId, ProductId, CardType, IsActive)
-SELECT c.Id, v.ProductId, v.CardType, 1
-FROM (VALUES
-    ('TEST0001', 3, 'A'),   -- Visa Gold
-    ('TEST0001', 4, 'E'),   -- MC Gold          → both cards qualify
-    ('TEST0002', 5, 'A'),   -- Platinum Plus
-    ('TEST0002', 1, 'E'),   -- Visa Classic     → only one card qualifies
-    ('TEST0003', 1, 'A'),   -- Visa Classic
-    ('TEST0003', 2, 'E'),   -- MC Classic       → no card qualifies
-    ('TEST0004', 4, 'A'),   -- MC Gold
-    ('TEST0004', 3, 'E'),   -- Visa Gold        → cards qualify, segment does not
-    ('TEST0005', 6, 'A'),   -- Platinum Plus Metal
-    ('TEST0005', 1, 'E')    -- Visa Classic
-) AS v (CustomerNumber, ProductId, CardType)
-JOIN CUSTOMER c ON c.CustomerNumber = v.CustomerNumber;
+SELECT CustomerId, ProductId, CardType, 1 FROM @Cards;
 
 -- ─────────────────────────────────────────────
 -- Transactions
 -- ─────────────────────────────────────────────
--- Two hundred rows spread over July 2026. Values are derived from the row number
--- rather than randomised, so the same script always produces the same data and a reward
--- total can be checked by hand.
+-- Fifteen hundred rows over the first of June to the end of August.
 --
--- Cards        cycle through all ten
--- Merchants    1 = Grande Cafe, 2 = Köfteci Yusuf, 3 = Opet
--- Codes        1 = Sale, 2 = Cash Advance, 3 = Debt Payment — mostly sales
--- Amounts      50.00 to 2000.00, so a 250.00 minimum excludes a real share of them
+-- Amounts are deliberately lopsided rather than evenly spread: most card spending is small
+-- and the large purchases are rare. An evenly spread set would make a 250 minimum look like
+-- it excludes half the table, when in a real portfolio it excludes far more.
+--
+--   60%  40 – 300      coffee, groceries, fuel
+--   28%  300 – 1 000   weekly shop, clothing
+--   10%  1 000 – 4 000 electronics, travel
+--    2%  4 000 – 15 000 white goods, furniture
+--
+-- Merchants: 1,2,12 restaurant · 3,4,5 fuel · 6,7,8 grocery · 9,10 electronics · 11 clothing
+-- Codes:     1 Satış · 2 Nakit Avans · 3 Borç Ödeme — sales dominate, as they do in life.
 
-DECLARE @Cards TABLE (Ordinal int, CardId int, CustomerId int);
+DECLARE @CardList TABLE (Ordinal int, CardId int, CustomerId int);
 
-INSERT INTO @Cards (Ordinal, CardId, CustomerId)
-SELECT ROW_NUMBER() OVER (ORDER BY cd.Id) - 1, cd.Id, cd.CustomerId
-FROM CARD cd
-JOIN CUSTOMER c ON c.Id = cd.CustomerId
-WHERE c.CustomerNumber LIKE 'TEST%';
+INSERT INTO @CardList (Ordinal, CardId, CustomerId)
+SELECT ROW_NUMBER() OVER (ORDER BY Id) - 1, Id, CustomerId FROM CARD;
 
-WITH Numbers AS (
-    SELECT TOP (200) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n
-    FROM sys.all_objects a
-    CROSS JOIN sys.all_objects b
-)
+DECLARE @CardCount int = (SELECT COUNT(*) FROM @CardList);
+
 INSERT INTO [TRANSACTION]
     (Rrn, CardId, CustomerId, MerchantId, TransactionCodeId, TransactionDate, Amount)
 SELECT
-    'TEST' + RIGHT('0000000' + CAST(n.n AS varchar(10)), 7),
+    -- Twelve digits, the shape a retrieval reference number takes.
+    CAST(600000000000 + (n * 137) AS varchar(24)),
     cd.CardId,
     cd.CustomerId,
-    (n.n % 3) + 1,
     CASE
-        WHEN n.n % 11 = 0 THEN 2   -- cash advance
-        WHEN n.n % 17 = 0 THEN 3   -- debt payment
-        ELSE 1                     -- sale
+        WHEN (n * 17) % 100 < 22 THEN 1 + ((n * 3) % 2)          -- restoran
+        WHEN (n * 17) % 100 < 30 THEN 12
+        WHEN (n * 17) % 100 < 55 THEN 3 + ((n * 5) % 3)          -- akaryakıt
+        WHEN (n * 17) % 100 < 85 THEN 6 + ((n * 7) % 3)          -- market
+        WHEN (n * 17) % 100 < 95 THEN 9 + ((n * 11) % 2)         -- elektronik
+        ELSE 11                                                   -- giyim
     END,
-    DATEADD(HOUR, (n.n * 13) % 719, '2026-07-01T00:00:00'),
-    CAST(50 + ((n.n * 37) % 1951) AS decimal(18, 2))
-FROM Numbers n
-JOIN @Cards cd ON cd.Ordinal = n.n % 10;
+    CASE
+        WHEN (n * 23) % 100 < 88 THEN 1                          -- satış
+        WHEN (n * 23) % 100 < 96 THEN 2                          -- nakit avans
+        ELSE 3                                                    -- borç ödeme
+    END,
+    DATEADD(MINUTE, (n * 883) % 132480, '2026-06-01T00:00:00'),
+    CAST(
+        CASE
+            WHEN (n * 29) % 100 < 60 THEN   40 + ((n * 37) % 261)
+            WHEN (n * 29) % 100 < 88 THEN  300 + ((n * 53) % 701)
+            WHEN (n * 29) % 100 < 98 THEN 1000 + ((n * 71) % 3001)
+            ELSE                          4000 + ((n * 91) % 11001)
+        END AS decimal(18, 2))
+FROM #N
+CROSS APPLY (SELECT CardId, CustomerId FROM @CardList WHERE Ordinal = n % @CardCount) cd
+WHERE n <= 1500;
+
+DROP TABLE #N;
 
 COMMIT TRANSACTION;
 
-PRINT 'Test data created.';
+PRINT 'Development data created.';
 GO
 
 -- ─────────────────────────────────────────────
 -- What was created
 -- ─────────────────────────────────────────────
 
-SELECT c.CustomerNumber,
-       s.SegmentName,
-       COUNT(DISTINCT cd.Id)  AS Cards,
-       COUNT(t.Id)            AS Transactions,
-       SUM(t.Amount)          AS TotalAmount
+SELECT 'Müşteri' AS Tablo, COUNT(*) AS Adet FROM CUSTOMER
+UNION ALL SELECT 'Kart', COUNT(*) FROM CARD
+UNION ALL SELECT 'İşlem', COUNT(*) FROM [TRANSACTION];
+
+SELECT s.SegmentName,
+       COUNT(*)                                              AS Musteri,
+       SUM(CASE WHEN c.Gender = 'E' THEN 1 ELSE 0 END)       AS Erkek,
+       SUM(CASE WHEN c.Gender = 'K' THEN 1 ELSE 0 END)       AS Kadin
 FROM CUSTOMER c
-LEFT JOIN SEGMENT s      ON s.Id = c.SegmentId
-LEFT JOIN CARD cd        ON cd.CustomerId = c.Id
-LEFT JOIN [TRANSACTION] t ON t.CardId = cd.Id
-WHERE c.CustomerNumber LIKE 'TEST%'
-GROUP BY c.CustomerNumber, s.SegmentName
-ORDER BY c.CustomerNumber;
+JOIN SEGMENT s ON s.Id = c.SegmentId
+GROUP BY s.SegmentName
+ORDER BY s.SegmentName;
 
--- Transactions that would qualify for the sample campaign in database-design.md:
--- sales over 250.00 at Opet, on Gold or better cards, for Farmers and Company Employees.
+SELECT p.ProductName, COUNT(*) AS Kart
+FROM CARD cd JOIN PRODUCT p ON p.Id = cd.ProductId
+GROUP BY p.ProductName
+ORDER BY COUNT(*) DESC;
 
-SELECT COUNT(*) AS QualifyingTransactions
-FROM [TRANSACTION] t
-JOIN CARD cd     ON cd.Id = t.CardId
-JOIN CUSTOMER c  ON c.Id = t.CustomerId
-WHERE t.Amount >= 250.00
-  AND t.MerchantId = 3            -- Opet
-  AND t.TransactionCodeId = 1     -- sale
-  AND cd.ProductId IN (3, 4, 5, 6)
-  AND c.SegmentId IN (2, 3)
-  AND t.TransactionDate >= '2026-07-01'
-  AND t.TransactionDate <  '2026-08-01';
+SELECT CASE
+           WHEN Amount <  300 THEN '1. 40 – 300'
+           WHEN Amount < 1000 THEN '2. 300 – 1.000'
+           WHEN Amount < 4000 THEN '3. 1.000 – 4.000'
+           ELSE                    '4. 4.000 +'
+       END                              AS TutarAraligi,
+       COUNT(*)                         AS Islem,
+       CAST(SUM(Amount) AS decimal(18,2)) AS Toplam
+FROM [TRANSACTION]
+GROUP BY CASE
+             WHEN Amount <  300 THEN '1. 40 – 300'
+             WHEN Amount < 1000 THEN '2. 300 – 1.000'
+             WHEN Amount < 4000 THEN '3. 1.000 – 4.000'
+             ELSE                    '4. 4.000 +'
+         END
+ORDER BY 1;
