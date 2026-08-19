@@ -1,8 +1,21 @@
-nav {
+/* The shell fills the viewport and never scrolls as a whole: the menu stays put and only
+   the content column moves, which is how the screen this replaces behaves. */
+.shell {
+  display: grid;
+  grid-template-columns: 15rem 1fr;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    'topbar  topbar'
+    'sidebar content'
+    'status  status';
+  height: 100vh;
+}
+
+.topbar {
+  grid-area: topbar;
   display: flex;
   align-items: center;
-  gap: 1.75rem;
-  padding: 0.9rem 1.75rem;
+  padding: 0.7rem 1.25rem;
   background: #ffcc00;
 }
 
@@ -13,22 +26,115 @@ nav {
   color: #14181f;
 }
 
-nav a {
+/* Sidebar */
+
+.sidebar {
+  grid-area: sidebar;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #d7dbe1;
+  background: #f7f8fa;
+  overflow-y: auto;
+  font-size: 0.82rem;
+}
+
+.menu-title {
+  padding: 0.5rem 0.85rem 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #8b919a;
+  border-bottom: 1px solid #e6e8ec;
+}
+
+.tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree ul {
+  list-style: none;
+  margin: 0;
+  /* Each level steps in, so depth is readable without drawing lines. */
+  padding-left: 0.85rem;
+}
+
+.tree li {
+  padding: 0.05rem 0;
+}
+
+.node,
+.tree a {
+  display: block;
+  padding: 0.22rem 0.85rem;
   color: #3c4149;
   text-decoration: none;
-  font-size: 0.88rem;
-  padding: 0.3rem 0.1rem;
-  border-bottom: 2px solid transparent;
+  border-left: 3px solid transparent;
 }
 
-nav a.active {
-  color: #14181f;
+.node.root {
   font-weight: 700;
-  border-bottom-color: #14181f;
+  color: #14181f;
 }
+
+/* Greyed rather than hidden: the tree then matches the real application, and it is obvious
+   at a glance which parts are not built yet. */
+.node.disabled {
+  color: #b0b5bd;
+  cursor: default;
+}
+
+.tree a:hover {
+  background: #eef0f3;
+  color: #14181f;
+}
+
+.tree a.active {
+  background: #fff7d6;
+  border-left-color: #ffcc00;
+  font-weight: 700;
+  color: #14181f;
+}
+
+
+/* Content */
 
 main {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 2rem 1.75rem;
+  grid-area: content;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem 2rem;
+  background: #fff;
+}
+
+/* Status bar */
+
+.statusbar {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.35rem 1.25rem;
+  border-top: 1px solid #d7dbe1;
+  background: #f7f8fa;
+  font-size: 0.72rem;
+  color: #8b919a;
+}
+
+.spacer {
+  flex: 1;
+}
+
+@media (max-width: 860px) {
+  .shell {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'topbar'
+      'content'
+      'status';
+  }
+
+  .sidebar {
+    display: none;
+  }
 }
