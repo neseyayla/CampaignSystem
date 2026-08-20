@@ -11,26 +11,33 @@
     <!-- ── Campaign header ──────────────────── -->
 
     <header class="campaign-header">
-      <div class="header-text">
+      <div class="title-area">
         <h1>Kampanyalar</h1>
+        <p>Kampanyalarınızı keşfedin ve kazançlarınızı takip edin.</p>
+      </div>
 
-        @if (rewards(); as summary) {
-          <p class="header-points">
-            <span class="points-star" aria-hidden="true">★</span>
+      @if (rewards(); as summary) {
+        <div class="points-card">
+          <div class="star-box" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2.8l2.8 5.67 6.26.91-4.53 4.42 1.07 6.24L12 17.1l-5.6 2.94
+                       1.07-6.24-4.53-4.42 6.26-.91L12 2.8z" />
+            </svg>
+          </div>
+
+          <div class="points-info">
             <span class="points-label">Toplam puanınız</span>
-            <span class="points-badge">{{ points(summary.totalRewardPoint) }}</span>
-            <span class="points-sep" aria-hidden="true">·</span>
-            <span class="points-note">
+            <span class="points-number">{{ points(summary.totalRewardPoint) }} <span>puan</span></span>
+            <span class="points-earned">
               @if (summary.campaigns.length === 0) {
                 henüz kazanılmadı
               } @else {
                 {{ summary.campaigns.length }} kampanyadan kazanıldı
               }
             </span>
-          </p>
-        }
-      </div>
-
+          </div>
+        </div>
+      }
     </header>
 
     <!-- ── Tab navbar ───────────────────────── -->
@@ -143,80 +150,124 @@
       } @else {
         <div class="grid">
           @for (detail of visible(); track detail.campaign.campaignId) {
-            <a class="tile" [routerLink]="['/kampanyalar', detail.campaign.campaignId]">
+            <div class="tile">
+              <a class="tile-link" [routerLink]="['/kampanyalar', detail.campaign.campaignId]">
 
-              <div class="cover {{ coverClass(detail.campaign) }}">
-                @if (detail.campaign.rewardPoint !== null) {
-                  <span class="cover-amount">{{ points(detail.campaign.rewardPoint) }}</span>
-                  <span class="cover-unit">puan / işlem</span>
-                } @else {
-                  <span class="cover-unit">Kampanya</span>
-                }
+                <div class="cover {{ coverClass(detail.campaign) }}">
+                  @if (detail.campaign.rewardPoint !== null) {
+                    <span class="cover-amount">{{ points(detail.campaign.rewardPoint) }}</span>
+                    <span class="cover-unit">puan / işlem</span>
+                  } @else {
+                    <span class="cover-unit">Kampanya</span>
+                  }
 
-                @if (detail.campaign.enrolled) {
-                  <span class="flag ok">Katıldınız</span>
-                } @else if (detail.campaign.enrollmentRequired) {
-                  <span class="flag">Katılım gerekir</span>
-                }
-              </div>
+                  @if (detail.campaign.enrolled) {
+                    <span class="flag ok">Katıldınız</span>
+                  } @else if (detail.campaign.enrollmentRequired) {
+                    <span class="flag">Katılım gerekir</span>
+                  }
+                </div>
 
-              <div class="body">
-                <h3>{{ detail.campaign.name }}</h3>
+                <div class="body">
+                  <h3>{{ detail.campaign.name }}</h3>
 
-                @if (detail.campaign.description) {
-                  <p class="desc">{{ detail.campaign.description }}</p>
-                }
+                  @if (detail.campaign.description) {
+                    <p class="desc">{{ detail.campaign.description }}</p>
+                  }
 
-                @if (isEarning(detail) && detail.campaign.hasStarted) {
-                  <div class="earned">
-                    <span class="amount">{{ points(detail.progress.totalRewardPoint) }}</span>
-                    <span class="unit">puan kazandınız</span>
-                    <span class="count-note">{{ qualifyingCount(detail) }} işlem</span>
-                  </div>
-
-                  <!-- Asked as "is there a ceiling" rather than "is the bar above zero", so
-                       a campaign nobody has earned from yet still shows what it can pay. -->
-                  @if (detail.campaign.maxRewardAmount !== null) {
-                    <div class="meter" [class.full]="capped(detail)">
-                      <div class="meter-fill" [style.width.%]="capPercent(detail)"></div>
+                  @if (isEarning(detail) && detail.campaign.hasStarted) {
+                    <div class="earned">
+                      <span class="amount">{{ points(detail.progress.totalRewardPoint) }}</span>
+                      <span class="unit">puan kazandınız</span>
+                      <span class="count-note">{{ qualifyingCount(detail) }} işlem</span>
                     </div>
 
-                    <p class="meter-note">
-                      @if (capped(detail)) {
-                        Üst sınıra ulaştınız
-                      } @else {
-                        En çok {{ points(detail.campaign.maxRewardAmount) }} puan
+                    <!-- Asked as "is there a ceiling" rather than "is the bar above zero", so
+                         a campaign nobody has earned from yet still shows what it can pay. -->
+                    @if (detail.campaign.maxRewardAmount !== null) {
+                      <div class="meter" [class.full]="capped(detail)">
+                        <div class="meter-fill" [style.width.%]="capPercent(detail)"></div>
+                      </div>
+
+                      <p class="meter-note">
+                        @if (capped(detail)) {
+                          Üst sınıra ulaştınız
+                        } @else {
+                          En çok {{ points(detail.campaign.maxRewardAmount) }} puan
+                        }
+                      </p>
+                    }
+                  }
+
+                  <div class="dates">
+                    @if (isEarning(detail) && !detail.campaign.hasStarted) {
+                      <p class="upcoming">{{ dayShort(detail.campaign.startDate) }} tarihinde başlıyor</p>
+                    }
+
+                    <p class="lastday">
+                      <span class="i" aria-hidden="true">i</span>
+                      Son gün {{ dayShort(detail.campaign.endDate) }}
+                      @if (detail.campaign.hasStarted && daysLeft(detail.campaign) >= 0) {
+                        <span class="left" [class.urgent]="daysLeft(detail.campaign) <= 7">
+                          · {{ daysLeft(detail.campaign) }} gün
+                        </span>
                       }
                     </p>
-                  }
-                } @else if (isEarning(detail)) {
-                  <p class="upcoming">{{ dayShort(detail.campaign.startDate) }} tarihinde başlıyor</p>
-                }
-
-                <div class="dates">
-                  <p class="lastday">
-                    <span class="i" aria-hidden="true">i</span>
-                    Son gün {{ dayShort(detail.campaign.endDate) }}
-                    @if (detail.campaign.hasStarted && daysLeft(detail.campaign) >= 0) {
-                      <span class="left" [class.urgent]="daysLeft(detail.campaign) <= 7">
-                        · {{ daysLeft(detail.campaign) }} gün
-                      </span>
-                    }
-                  </p>
-                  <p class="range">
-                    {{ day(detail.campaign.startDate) }} – {{ day(detail.campaign.endDate) }}
-                  </p>
+                    <p class="range">
+                      {{ day(detail.campaign.startDate) }} – {{ day(detail.campaign.endDate) }}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </a>
+              </a>
+
+              <!-- Join lives on the card itself for a campaign the customer could sign up for
+                   but has not. It sits outside the link so pressing it never navigates away. -->
+              @if (detail.campaign.enrollmentRequired && !detail.campaign.enrolled) {
+                <div class="join-area">
+                  @if (choosingCardFor() === detail.campaign.campaignId) {
+                    <div class="picker">
+                      <p class="picker-title">Hangi kartınızla katılmak istersiniz?</p>
+
+                      @if (cards().length === 0) {
+                        <p class="picker-empty">Kartlarınız yükleniyor…</p>
+                      } @else {
+                        <div class="card-list">
+                          @for (item of cards(); track item.card.id) {
+                            <button
+                              type="button"
+                              class="card-option"
+                              [disabled]="enrolling()"
+                              (click)="chooseCard(item.card.id)">
+                              <span class="product">{{ item.productName }}</span>
+                              <span class="kind">
+                                {{ item.card.cardType === 'Supplementary' ? 'Ek kart' : 'Asıl kart' }}
+                              </span>
+                            </button>
+                          }
+                        </div>
+                      }
+
+                      @if (enrollError()) {
+                        <div class="alert small">{{ enrollError() }}</div>
+                      }
+
+                      <button type="button" class="link" (click)="cancelCardPicker()">Vazgeç</button>
+                    </div>
+                  } @else {
+                    <button
+                      type="button"
+                      class="join"
+                      [disabled]="enrolling()"
+                      (click)="join(detail)">
+                      {{ enrolling() ? 'Katılıyor…' : 'Kampanyaya katıl' }}
+                    </button>
+                  }
+                </div>
+              }
+            </div>
           }
         </div>
       }
     }
-
-    <p class="footnote">
-      Kampanyalar kartlarınıza ve segmentinize göre listelenir.
-      Uygun olmadığınız kampanyalar burada görünmez.
-    </p>
   }
 </main>

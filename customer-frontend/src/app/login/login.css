@@ -86,30 +86,6 @@
   border-radius: 0.5rem;
 }
 
-.segments {
-  display: flex;
-  margin-bottom: 1.5rem;
-  border-radius: 0.375rem;
-  overflow: hidden;
-}
-
-.segments button {
-  flex: 1;
-  padding: 0.7rem 1rem;
-  border: 0;
-  background: #f4f6f9;
-  font: inherit;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.segments button.on {
-  background: var(--gold);
-  color: var(--ink);
-}
-
 label {
   margin-bottom: 0.4rem;
   font-size: 0.875rem;
@@ -195,8 +171,8 @@ input:disabled {
   padding: 0.85rem 1.25rem;
   border: 0;
   border-radius: 0.375rem;
-  background: #111;
-  color: #fff;
+  background: var(--gold);
+  color: var(--ink);
   font: inherit;
   font-size: 0.9375rem;
   font-weight: 700;
@@ -206,7 +182,7 @@ input:disabled {
 }
 
 .submit:hover:not(:disabled) {
-  background: #000;
+  background: #d9a404;
 }
 
 .submit:disabled {
