@@ -21,7 +21,7 @@ button,
 .button {
   padding: 0.5rem 1rem;
   border: 1px solid transparent;
-  border-radius: 0;
+  border-radius: 3px;
   background: #ffcc00;
   color: #14181f;
   font: inherit;
@@ -54,7 +54,7 @@ button:disabled {
 
 .card {
   border: 1px solid #e6e8ec;
-  border-radius: 0;
+  border-radius: 3px;
   overflow: hidden;
 }
 
@@ -99,7 +99,7 @@ tbody tr:hover td {
   display: inline-flex;
   align-items: center;
   padding: 0.2rem 0.6rem;
-  border-radius: 0;
+  border-radius: 3px;
   font-size: 0.78rem;
   font-weight: 600;
   background: #eceff3;

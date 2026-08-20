@@ -9,14 +9,54 @@
     'sidebar content'
     'status  status';
   height: 100vh;
+  transition: grid-template-columns 0.2s ease;
+}
+
+/* Collapsed: the menu column disappears and the content spans the whole width, so no empty
+   strip is left where the sidebar was. */
+.shell.menu-collapsed {
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    'topbar'
+    'content'
+    'status';
+}
+
+.shell.menu-collapsed .sidebar {
+  display: none;
 }
 
 .topbar {
   grid-area: topbar;
   display: flex;
   align-items: center;
+  gap: 0.9rem;
   padding: 0.7rem 1.25rem;
   background: #ffcc00;
+}
+
+/* Hamburger that toggles the side menu — a single crisp icon rather than stacked bars. */
+.menu-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #14181f;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.menu-toggle:hover {
+  background: rgb(20 24 31 / 10%);
+}
+
+.menu-toggle svg {
+  width: 22px;
+  height: 22px;
 }
 
 .brand {
@@ -24,6 +64,24 @@
   font-size: 0.95rem;
   letter-spacing: -0.01em;
   color: #14181f;
+}
+
+.signout {
+  margin-left: 0.85rem;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid rgb(20 24 31 / 25%);
+  border-radius: 0.4rem;
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #14181f;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.signout:hover {
+  background: rgb(20 24 31 / 8%);
 }
 
 /* Sidebar */
@@ -66,20 +124,11 @@
 
 .node,
 .tree a {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.28rem 0.85rem;
+  display: block;
+  padding: 0.22rem 0.85rem;
   color: #3c4149;
   text-decoration: none;
   border-left: 3px solid transparent;
-}
-
-/* Icons follow the row's text colour, so they light up with the active/hover state. */
-.nav-icon {
-  width: 1.05rem;
-  height: 1.05rem;
-  flex-shrink: 0;
 }
 
 .node.root {

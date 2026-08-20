@@ -1,9 +1,5 @@
 :host {
   display: block;
-
-  /* Wide enough to hold three columns of fields, capped so the labels do not drift far
-     from their inputs on a very wide monitor. */
-  max-width: 1400px;
 }
 
 h1 {
@@ -13,11 +9,14 @@ h1 {
 }
 
 section {
-  border: 1px solid #e6e8ec;
-  border-radius: 0;
+  border: 1px solid #e2e5ea;
+  border-radius: 3px;
   padding: 1.1rem 1.4rem 1.4rem;
-  margin-bottom: 1.1rem;
+  /* More air between sections, and a soft shadow so each one reads as its own panel rather
+     than blending into the next. */
+  margin-bottom: 1.6rem;
   background: #fff;
+  box-shadow: 0 2px 8px rgb(20 24 31 / 7%);
   overflow: hidden;
 }
 
@@ -37,6 +36,10 @@ h2 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem 1.25rem;
+
+  /* Top-aligned: a field with a helper line under it must not stretch its neighbours, so the
+     inputs across a row line up at the same height. */
+  align-items: start;
 }
 
 @media (max-width: 1200px) {
@@ -73,7 +76,7 @@ select,
 textarea {
   padding: 0.55rem 0.65rem;
   border: 1px solid #c9ced6;
-  border-radius: 0;
+  border-radius: 3px;
   font: inherit;
   font-size: 0.85rem;
 }
@@ -92,6 +95,17 @@ textarea {
   resize: vertical;
 }
 
+/* A single clean chevron in place of the browser's default arrow, which renders differently
+   (and often clumsily) across platforms. The field stays square. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7280' d='M1 1.5 6 6.5l5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  padding-right: 2rem;
+}
+
 small {
   color: #8b919a;
   font-size: 0.76rem;
@@ -105,7 +119,7 @@ small.error,
 .banner {
   border: 1px solid #f0c8c4;
   background: #fdf0ef;
-  border-radius: 0;
+  border-radius: 3px;
   padding: 0.6rem 0.8rem;
   font-size: 0.85rem;
   margin: 0 0 1rem;
@@ -113,7 +127,7 @@ small.error,
 
 .level {
   border: 1px solid #d7dbe1;
-  border-radius: 0;
+  border-radius: 3px;
   padding: 0.5rem 0.8rem 0.65rem;
   margin: 0;
   min-width: 0;
@@ -154,7 +168,7 @@ input[type='checkbox'] {
 
 button {
   padding: 0.6rem 1.3rem;
-  border-radius: 0;
+  border-radius: 3px;
   border: 1px solid transparent;
   background: #ffcc00;
   color: #14181f;

@@ -1,31 +1,32 @@
 <div class="field-label">
   {{ label() }}
   @if (selected().length > 0) {
-    <span class="count">· {{ selected().length }} seçili</span>
+    <span class="count">{{ selected().length }} seçili</span>
   }
 </div>
 
-<div class="chip-box-wrap">
-  <div class="chip-box">
+<!-- Behaves like a multi-select field: the whole control opens the list, and each selection
+     is a removable chip. -->
+<div class="picker" (click)="openModal()">
+  <div class="chips">
     @for (item of selectedItems(); track item.id) {
-      <div class="chip-row">
-        <button type="button" class="chip-remove" (click)="remove(item.id)" aria-label="Kaldır">×</button>
+      <span class="chip">
         <span class="code">{{ item.code }}</span>
-        <span class="name">{{ item.name }}</span>
-      </div>
+        <span class="chip-name">{{ item.name }}</span>
+        <button
+          type="button"
+          class="chip-x"
+          (click)="remove(item.id); $event.stopPropagation()"
+          aria-label="Kaldır">×</button>
+      </span>
     } @empty {
-      <div class="hint">Kısıt yok — tümü dahil</div>
+      <span class="placeholder">Kısıt yok — tümü dahil</span>
     }
   </div>
 
-  <!-- Anchored to the box rather than to the box's contents, so it stays reachable when the
-       list of selections scrolls. -->
-  <button
-    type="button"
-    class="list-btn"
-    (click)="openModal()"
-    title="Listeden seç"
-    aria-label="Listeden seç">⋯</button>
+  <span class="chev" aria-hidden="true">
+    <svg viewBox="0 0 12 8" width="12" height="8"><path fill="currentColor" d="M1 1.5 6 6.5l5-5"/></svg>
+  </span>
 </div>
 
 @if (open()) {
@@ -39,7 +40,7 @@
       <ul>
         @for (option of options(); track option.id) {
           <li>
-            <label>
+            <label [class.on]="isSelected(option.id)">
               <input
                 type="checkbox"
                 [checked]="isSelected(option.id)"

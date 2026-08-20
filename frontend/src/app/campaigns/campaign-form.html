@@ -30,7 +30,7 @@
       </label>
 
       <fieldset class="level">
-        <legend>Seviye</legend>
+        <legend>Kazanım Tipi</legend>
         <label class="radio">
           <input type="radio" formControlName="earningType" value="CardBased" />
           Kart Bazlı
@@ -39,7 +39,6 @@
           <input type="radio" formControlName="earningType" value="CustomerBased" />
           Müşteri Bazlı
         </label>
-        <small>Kart bazlıda her kart ayrı ödül kazanır, müşteri bazlıda kartlar tek ödülde toplanır.</small>
       </fieldset>
 
       <label class="wide">
@@ -71,7 +70,6 @@
       <label>
         <span>Maksimum Ödül</span>
         <input type="number" formControlName="maxRewardAmount" min="0" step="0.01" />
-        <small>Kart bazlı kampanyada kart başına, müşteri bazlıda müşteri başına uygulanır.</small>
       </label>
     </div>
   </section>

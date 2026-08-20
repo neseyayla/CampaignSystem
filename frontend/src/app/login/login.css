@@ -1,0 +1,115 @@
+/* Centered card on a plain ground, in the same yellow the rest of the staff screen uses. A
+   deliberately quiet screen: this is an internal tool, not a marketing page. */
+
+:host {
+  --yellow: #ffcc00;
+  --ink: #14181f;
+  --body: #4a5361;
+  --muted: #8b919a;
+  --line: #e2e5ea;
+
+  display: block;
+}
+
+.login {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  min-height: 100vh;
+  padding: 2rem 1.25rem;
+  background: #f4f5f7;
+}
+
+.card {
+  width: 100%;
+  max-width: 22rem;
+  padding: 2.25rem 2rem 2rem;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  box-shadow: 0 12px 40px rgb(20 24 31 / 8%);
+  text-align: center;
+}
+
+.logo {
+  height: auto;
+  margin-bottom: 1.5rem;
+}
+
+h1 {
+  margin: 0 0 1.75rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  text-align: left;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field span {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--body);
+}
+
+.field input {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #cfd4db;
+  border-radius: 0.5rem;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--ink);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.field input:focus {
+  outline: 0;
+  border-color: var(--yellow);
+  box-shadow: 0 0 0 3px rgb(255 204 0 / 30%);
+}
+
+.alert {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid #dc2626;
+  border-radius: 0 0.4rem 0.4rem 0;
+  background: #fef2f2;
+  font-size: 0.82rem;
+  color: #991b1b;
+}
+
+button {
+  margin-top: 0.25rem;
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--yellow);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+button:hover:not(:disabled) {
+  background: #f0c000;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
