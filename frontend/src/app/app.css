@@ -66,11 +66,20 @@
 
 .node,
 .tree a {
-  display: block;
-  padding: 0.22rem 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.28rem 0.85rem;
   color: #3c4149;
   text-decoration: none;
   border-left: 3px solid transparent;
+}
+
+/* Icons follow the row's text colour, so they light up with the active/hover state. */
+.nav-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
 }
 
 .node.root {
