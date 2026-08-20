@@ -1,0 +1,38 @@
+<div class="login">
+  <div class="card">
+    <img
+      class="logo"
+      src="logo-wide.png"
+      srcset="logo-wide.png 1x, logo-wide@2x.png 2x"
+      alt="VakıfBank"
+      width="150"
+    />
+
+    <h1>Kampanya Yönetimi</h1>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <label class="field">
+        <span>Personel ID</span>
+        <input
+          type="text"
+          formControlName="customerNumber"
+          autocomplete="username"
+          autofocus
+        />
+      </label>
+
+      <label class="field">
+        <span>Şifre</span>
+        <input type="password" formControlName="password" autocomplete="current-password" />
+      </label>
+
+      @if (error()) {
+        <p class="alert">{{ error() }}</p>
+      }
+
+      <button type="submit" [disabled]="submitting()">
+        {{ submitting() ? 'Giriş yapılıyor…' : 'Giriş' }}
+      </button>
+    </form>
+  </div>
+</div>
