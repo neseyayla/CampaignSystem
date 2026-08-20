@@ -8,14 +8,21 @@
 
     <ul class="tree">
       <li>
-        <span class="node root">Batch Kampanyalar</span>
+        <span class="node root">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          <span>Batch Kampanyalar</span>
+        </span>
         <ul>
           <li>
-            <a routerLink="/campaigns/new" routerLinkActive="active">Kampanya Tanım</a>
+            <a routerLink="/campaigns/new" routerLinkActive="active">
+              <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M12 11v6M9 14h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Kampanya Tanım</span>
+            </a>
           </li>
           <li>
             <a routerLink="/campaigns" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
-              Kampanya Listesi
+              <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <span>Kampanya Listesi</span>
             </a>
           </li>
         </ul>
