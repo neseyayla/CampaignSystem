@@ -29,6 +29,13 @@ public class AuthService(
     /// </summary>
     private const string RejectionMessage = "Müşteri numarası veya şifre hatalı.";
 
+    /// <summary>
+    /// The staff equivalent, worded for the admin sign-in where the field is a personnel id.
+    /// Like <see cref="RejectionMessage"/>, one and the same message for every kind of
+    /// failure so the endpoint cannot be used to tell which ids exist or carry the flag.
+    /// </summary>
+    private const string AdminRejectionMessage = "Personel ID veya şifre hatalı.";
+
     private readonly PasswordHasher<Customer> _hasher = new();
 
     public async Task<ServiceResult<LoginResultDto>> LoginAsync(
@@ -57,7 +64,41 @@ public class AuthService(
 
         return ServiceResult<LoginResultDto>.Success(new LoginResultDto
         {
-            Token = CreateToken(customer, expiresAt),
+            Token = CreateToken(customer, "Customer", expiresAt),
+            ExpiresAt = expiresAt,
+            CustomerNumber = customer.CustomerNumber
+        });
+    }
+
+    public async Task<ServiceResult<LoginResultDto>> AdminLoginAsync(
+        LoginDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var customer = await context.Customers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.CustomerNumber == dto.CustomerNumber, cancellationToken);
+
+        // A row that is not an admin is refused exactly like a wrong password, so an ordinary
+        // customer cannot tell from the response whether the account exists or simply lacks
+        // the admin flag — and can never obtain a staff token.
+        if (customer is null || !customer.IsActive || !customer.IsAdmin ||
+            string.IsNullOrEmpty(customer.PasswordHash))
+        {
+            return ServiceResult<LoginResultDto>.Invalid(AdminRejectionMessage);
+        }
+
+        var verification = _hasher.VerifyHashedPassword(customer, customer.PasswordHash, dto.Password);
+
+        if (verification == PasswordVerificationResult.Failed)
+        {
+            return ServiceResult<LoginResultDto>.Invalid(AdminRejectionMessage);
+        }
+
+        var expiresAt = DateTime.UtcNow.AddMinutes(options.Value.LifetimeMinutes);
+
+        return ServiceResult<LoginResultDto>.Success(new LoginResultDto
+        {
+            Token = CreateToken(customer, "Admin", expiresAt),
             ExpiresAt = expiresAt,
             CustomerNumber = customer.CustomerNumber
         });
@@ -118,7 +159,7 @@ public class AuthService(
 
     public string HashPassword(string password) => _hasher.HashPassword(new Customer(), password);
 
-    private string CreateToken(Customer customer, DateTime expiresAt)
+    private string CreateToken(Customer customer, string role, DateTime expiresAt)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.Value.SigningKey));
 
@@ -128,9 +169,9 @@ public class AuthService(
             new(ClaimTypes.NameIdentifier, customer.Id.ToString()),
             new(ClaimTypes.Name, customer.CustomerNumber),
 
-            // Marks this as a customer's token rather than a member of staff's, so the two
-            // cannot be used interchangeably once the staff side has tokens of its own.
-            new(ClaimTypes.Role, "Customer")
+            // "Customer" or "Admin". Marks which application the token was minted for so the
+            // two cannot be used interchangeably, and lets the staff endpoints demand "Admin".
+            new(ClaimTypes.Role, role)
         };
 
         var token = new JwtSecurityToken(

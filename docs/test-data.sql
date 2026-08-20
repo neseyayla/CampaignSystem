@@ -174,6 +174,20 @@ WHERE n <= 1500;
 UPDATE CUSTOMER
 SET PasswordHash = 'AQAAAAIAAYagAAAAEJFQXNYaIC1YsFJirJtMW9NYhciP2xIaiqkgVXxvIMOl7UgMCyyHioTSfbubY17Zlw==';
 
+-- ─────────────────────────────────────────────
+-- Admin
+-- ─────────────────────────────────────────────
+-- One customer is promoted to staff so the admin sign-in can be exercised. The staff
+-- application refuses every row without this flag, so only this one reaches it. Same 123456
+-- password as everyone else here.
+--
+-- DEVELOPMENT ONLY. In use, an admin is not an ordinary card holder wearing a flag; this is a
+-- throwaway convenience for the dev database.
+
+UPDATE CUSTOMER
+SET IsAdmin = 1
+WHERE Id = (SELECT MIN(Id) FROM CUSTOMER);
+
 DROP TABLE #N;
 
 COMMIT TRANSACTION;

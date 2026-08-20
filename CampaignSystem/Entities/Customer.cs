@@ -30,6 +30,13 @@ public class Customer
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>
+    /// Whether this row may sign in to the staff application. False for an ordinary card
+    /// holder; the admin sign-in refuses anyone without it, so the customer application and
+    /// the staff one draw on the same table without a customer ever reaching the staff side.
+    /// </summary>
+    public bool IsAdmin { get; set; }
+
     public Segment? Segment { get; set; }
 
     public ICollection<Card> Cards { get; set; } = [];
