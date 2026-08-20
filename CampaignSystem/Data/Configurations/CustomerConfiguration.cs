@@ -30,6 +30,12 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
             .HasMaxLength(200)
             .IsUnicode(false);
 
+        // Not null with a false default: a row is an ordinary customer unless it is deliberately
+        // made an admin, so a missing value can never be mistaken for permission.
+        builder.Property(x => x.IsAdmin)
+            .HasDefaultValue(false)
+            .IsRequired();
+
         builder.HasIndex(x => x.CustomerNumber).IsUnique();
 
         builder.HasOne(x => x.Segment)

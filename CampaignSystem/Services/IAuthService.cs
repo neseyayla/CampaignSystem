@@ -17,6 +17,17 @@ public interface IAuthService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Checks a staff member's credentials and issues an admin token.
+    ///
+    /// Identical to <see cref="LoginAsync"/> but refuses any row that is not flagged as an
+    /// admin, with the same single message, so a customer can neither obtain a staff token nor
+    /// learn from the response whether an account lacks the flag or does not exist at all.
+    /// </summary>
+    Task<ServiceResult<LoginResultDto>> AdminLoginAsync(
+        LoginDto dto,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gives a customer a password, or replaces the one they had. NotFound when no active
     /// customer carries that id.
     /// </summary>
