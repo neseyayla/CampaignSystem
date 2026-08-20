@@ -1,0 +1,222 @@
+<app-top-bar />
+
+<main class="page">
+
+  @if (loading()) {
+    <p class="state">Yükleniyor…</p>
+  } @else if (error()) {
+    <div class="alert">{{ error() }}</div>
+  } @else {
+
+    <!-- ── Campaign header ──────────────────── -->
+
+    <header class="campaign-header">
+      <div class="header-text">
+        <h1>Kampanyalar</h1>
+
+        @if (rewards(); as summary) {
+          <p class="header-points">
+            <span class="points-star" aria-hidden="true">★</span>
+            <span class="points-label">Toplam puanınız</span>
+            <span class="points-badge">{{ points(summary.totalRewardPoint) }}</span>
+            <span class="points-sep" aria-hidden="true">·</span>
+            <span class="points-note">
+              @if (summary.campaigns.length === 0) {
+                henüz kazanılmadı
+              } @else {
+                {{ summary.campaigns.length }} kampanyadan kazanıldı
+              }
+            </span>
+          </p>
+        }
+      </div>
+
+    </header>
+
+    <!-- ── Tab navbar ───────────────────────── -->
+
+    <nav class="campaign-nav">
+      <button
+        class="nav-tab"
+        [class.active]="tab() === 'all'"
+        (click)="tab.set('all')">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+        <span>Tümü</span>
+      </button>
+
+      <span class="nav-divider"></span>
+
+      <button
+        class="nav-tab"
+        [class.active]="tab() === 'joinable'"
+        (click)="tab.set('joinable')">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="8" width="18" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3 12h18M12 8v13M12 8S9 3 6.5 4.5 8 8 12 8zM12 8s3-5 5.5-3.5S16 8 12 8z" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></span>
+        <span>Uygun Kampanyalar</span>
+        @if (joinable().length > 0) {
+          <span class="nav-count">{{ joinable().length }}</span>
+        }
+      </button>
+
+      <span class="nav-divider"></span>
+
+      <button
+        class="nav-tab"
+        [class.active]="tab() === 'earning'"
+        (click)="tab.set('earning')">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M5 20c0-3.6 3.1-5.6 7-5.6s7 2 7 5.6" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></span>
+        <span>Katıldıklarım</span>
+        @if (earning().length > 0) {
+          <span class="nav-count">{{ earning().length }}</span>
+        }
+      </button>
+
+      <span class="nav-divider"></span>
+
+      <button
+        class="nav-tab"
+        [class.active]="tab() === 'earned'"
+        (click)="tab.set('earned')">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M6 4h12v4a6 6 0 0 1-12 0zM6 5H4v2a3 3 0 0 0 3 3M18 5h2v2a3 3 0 0 1-3 3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span>Kazandıklarım</span>
+      </button>
+
+      <span class="nav-divider"></span>
+
+      <div class="filter">
+        <button type="button" class="filter-button" (click)="sortOpen.set(!sortOpen())">
+          <span class="filter-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M6 12h12M9 17h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+          <span>Sırala &amp; Filtrele</span>
+        </button>
+
+        @if (sortOpen()) {
+          <div class="sort-menu" role="menu">
+            <span class="sort-head">Sırala</span>
+            <button type="button" [class.on]="sortBy() === 'end'" (click)="setSort('end')">
+              Bitiş tarihine göre
+            </button>
+            <button type="button" [class.on]="sortBy() === 'reward'" (click)="setSort('reward')">
+              Puana göre (yüksek)
+            </button>
+            <button type="button" [class.on]="sortBy() === 'name'" (click)="setSort('name')">
+              Ada göre (A–Z)
+            </button>
+          </div>
+        }
+      </div>
+    </nav>
+
+    <!-- ── Earned ───────────────────────────── -->
+
+    @if (tab() === 'earned') {
+      @if (rewards(); as summary) {
+        @if (summary.campaigns.length === 0) {
+          <p class="empty">Tamamlanan bir kampanyadan henüz puan kazanmadınız.</p>
+        } @else {
+          <ul class="history">
+            @for (line of summary.campaigns; track line.campaignId) {
+              <li>
+                <div class="history-text">
+                  <span class="history-name">{{ line.campaignName }}</span>
+                  <span class="history-date">
+                    {{ day(line.rewardDate) }} · {{ line.qualifyingCount }} işlem
+                  </span>
+                </div>
+
+                <span class="history-value">{{ points(line.totalRewardPoint) }}</span>
+              </li>
+            }
+          </ul>
+        }
+      }
+    } @else {
+
+      <!-- ── Grid ───────────────────────────── -->
+
+      @if (visible().length === 0) {
+        <p class="empty">
+          @switch (tab()) {
+            @case ('joinable') { Katılmanızı bekleyen bir kampanya yok. }
+            @case ('earning') { Şu anda size tanımlı bir kampanya yok. }
+            @default { Size uygun bir kampanya bulunamadı. }
+          }
+        </p>
+      } @else {
+        <div class="grid">
+          @for (detail of visible(); track detail.campaign.campaignId) {
+            <a class="tile" [routerLink]="['/kampanyalar', detail.campaign.campaignId]">
+
+              <div class="cover {{ coverClass(detail.campaign) }}">
+                @if (detail.campaign.rewardPoint !== null) {
+                  <span class="cover-amount">{{ points(detail.campaign.rewardPoint) }}</span>
+                  <span class="cover-unit">puan / işlem</span>
+                } @else {
+                  <span class="cover-unit">Kampanya</span>
+                }
+
+                @if (detail.campaign.enrolled) {
+                  <span class="flag ok">Katıldınız</span>
+                } @else if (detail.campaign.enrollmentRequired) {
+                  <span class="flag">Katılım gerekir</span>
+                }
+              </div>
+
+              <div class="body">
+                <h3>{{ detail.campaign.name }}</h3>
+
+                @if (detail.campaign.description) {
+                  <p class="desc">{{ detail.campaign.description }}</p>
+                }
+
+                @if (isEarning(detail) && detail.campaign.hasStarted) {
+                  <div class="earned">
+                    <span class="amount">{{ points(detail.progress.totalRewardPoint) }}</span>
+                    <span class="unit">puan kazandınız</span>
+                    <span class="count-note">{{ qualifyingCount(detail) }} işlem</span>
+                  </div>
+
+                  <!-- Asked as "is there a ceiling" rather than "is the bar above zero", so
+                       a campaign nobody has earned from yet still shows what it can pay. -->
+                  @if (detail.campaign.maxRewardAmount !== null) {
+                    <div class="meter" [class.full]="capped(detail)">
+                      <div class="meter-fill" [style.width.%]="capPercent(detail)"></div>
+                    </div>
+
+                    <p class="meter-note">
+                      @if (capped(detail)) {
+                        Üst sınıra ulaştınız
+                      } @else {
+                        En çok {{ points(detail.campaign.maxRewardAmount) }} puan
+                      }
+                    </p>
+                  }
+                } @else if (isEarning(detail)) {
+                  <p class="upcoming">{{ dayShort(detail.campaign.startDate) }} tarihinde başlıyor</p>
+                }
+
+                <div class="dates">
+                  <p class="lastday">
+                    <span class="i" aria-hidden="true">i</span>
+                    Son gün {{ dayShort(detail.campaign.endDate) }}
+                    @if (detail.campaign.hasStarted && daysLeft(detail.campaign) >= 0) {
+                      <span class="left" [class.urgent]="daysLeft(detail.campaign) <= 7">
+                        · {{ daysLeft(detail.campaign) }} gün
+                      </span>
+                    }
+                  </p>
+                  <p class="range">
+                    {{ day(detail.campaign.startDate) }} – {{ day(detail.campaign.endDate) }}
+                  </p>
+                </div>
+              </div>
+            </a>
+          }
+        </div>
+      }
+    }
+
+    <p class="footnote">
+      Kampanyalar kartlarınıza ve segmentinize göre listelenir.
+      Uygun olmadığınız kampanyalar burada görünmez.
+    </p>
+  }
+</main>

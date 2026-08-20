@@ -1,0 +1,174 @@
+:host {
+  --navy: #10233d;
+  --ink: #1a1a1a;
+  --muted: #6b7280;
+  --faint: #9aa5b1;
+  --line: #e8ecf1;
+  --gold: #ffb600;
+
+  display: block;
+}
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+
+.bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 0.7rem 1.5rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.logo {
+  display: block;
+  height: 1.35rem;
+  width: auto;
+}
+
+/* ── Account ──────────────────────────────────── */
+
+.account {
+  position: relative;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.3rem 0.5rem 0.3rem 0.35rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.trigger:hover,
+.trigger.on {
+  background: #f4f6f9;
+  border-color: var(--line);
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 50%;
+  background: var(--navy);
+  color: #fff;
+}
+
+.avatar svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.avatar.big {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.avatar.big svg {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+
+.num {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.chev {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+/* ── Menu ─────────────────────────────────────── */
+
+.menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  min-width: 13rem;
+  padding: 0.4rem;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.625rem;
+  box-shadow: 0 12px 32px rgb(16 35 61 / 12%);
+}
+
+.menu-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.6rem 0.75rem;
+}
+
+.menu-id {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.menu-label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+}
+
+.menu-num {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.menu button[role='menuitem'] {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.6rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: none;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu button[role='menuitem']:hover {
+  background: #f4f6f9;
+}
+
+.menu button.danger {
+  color: #b91c1c;
+}
+
+.menu-sep {
+  height: 1px;
+  margin: 0.35rem 0.3rem;
+  background: var(--line);
+}
