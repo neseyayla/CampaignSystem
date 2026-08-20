@@ -8,6 +8,12 @@ public interface ICustomerService
 
     Task<CustomerDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The customer's own details for their profile screen. Null when no active customer
+    /// carries that id.
+    /// </summary>
+    Task<CustomerProfileDto?> GetProfileAsync(int id, CancellationToken cancellationToken = default);
+
     Task<ServiceResult<CustomerDto>> CreateAsync(
         CreateCustomerDto dto,
         CancellationToken cancellationToken = default);

@@ -24,6 +24,12 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
             .IsUnicode(false)
             .IsRequired();
 
+        // Long enough for the hasher's output, which carries the format marker, the salt and
+        // the derived key together. Not unicode: the value is base64.
+        builder.Property(x => x.PasswordHash)
+            .HasMaxLength(200)
+            .IsUnicode(false);
+
         builder.HasIndex(x => x.CustomerNumber).IsUnique();
 
         builder.HasOne(x => x.Segment)
