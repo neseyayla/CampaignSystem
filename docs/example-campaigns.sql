@@ -1,14 +1,15 @@
 -- CampaignSystem — example campaigns
 --
--- Eight campaigns that between them exercise every criterion the system supports: the four
+-- Nine campaigns that between them exercise every criterion the system supports: the four
 -- junction tables, the two demographic filters on the campaign row, both earning levels,
 -- both campaign types, amount bounds and the reward cap. They are meant to be read as much
 -- as run — each one shows a different combination, including the rule that a criterion left
 -- unset places no restriction at all.
 --
--- Spread over three months so the campaign lifecycle is visible: the June and July ones have
--- finished and are ready for the batch, August is still running, and September has not
--- started. Dates are fixed rather than relative, so re-running gives the same picture.
+-- Spread over four months so the campaign lifecycle is visible: the June and July ones have
+-- finished and are ready for the batch, August is still running, one enrolment campaign is
+-- open for sign-ups, and September has not started. Dates are fixed rather than relative, so
+-- re-running gives the same picture.
 --
 -- Run after docs/test-data.sql: the criteria point at the seeded reference data and the
 -- periods line up with the transactions that script creates.
@@ -189,6 +190,30 @@ VALUES
 
 SET @Campaign = SCOPE_IDENTITY();
 INSERT INTO CAMPAIGN_SEGMENT (CampaignId, SegmentId) VALUES (@Campaign, 1);
+INSERT INTO CAMPAIGN_TRANSACTION_CODE (CampaignId, TransactionCodeId) VALUES (@Campaign, 1);
+
+-- ─────────────────────────────────────────────
+-- 9. Sonbahar — Restoran Kampanyası (katılıma açık)
+-- ─────────────────────────────────────────────
+-- The only campaign anyone can still sign up for. Number 6 is also SI but its period is over,
+-- so it can no longer be joined, and a customer looking at their own screen would see nothing
+-- to press without this one.
+--
+-- Left wide on purpose: no segment, no gender, no card type, so almost every customer is
+-- offered it. Card based, so signing up means choosing which card to sign up.
+
+INSERT INTO CAMPAIGN
+    (Name, Description, CampaignType, StartDate, EndDate, MinimumAmount, MaximumAmount,
+     RewardPoint, MaxRewardAmount, EarningType, Gender, CardType, Status, IsActive)
+VALUES
+    (N'Sonbahar Restoran Kampanyası',
+     N'Anlaşmalı restoranlarda 200 TL üzeri harcamalarda 25 puan. Katılım gerekli.',
+     'SI', '2026-08-15T00:00:00', '2026-10-31T23:59:59',
+     200.00, NULL, 25.00, 400.00, 'K', NULL, NULL, 'Ongoing', 1);
+
+SET @Campaign = SCOPE_IDENTITY();
+INSERT INTO CAMPAIGN_MERCHANT (CampaignId, MerchantId)
+VALUES (@Campaign, 1), (@Campaign, 2), (@Campaign, 12);
 INSERT INTO CAMPAIGN_TRANSACTION_CODE (CampaignId, TransactionCodeId) VALUES (@Campaign, 1);
 
 COMMIT TRANSACTION;

@@ -160,6 +160,20 @@ FROM #N
 CROSS APPLY (SELECT CardId, CustomerId FROM @CardList WHERE Ordinal = n % @CardCount) cd
 WHERE n <= 1500;
 
+-- ─────────────────────────────────────────────
+-- Passwords
+-- ─────────────────────────────────────────────
+-- Every customer here signs in with 123456.
+--
+-- DEVELOPMENT ONLY. One literal hash is reused for all fifty rows, which means they share a
+-- salt — acceptable for a set of throwaway records, and never how a real password is stored.
+-- In use, a password is set one customer at a time through
+--   PUT /api/customers/{id}/password
+-- which hashes it with its own salt. The clear value is never written anywhere.
+
+UPDATE CUSTOMER
+SET PasswordHash = 'AQAAAAIAAYagAAAAEJFQXNYaIC1YsFJirJtMW9NYhciP2xIaiqkgVXxvIMOl7UgMCyyHioTSfbubY17Zlw==';
+
 DROP TABLE #N;
 
 COMMIT TRANSACTION;
