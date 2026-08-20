@@ -9,8 +9,8 @@ import { AuthService } from '../services/auth.service';
  * Signing in, laid out like a retail bank's internet-banking entrance.
  *
  * A note on what this is: a demo of that flow, on localhost, under the developer's own name.
- * It borrows the shape of a bank login — the individual/commercial toggle, the confirmation
- * code, the security notices — but it is not, and must not be dressed up as, the real thing.
+ * It borrows the shape of a bank login — the confirmation code, the security notices — but it
+ * is not, and must not be dressed up as, the real thing.
  *
  * The confirmation code is a client-side check only. It keeps a casual script from hammering
  * the sign-in form, and it makes the screen feel complete, but it is not security: a real one
@@ -28,8 +28,6 @@ import { AuthService } from '../services/auth.service';
 export class Login {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
-
-  readonly segment = signal<'individual' | 'commercial'>('individual');
 
   readonly customerNumber = signal('');
   readonly password = signal('');

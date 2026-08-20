@@ -17,72 +17,102 @@ $line: #e8ebf1;
 /* ── Header ───────────────────────────────────── */
 
 .campaign-header {
-  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.25rem;
   padding: 0.5rem 0.25rem 1.75rem;
-  overflow: hidden;
 }
 
-.header-text {
-  position: relative;
-  z-index: 1;
-}
-
-.campaign-header h1 {
+.title-area h1 {
   margin: 0;
   font-size: 42px;
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -1.6px;
   color: $ink;
 }
 
-.header-points {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-  margin: 0.85rem 0 0;
+.title-area p {
+  margin: 0.55rem 0 0;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.2px;
+  color: #667085;
 }
 
-.points-star {
-  display: inline-flex;
+/* Points card ─── star badge + the customer's total, on its own panel to the right. */
+.points-card {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  gap: 0.9rem;
+  padding: 0.85rem 1.25rem;
+  background: #fff;
+  border: 1px solid $line;
+  border-radius: 16px;
+  box-shadow: 0 5px 18px rgba(60, 45, 10, 0.05);
+}
+
+.star-box {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
   background: $accent-soft;
   color: $accent-bright;
-  font-size: 16px;
+}
+
+.star-box svg {
+  width: 26px;
+  height: 26px;
+  fill: currentColor;
+}
+
+.points-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
 }
 
 .points-label {
-  font-size: 15px;
-  color: $body;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+  color: #667085;
 }
 
-.points-badge {
-  padding: 2px 12px;
-  border-radius: 999px;
-  background: $accent-soft;
-  color: $accent-deep;
-  font-size: 15px;
+.points-number {
+  font-size: 28px;
   font-weight: 700;
+  letter-spacing: -0.8px;
+  color: $ink;
   font-variant-numeric: tabular-nums;
+
+  span {
+    margin-left: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.2px;
+    color: #667085;
+  }
 }
 
-.points-sep {
-  color: #9aa5b1;
-}
-
-.points-note {
-  font-size: 14px;
+.points-earned {
+  font-size: 12.5px;
+  font-weight: 400;
+  letter-spacing: -0.1px;
   color: #7c889b;
 }
 
 @media (max-width: 40rem) {
-  .campaign-header h1 {
+  .title-area h1 {
     font-size: 32px;
+  }
+
+  .points-card {
+    width: 100%;
   }
 }
 
@@ -120,8 +150,9 @@ $line: #e8ebf1;
   background: transparent;
 
   color: $body;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 500;
+  letter-spacing: -0.03em;
 
   cursor: pointer;
 }
@@ -132,7 +163,7 @@ $line: #e8ebf1;
 
 .nav-tab.active {
   color: $accent;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .nav-tab.active::after {
@@ -206,8 +237,9 @@ $line: #e8ebf1;
   background: transparent;
 
   color: $body;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 500;
+  letter-spacing: -0.03em;
 
   cursor: pointer;
 }

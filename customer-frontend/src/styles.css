@@ -1,9 +1,26 @@
+/* Inter, self-hosted through @fontsource so the exact font ships with the app and renders the
+   same offline — not a bare font-family name hoping the OS has it. */
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+
 /* Page-wide defaults. Everything else lives with the component that uses it. */
 
 body {
   margin: 0;
   background: #f8fafc;
   color: #0f172a;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Form controls do not inherit the page font on their own, so Inter would stop at every
+   button and input without this. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }

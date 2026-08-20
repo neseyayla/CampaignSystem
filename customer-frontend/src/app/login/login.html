@@ -14,21 +14,6 @@
 
   <div class="columns">
     <form class="panel" (ngSubmit)="submit()">
-      <div class="segments">
-        <button
-          type="button"
-          [class.on]="segment() === 'individual'"
-          (click)="segment.set('individual')">
-          Bireysel
-        </button>
-        <button
-          type="button"
-          [class.on]="segment() === 'commercial'"
-          (click)="segment.set('commercial')">
-          Ticari
-        </button>
-      </div>
-
       <label for="number">Müşteri Numarası</label>
       <input
         id="number"
@@ -81,11 +66,6 @@
       <button type="submit" class="submit" [disabled]="busy()">
         {{ busy() ? 'GİRİŞ YAPILIYOR…' : 'GİRİŞ YAP' }}
       </button>
-
-      <p class="note">
-        Deneme girişi — müşteri <strong>10039595</strong>, şifre <strong>123456</strong>,
-        onay kodu kutudaki değer.
-      </p>
     </form>
   </div>
 </main>
