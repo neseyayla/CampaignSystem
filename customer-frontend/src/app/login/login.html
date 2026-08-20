@@ -1,0 +1,91 @@
+<header class="topbar">
+  <div class="topbar-inner">
+    <img
+      class="logo"
+      src="logo-wide.png"
+      srcset="logo-wide.png 1x, logo-wide@2x.png 2x"
+      alt="VakıfBank" />
+    <span class="lang">TR</span>
+  </div>
+</header>
+
+<main class="screen">
+  <h1 class="welcome">Hoş Geldiniz</h1>
+
+  <div class="columns">
+    <form class="panel" (ngSubmit)="submit()">
+      <div class="segments">
+        <button
+          type="button"
+          [class.on]="segment() === 'individual'"
+          (click)="segment.set('individual')">
+          Bireysel
+        </button>
+        <button
+          type="button"
+          [class.on]="segment() === 'commercial'"
+          (click)="segment.set('commercial')">
+          Ticari
+        </button>
+      </div>
+
+      <label for="number">Müşteri Numarası</label>
+      <input
+        id="number"
+        name="number"
+        type="text"
+        inputmode="numeric"
+        autocomplete="username"
+        placeholder="Müşteri Numaranızı Giriniz"
+        [ngModel]="customerNumber()"
+        (ngModelChange)="customerNumber.set($event)"
+        [disabled]="busy()" />
+
+      <label for="password">Şifreniz</label>
+      <input
+        id="password"
+        name="password"
+        type="password"
+        autocomplete="current-password"
+        placeholder="Şifrenizi Giriniz"
+        [ngModel]="password()"
+        (ngModelChange)="password.set($event)"
+        [disabled]="busy()" />
+
+      <label for="confirmation">Onay Kodu</label>
+      <div class="captcha-row">
+        <input
+          id="confirmation"
+          name="confirmation"
+          type="text"
+          autocomplete="off"
+          placeholder="Onay Kodu"
+          [ngModel]="confirmation()"
+          (ngModelChange)="confirmation.set($event)"
+          [disabled]="busy()" />
+
+        <span class="captcha" aria-hidden="true">{{ captcha() }}</span>
+
+        <button
+          type="button"
+          class="refresh"
+          title="Yeni kod"
+          (click)="refreshCaptcha()"
+          [disabled]="busy()">↻</button>
+      </div>
+
+      @if (error()) {
+        <p class="error">{{ error() }}</p>
+      }
+
+      <button type="submit" class="submit" [disabled]="busy()">
+        {{ busy() ? 'GİRİŞ YAPILIYOR…' : 'GİRİŞ YAP' }}
+      </button>
+
+      <p class="note">
+        Deneme girişi — müşteri <strong>10039595</strong>, şifre <strong>123456</strong>,
+        onay kodu kutudaki değer.
+      </p>
+    </form>
+  </div>
+</main>
