@@ -19,6 +19,15 @@ public class Customer
 
     public int? SegmentId { get; set; }
 
+    /// <summary>
+    /// PBKDF2 hash of the customer's password, salted per row.
+    ///
+    /// Null for a customer who has never been given one, and that is a refusal rather than
+    /// a gap: sign-in compares against this and a null can match nothing. The clear password
+    /// is never stored, never logged and never returned by any endpoint.
+    /// </summary>
+    public string? PasswordHash { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public Segment? Segment { get; set; }

@@ -12,7 +12,8 @@ namespace CampaignSystem.Services;
 /// </summary>
 public class CustomerService(
     IRepository<Customer> customers,
-    IRepository<Segment> segments) : ICustomerService
+    IRepository<Segment> segments,
+    IRepository<Card> cards) : ICustomerService
 {
     public async Task<List<CustomerDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -24,6 +25,35 @@ public class CustomerService(
     {
         var customer = await customers.GetByIdAsync(id);
         return customer is null || !customer.IsActive ? null : ToDto(customer);
+    }
+
+    public async Task<CustomerProfileDto?> GetProfileAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var customer = await customers.GetByIdAsync(id);
+
+        if (customer is null || !customer.IsActive)
+        {
+            return null;
+        }
+
+        // The segment is shown by name; a customer reads "Emekli", never "segment 5".
+        var segment = customer.SegmentId is null
+            ? null
+            : await segments.GetByIdAsync(customer.SegmentId.Value);
+
+        // Only the cards they can still spend on, matching what the campaigns screen counts.
+        var cardCount = (await cards.FindAsync(
+            c => c.CustomerId == id && c.IsActive, cancellationToken)).Count;
+
+        return new CustomerProfileDto
+        {
+            CustomerNumber = customer.CustomerNumber,
+            Gender = customer.Gender,
+            SegmentName = segment?.SegmentName,
+            CardCount = cardCount
+        };
     }
 
     public async Task<ServiceResult<CustomerDto>> CreateAsync(

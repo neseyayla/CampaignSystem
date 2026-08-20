@@ -6,7 +6,9 @@ namespace CampaignSystem.Controllers;
 
 [ApiController]
 [Route("api/customers")]
-public class CustomersController(ICustomerService customerService) : ControllerBase
+public class CustomersController(
+    ICustomerService customerService,
+    IAuthService authService) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType<List<CustomerDto>>(StatusCodes.Status200OK)]
@@ -61,6 +63,36 @@ public class CustomersController(ICustomerService customerService) : ControllerB
             ResultStatus.Success => NoContent(),
             ResultStatus.NotFound => NotFound(),
             ResultStatus.Invalid => BadRequest(result.Error),
+            _ => StatusCode(StatusCodes.Status500InternalServerError)
+        };
+    }
+
+    /// <summary>
+    /// Gives the customer a password, or replaces the one they had.
+    ///
+    /// A branch action, not the customer's own: this is how somebody who has never signed in
+    /// gets their first password, and how a forgotten one is reset. Only the hash is kept, so
+    /// there is no endpoint that reads a password back — a lost one can only be replaced.
+    ///
+    /// Unauthenticated for now, like the rest of the staff endpoints. That is not acceptable
+    /// beyond development: as it stands, anyone who can reach the API can set any customer's
+    /// password and then sign in as them.
+    /// </summary>
+    [HttpPut("{id:int}/password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetPassword(
+        int id,
+        SetPasswordDto dto,
+        CancellationToken cancellationToken)
+    {
+        var result = await authService.SetPasswordAsync(id, dto.Password, cancellationToken);
+
+        return result.Status switch
+        {
+            ResultStatus.Success => NoContent(),
+            ResultStatus.NotFound => NotFound(),
             _ => StatusCode(StatusCodes.Status500InternalServerError)
         };
     }
