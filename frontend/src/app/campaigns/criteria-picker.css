@@ -1,77 +1,258 @@
-fieldset {
-  border: 1px solid #d7dbe1;
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem 0.6rem;
-  margin: 0;
-  min-width: 0;
-}
-
-legend {
+.field-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
   font-size: 0.85rem;
   font-weight: 600;
   color: #3c4149;
-  padding: 0 0.25rem;
+  margin-bottom: 0.4rem;
 }
 
-ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 9.5rem;
+.field-label .count {
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: #e5f5ec;
+  color: #17643a;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* ── The field ────────────────────────────────── */
+
+/* A single control that reads as a multi-select: selections sit inside as chips and a chevron
+   marks it as openable. */
+.picker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.2rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid #c9ced6;
+  border-radius: 3px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.picker:hover {
+  border-color: #b0b6c0;
+}
+
+.picker:focus-within,
+.picker:active {
+  border-color: #ffcc00;
+  box-shadow: 0 0 0 3px rgb(255 204 0 / 25%);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: 0;
+  /* Beyond a few rows of chips the field scrolls rather than pushing the form down. */
+  max-height: 6.5rem;
   overflow-y: auto;
 }
 
-li label {
-  display: flex;
-  align-items: baseline;
-  gap: 0.45rem;
-  padding: 0.2rem 0;
-  font-size: 0.85rem;
-  cursor: pointer;
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.3rem 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #eef1f5;
+  font-size: 0.78rem;
+  color: #3c4149;
 }
 
-.code {
+.chip .code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-weight: 600;
+  color: #14181f;
+}
+
+.chip-name {
+  color: #5b616b;
+}
+
+.chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #8b919a;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.chip-x:hover {
+  background: #f6d6d3;
+  color: #b3261e;
+}
+
+.placeholder {
+  padding: 0.25rem 0.15rem;
+  color: #8b919a;
+  font-size: 0.82rem;
+}
+
+.chev {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-right: 0.25rem;
+  color: #8b919a;
+}
+
+/* ── Popup ────────────────────────────────────── */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(20 24 31 / 45%);
+  z-index: 100;
+}
+
+.modal {
+  width: 100%;
+  max-width: 26rem;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgb(20 24 31 / 25%);
+}
+
+.modal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.modal h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #14181f;
+}
+
+.modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: none;
+  border-radius: 0.4rem;
+  background: none;
+  color: #5b616b;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.modal-close:hover {
+  background: #f0f2f5;
+  color: #14181f;
+}
+
+.modal ul {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem;
+  overflow-y: auto;
+}
+
+.modal li label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.modal li label:hover {
+  background: #f7f8fa;
+}
+
+/* A picked row is tinted, so the selection is legible without hunting for ticked boxes. */
+.modal li label.on {
+  background: #fff7d6;
+}
+
+.modal input[type='checkbox'] {
+  accent-color: #ffcc00;
+  width: 1rem;
+  height: 1rem;
+}
+
+.modal .code {
   font-family: ui-monospace, Consolas, monospace;
   color: #14181f;
   min-width: 3.5rem;
 }
 
-.name {
+.modal .name {
   color: #5b616b;
 }
 
-.empty {
+.modal .empty {
   font-size: 0.85rem;
   color: #8b919a;
-  padding: 0.4rem 0;
+  padding: 0.5rem 0.6rem;
 }
 
-footer {
+.modal footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  margin-top: 0.4rem;
-  padding-top: 0.4rem;
+  padding: 0.8rem 1.1rem;
   border-top: 1px solid #eef0f3;
-  font-size: 0.75rem;
 }
 
-.hint {
-  color: #8b919a;
-}
-
-.count {
+.modal .count {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: #e5f5ec;
   color: #17643a;
   font-weight: 600;
+  font-size: 0.75rem;
 }
 
-footer button {
-  border: none;
-  background: none;
-  color: #5b616b;
+.done-btn {
+  padding: 0.5rem 1.1rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  background: #ffcc00;
+  color: #14181f;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
   cursor: pointer;
-  text-decoration: underline;
-  font-size: 0.75rem;
-  padding: 0;
+  transition: background 0.15s ease;
+}
+
+.done-btn:hover {
+  background: #f0c000;
 }

@@ -1,13 +1,13 @@
-import { Component, input, model } from '@angular/core';
+import { Component, computed, input, model, signal } from '@angular/core';
 
 import { LookupOption } from '../models/lookup';
 
 /**
  * A multi-select list of reference values, used for all four criteria dimensions.
  *
- * The lists are short — five segments, six products, a handful of merchants — so every
- * option is shown at once rather than hidden behind a dropdown. That mirrors the screen this
- * replaces, where the whole list is visible and ticking one is a single click.
+ * Selected options show as removable chips in a box on the form itself; the full option
+ * list only appears in a popup, opened with "Listele", so the form stays short even when
+ * a dimension has many options.
  */
 @Component({
   selector: 'app-criteria-picker',
@@ -22,6 +22,13 @@ export class CriteriaPicker {
   // stay in step without wiring an event by hand.
   readonly selected = model<number[]>([]);
 
+  protected readonly open = signal(false);
+
+  protected readonly selectedItems = computed(() => {
+    const ids = this.selected();
+    return this.options().filter(option => ids.includes(option.id));
+  });
+
   protected isSelected(id: number): boolean {
     return this.selected().includes(id);
   }
@@ -32,7 +39,15 @@ export class CriteriaPicker {
     this.selected.set(checked ? [...current, id] : current.filter(x => x !== id));
   }
 
-  protected clear(): void {
-    this.selected.set([]);
+  protected remove(id: number): void {
+    this.selected.set(this.selected().filter(x => x !== id));
+  }
+
+  protected openModal(): void {
+    this.open.set(true);
+  }
+
+  protected closeModal(): void {
+    this.open.set(false);
   }
 }

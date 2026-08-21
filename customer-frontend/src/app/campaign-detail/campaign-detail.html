@@ -1,0 +1,137 @@
+<app-top-bar />
+
+<main class="page">
+  <a class="back" routerLink="/kampanyalar">
+    <span aria-hidden="true">←</span> Kampanyalar
+  </a>
+
+  @if (loading()) {
+    <p class="state">Yükleniyor…</p>
+  } @else if (notFound() || !detail()) {
+    <div class="alert">Kampanya bulunamadı.</div>
+  } @else if (detail(); as d) {
+
+    <article class="detail-card">
+      <div class="cover {{ coverClass() }}">
+        @if (d.campaign.rewardPoint !== null) {
+          <span class="cover-amount">{{ points(d.campaign.rewardPoint) }}</span>
+          <span class="cover-unit">puan / işlem</span>
+        } @else {
+          <span class="cover-unit">Kampanya</span>
+        }
+
+        @if (d.campaign.enrolled) {
+          <span class="flag ok">Katıldınız</span>
+        } @else if (d.campaign.enrollmentRequired) {
+          <span class="flag">Katılım gerekir</span>
+        }
+      </div>
+
+      <div class="body">
+        <h1>{{ d.campaign.name }}</h1>
+
+        @if (d.campaign.description) {
+          <p class="desc">{{ d.campaign.description }}</p>
+        }
+
+        <!-- ── Dates ────────────────────────── -->
+        <div class="date-row">
+          <div class="date">
+            <span class="date-label">Başlangıç</span>
+            <span class="date-value">{{ day(d.campaign.startDate) }}</span>
+          </div>
+          <span class="date-arrow" aria-hidden="true">→</span>
+          <div class="date">
+            <span class="date-label">Bitiş</span>
+            <span class="date-value">{{ day(d.campaign.endDate) }}</span>
+          </div>
+
+          @if (d.campaign.hasStarted && daysLeft() >= 0) {
+            <span class="days" [class.urgent]="daysLeft() <= 7">{{ daysLeft() }} gün kaldı</span>
+          } @else if (!d.campaign.hasStarted) {
+            <span class="days upcoming">Henüz başlamadı</span>
+          }
+        </div>
+
+        <!-- ── Terms ────────────────────────── -->
+        @if (terms().length > 0) {
+          <section class="block">
+            <h2>Kampanya Koşulları</h2>
+            <ul class="terms">
+              @for (term of terms(); track term) {
+                <li>{{ term }}</li>
+              }
+            </ul>
+          </section>
+        }
+
+        <!-- ── Progress ─────────────────────── -->
+        @if ((!d.campaign.enrollmentRequired || d.campaign.enrolled) && d.campaign.hasStarted) {
+          <section class="block">
+            <h2>Durumum</h2>
+            <div class="progress">
+              <div class="progress-line">
+                <span class="earned-value">{{ points(d.progress.totalRewardPoint) }}</span>
+                <span class="earned-unit">puan kazandınız</span>
+                <span class="count-note">{{ qualifyingCount() }} işlem sayıldı</span>
+              </div>
+
+              @if (d.campaign.maxRewardAmount !== null) {
+                <div class="meter" [class.full]="capped()">
+                  <div class="meter-fill" [style.width.%]="capPercent()"></div>
+                </div>
+                <p class="meter-note">
+                  @if (capped()) {
+                    Üst sınıra ulaştınız
+                  } @else {
+                    En çok {{ points(d.campaign.maxRewardAmount) }} puan kazanabilirsiniz
+                  }
+                </p>
+              }
+            </div>
+          </section>
+        } @else if (!d.campaign.hasStarted) {
+          <p class="upcoming-note">{{ day(d.campaign.startDate) }} tarihinde başlıyor.</p>
+        }
+
+        <!-- ── Join ─────────────────────────── -->
+        @if (d.campaign.enrollmentRequired && !d.campaign.enrolled) {
+          @if (choosingCard()) {
+            <div class="picker">
+              <p class="picker-title">Hangi kartınızla katılmak istersiniz?</p>
+
+              @if (cards().length === 0) {
+                <p class="picker-empty">Kartlarınız yükleniyor…</p>
+              } @else {
+                <div class="card-list">
+                  @for (item of cards(); track item.card.id) {
+                    <button
+                      type="button"
+                      class="card-option"
+                      [disabled]="enrolling()"
+                      (click)="chooseCard(item.card.id)">
+                      <span class="product">{{ item.productName }}</span>
+                      <span class="kind">
+                        {{ item.card.cardType === 'Supplementary' ? 'Ek kart' : 'Asıl kart' }}
+                      </span>
+                    </button>
+                  }
+                </div>
+              }
+
+              <button type="button" class="link" (click)="cancelCardPicker()">Vazgeç</button>
+            </div>
+          } @else {
+            <button type="button" class="join" [disabled]="enrolling()" (click)="join()">
+              {{ enrolling() ? 'Katılıyor…' : 'Kampanyaya katıl' }}
+            </button>
+          }
+
+          @if (enrollError()) {
+            <div class="alert small">{{ enrollError() }}</div>
+          }
+        }
+      </div>
+    </article>
+  }
+</main>

@@ -1,9 +1,12 @@
+using System.Text;
 using System.Text.Json.Serialization;
 using CampaignSystem.Configuration;
 using CampaignSystem.Data;
 using CampaignSystem.Repositories;
 using CampaignSystem.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,6 +51,43 @@ builder.Services.Configure<RewardCalculationOptions>(
 builder.Services.Configure<DailyBatchOptions>(
     builder.Configuration.GetSection(DailyBatchOptions.SectionName));
 
+builder.Services.Configure<JwtOptions>(
+    builder.Configuration.GetSection(JwtOptions.SectionName));
+
+// The signing key follows the same rule as the connection string: User Secrets in
+// development, an environment variable elsewhere, an empty placeholder in appsettings.json.
+// Anyone holding it can mint a token for any customer, so the application refuses to start
+// without one rather than falling back to something predictable.
+var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
+
+if (string.IsNullOrWhiteSpace(jwt.SigningKey))
+{
+    throw new InvalidOperationException(
+        "Jwt:SigningKey is not configured. In development, set it with: " +
+        "dotnet user-secrets set \"Jwt:SigningKey\" \"<at least 32 characters>\" --project CampaignSystem");
+}
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwt.Issuer,
+            ValidAudience = jwt.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
+
+            // No grace period on expiry. The default five minutes would keep a token working
+            // after the screen has already signed the customer out.
+            ClockSkew = TimeSpan.Zero
+        };
+    });
+
+builder.Services.AddAuthorization();
+
 builder.Services.AddHostedService<DailyBatchHostedService>();
 
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
@@ -63,6 +103,8 @@ builder.Services.AddScoped<ISegmentService, SegmentService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IMerchantService, MerchantService>();
 builder.Services.AddScoped<ITransactionCodeService, TransactionCodeService>();
+builder.Services.AddScoped<ICustomerCampaignService, CustomerCampaignService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 
 
@@ -98,6 +140,7 @@ app.UseCors("AllowSwagger"); // <-- Buraya ekleyin
 
 
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Configure the HTTP request pipeline.
@@ -112,8 +155,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-app.UseAuthorization();
 
 app.MapControllers();
 

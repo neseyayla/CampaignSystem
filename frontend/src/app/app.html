@@ -1,8 +1,53 @@
-<nav>
-  <span class="brand">CampaignSystem</span>
-  <a routerLink="/campaigns" routerLinkActive="active">Campaigns</a>
-</nav>
+@if (signedIn()) {
+  <div class="shell" [class.menu-collapsed]="!menuOpen()">
+    <header class="topbar">
+      <button
+        type="button"
+        class="menu-toggle"
+        (click)="toggleMenu()"
+        [attr.aria-expanded]="menuOpen()"
+        aria-label="Menüyü aç/kapat"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round">
+          <path d="M4 7h16M4 12h16M4 17h16" />
+        </svg>
+      </button>
+      <span class="brand">Kampanya Sistemi</span>
+      <span class="spacer"></span>
+      <button type="button" class="signout" (click)="signOut()">Çıkış</button>
+    </header>
 
-<main>
+    <nav class="sidebar">
+      <div class="menu-title">MENÜ</div>
+
+      <ul class="tree">
+        <li>
+          <span class="node root">Batch Kampanyalar</span>
+          <ul>
+            <li>
+              <a routerLink="/campaigns/new" routerLinkActive="active">Kampanya Tanım</a>
+            </li>
+            <li>
+              <a routerLink="/campaigns" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+                Kampanya Listesi
+              </a>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+
+    <main>
+      <router-outlet />
+    </main>
+
+    <footer class="statusbar">
+      <span>KULLANICI/SİSTEM BİLGİLERİ</span>
+      <span class="spacer"></span>
+      <span>API: {{ apiBaseUrl }}</span>
+    </footer>
+  </div>
+} @else {
   <router-outlet />
-</main>
+}

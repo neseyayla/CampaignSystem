@@ -285,6 +285,16 @@ namespace CampaignSystem.Data.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsAdmin")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
                     b.Property<int?>("SegmentId")
                         .HasColumnType("int");
 
@@ -333,21 +343,84 @@ namespace CampaignSystem.Data.Migrations
                             Id = 1,
                             IsActive = true,
                             MerchantName = "Grande Cafe",
-                            MerchantNumber = "000145"
+                            MerchantNumber = "300145782"
                         },
                         new
                         {
                             Id = 2,
                             IsActive = true,
                             MerchantName = "Köfteci Yusuf",
-                            MerchantNumber = "000912"
+                            MerchantNumber = "300912467"
+                        },
+                        new
+                        {
+                            Id = 12,
+                            IsActive = true,
+                            MerchantName = "Big Chefs",
+                            MerchantNumber = "300558214"
                         },
                         new
                         {
                             Id = 3,
                             IsActive = true,
                             MerchantName = "Opet",
-                            MerchantNumber = "000874"
+                            MerchantNumber = "410874193"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            IsActive = true,
+                            MerchantName = "Shell",
+                            MerchantNumber = "410336729"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            IsActive = true,
+                            MerchantName = "Petrol Ofisi",
+                            MerchantNumber = "410771056"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            IsActive = true,
+                            MerchantName = "Migros",
+                            MerchantNumber = "520419863"
+                        },
+                        new
+                        {
+                            Id = 7,
+                            IsActive = true,
+                            MerchantName = "BİM",
+                            MerchantNumber = "520684137"
+                        },
+                        new
+                        {
+                            Id = 8,
+                            IsActive = true,
+                            MerchantName = "A101",
+                            MerchantNumber = "520297540"
+                        },
+                        new
+                        {
+                            Id = 9,
+                            IsActive = true,
+                            MerchantName = "Teknosa",
+                            MerchantNumber = "610853024"
+                        },
+                        new
+                        {
+                            Id = 10,
+                            IsActive = true,
+                            MerchantName = "Vatan Bilgisayar",
+                            MerchantNumber = "610140678"
+                        },
+                        new
+                        {
+                            Id = 11,
+                            IsActive = true,
+                            MerchantName = "LC Waikiki",
+                            MerchantNumber = "710962385"
                         });
                 });
 
@@ -447,31 +520,31 @@ namespace CampaignSystem.Data.Migrations
                         {
                             Id = 1,
                             SegmentCode = "OGR",
-                            SegmentName = "Student"
+                            SegmentName = "Öğrenci"
                         },
                         new
                         {
                             Id = 2,
                             SegmentCode = "PER",
-                            SegmentName = "Company Employee"
+                            SegmentName = "Şirket Çalışanı"
                         },
                         new
                         {
                             Id = 3,
                             SegmentCode = "CFT",
-                            SegmentName = "Farmer"
+                            SegmentName = "Çiftçi"
                         },
                         new
                         {
                             Id = 4,
                             SegmentCode = "EVH",
-                            SegmentName = "Homemaker"
+                            SegmentName = "Ev Hanımı"
                         },
                         new
                         {
                             Id = 5,
                             SegmentCode = "EMK",
-                            SegmentName = "Retiree"
+                            SegmentName = "Emekli"
                         });
                 });
 
@@ -554,19 +627,19 @@ namespace CampaignSystem.Data.Migrations
                         {
                             Id = 1,
                             Code = "SA",
-                            Name = "Sale"
+                            Name = "Satış"
                         },
                         new
                         {
                             Id = 2,
                             Code = "NA",
-                            Name = "Cash Advance"
+                            Name = "Nakit Avans"
                         },
                         new
                         {
                             Id = 3,
                             Code = "OD",
-                            Name = "Debt Payment"
+                            Name = "Borç Ödeme"
                         });
                 });
 

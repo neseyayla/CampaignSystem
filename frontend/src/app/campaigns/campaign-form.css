@@ -1,29 +1,51 @@
+:host {
+  display: block;
+}
+
 h1 {
-  font-size: 1.25rem;
-  margin: 0 0 1.25rem;
+  font-size: 1.4rem;
+  margin: 0 0 1.5rem;
+  letter-spacing: -0.01em;
 }
 
 section {
-  border: 1px solid #e6e8ec;
-  border-radius: 6px;
-  padding: 1rem 1.25rem 1.25rem;
-  margin-bottom: 1rem;
+  border: 1px solid #e2e5ea;
+  border-radius: 3px;
+  padding: 1.1rem 1.4rem 1.4rem;
+  /* More air between sections, and a soft shadow so each one reads as its own panel rather
+     than blending into the next. */
+  margin-bottom: 1.6rem;
   background: #fff;
+  box-shadow: 0 2px 8px rgb(20 24 31 / 7%);
+  overflow: hidden;
 }
 
 h2 {
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 0.78rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: #5b616b;
-  margin: 0 0 1rem;
+  margin: -1.1rem -1.4rem 1.1rem;
+  padding: 0.75rem 1.4rem;
+  background: #fffbe8;
+  border-bottom: 1px solid #e6e8ec;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem 1.25rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem 1.25rem;
+
+  /* Top-aligned: a field with a helper line under it must not stretch its neighbours, so the
+     inputs across a row line up at the same height. */
+  align-items: start;
+}
+
+@media (max-width: 1200px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .grid.amounts {
@@ -38,13 +60,13 @@ h2 {
 label {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.35rem;
   font-size: 0.85rem;
 }
 
 label > span {
   color: #3c4149;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 input[type='text'],
@@ -52,20 +74,41 @@ input[type='date'],
 input[type='number'],
 select,
 textarea {
-  padding: 0.45rem 0.55rem;
+  padding: 0.55rem 0.65rem;
   border: 1px solid #c9ced6;
-  border-radius: 4px;
+  border-radius: 3px;
   font: inherit;
   font-size: 0.85rem;
+}
+
+input[type='text']:focus,
+input[type='date']:focus,
+input[type='number']:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #ffcc00;
+  box-shadow: 0 0 0 3px #ffcc0033;
 }
 
 textarea {
   resize: vertical;
 }
 
+/* A single clean chevron in place of the browser's default arrow, which renders differently
+   (and often clumsily) across platforms. The field stays square. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7280' d='M1 1.5 6 6.5l5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  padding-right: 2rem;
+}
+
 small {
   color: #8b919a;
-  font-size: 0.75rem;
+  font-size: 0.76rem;
 }
 
 small.error,
@@ -76,7 +119,7 @@ small.error,
 .banner {
   border: 1px solid #f0c8c4;
   background: #fdf0ef;
-  border-radius: 4px;
+  border-radius: 3px;
   padding: 0.6rem 0.8rem;
   font-size: 0.85rem;
   margin: 0 0 1rem;
@@ -84,51 +127,60 @@ small.error,
 
 .level {
   border: 1px solid #d7dbe1;
-  border-radius: 6px;
-  padding: 0.4rem 0.75rem 0.6rem;
+  border-radius: 3px;
+  padding: 0.5rem 0.8rem 0.65rem;
   margin: 0;
   min-width: 0;
 }
 
 .level legend {
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
   color: #3c4149;
-  padding: 0 0.25rem;
+  padding: 0 0.3rem;
 }
 
 .radio {
   flex-direction: row;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
   font-weight: 400;
+}
+
+input[type='radio'],
+input[type='checkbox'] {
+  accent-color: #ffcc00;
 }
 
 .pickers {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.25rem;
 }
 
-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.6rem;
+@media (max-width: 1200px) {
+  .pickers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
+
+
 button {
-  padding: 0.5rem 1.1rem;
-  border-radius: 4px;
+  padding: 0.6rem 1.3rem;
+  border-radius: 3px;
   border: 1px solid transparent;
-  background: #14181f;
-  color: #fff;
+  background: #ffcc00;
+  color: #14181f;
   font-size: 0.85rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
 button.secondary {
   background: #fff;
   color: #3c4149;
+  font-weight: 500;
   border-color: #c9ced6;
 }
 
@@ -142,4 +194,82 @@ button:disabled {
   .pickers {
     grid-template-columns: 1fr;
   }
+}
+
+/* Gender and card type sit above the criteria lists: they narrow the same dimension —
+   who the campaign reaches — so they belong in that section rather than in General. */
+.grid.demographics {
+  margin-bottom: 1.25rem;
+}
+
+/* Screen head */
+
+.screen-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.record {
+  font-size: 0.8rem;
+  color: #5b616b;
+}
+
+.record.new {
+  color: #8b919a;
+  font-style: italic;
+}
+
+.notice.banner {
+  border: 1px solid #cfe6d6;
+  background: #f0f9f3;
+  color: #17643a;
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.destructive {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* A bordered button rather than an underlined link: deleting a campaign is a real action
+   and should not read as a footnote. */
+footer .delete-btn {
+  border: 1px solid #e6b3ae;
+  background: #fff;
+  color: #b3261e;
+}
+
+footer .delete-btn:hover:not(:disabled) {
+  background: #fdf0ef;
+}
+
+.confirm-text {
+  font-size: 0.85rem;
+  color: #b3261e;
+  font-weight: 600;
+}
+
+/* Filled red only on the button that actually deletes. */
+footer .danger {
+  border: 1px solid #b3261e;
+  background: #b3261e;
+  color: #fff;
+  font-weight: 600;
+}
+
+footer .danger:hover:not(:disabled) {
+  background: #8f1e18;
 }
