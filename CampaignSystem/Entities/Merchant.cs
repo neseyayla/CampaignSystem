@@ -14,6 +14,10 @@ public class Merchant
 
     public bool IsActive { get; set; } = true;
 
+    public int MerchantCategoryId { get; set; }
+
+    public MerchantCategory MerchantCategory { get; set; } = null!;
+
     public ICollection<Transaction> Transactions { get; set; } = [];
 
     public ICollection<CampaignMerchant> CampaignMerchants { get; set; } = [];

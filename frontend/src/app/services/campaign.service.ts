@@ -3,7 +3,13 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { API_BASE_URL } from '../api-config';
-import { Campaign, CampaignCriteria, CreateCampaign, UpdateCampaign } from '../models/campaign';
+import {
+  Campaign,
+  CampaignCondition,
+  CampaignCriteria,
+  CreateCampaign,
+  UpdateCampaign
+} from '../models/campaign';
 
 /**
  * Everything the application knows about talking to the campaign endpoints.
@@ -53,5 +59,22 @@ export class CampaignService {
    */
   setCriteria(id: number, criteria: CampaignCriteria): Observable<void> {
     return this.http.put<void>(`${this.baseUrl}/${id}/criteria`, criteria);
+  }
+
+  getConditions(id: number): Observable<CampaignCondition[]> {
+    return this.http.get<CampaignCondition[]>(`${this.baseUrl}/${id}/conditions`);
+  }
+
+  /** Replaces the campaign's whole set of terms with the one given. Returns 204. */
+  setConditions(id: number, conditions: CampaignCondition[]): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/${id}/conditions`, conditions);
+  }
+
+  /**
+   * Rebuilds the campaign's terms from its current rules and criteria. Only replaces the
+   * previously auto-generated lines — anything typed in by hand stays.
+   */
+  generateConditions(id: number): Observable<CampaignCondition[]> {
+    return this.http.post<CampaignCondition[]>(`${this.baseUrl}/${id}/conditions/generate`, {});
   }
 }
