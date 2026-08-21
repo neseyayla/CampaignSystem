@@ -1,10 +1,12 @@
 using CampaignSystem.DTOs;
 using CampaignSystem.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CampaignSystem.Controllers;
 
 [ApiController]
+[Authorize(Roles = "Admin")]
 [Route("api/campaigns/{campaignId:int}/rewards")]
 public class CampaignRewardsController(IRewardService rewardService) : ControllerBase
 {
