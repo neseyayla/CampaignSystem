@@ -1,5 +1,6 @@
 using CampaignSystem.DTOs;
 using CampaignSystem.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CampaignSystem.Controllers;
@@ -9,6 +10,7 @@ namespace CampaignSystem.Controllers;
 /// than living at a top level of their own.
 /// </summary>
 [ApiController]
+[Authorize(Roles = "Admin")]
 [Route("api/campaigns/{campaignId:int}/participants")]
 public class CampaignParticipantsController(IParticipationService participationService) : ControllerBase
 {
