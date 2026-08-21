@@ -1,0 +1,120 @@
+<app-top-bar />
+
+<main class="page">
+  @if (loading()) {
+    <p class="state">Yükleniyor…</p>
+  } @else if (error()) {
+    <div class="alert">{{ error() }}</div>
+  } @else {
+
+    <header class="hero">
+      <span class="hero-avatar" aria-hidden="true">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="8" r="3.6" fill="currentColor" />
+          <path
+            d="M4.5 19.6c0-3.6 3.4-5.7 7.5-5.7s7.5 2.1 7.5 5.7a0.9 0.9 0 0 1-0.9 0.9H5.4a0.9 0.9 0 0 1-0.9-0.9z"
+            fill="currentColor" />
+        </svg>
+      </span>
+
+      <div class="hero-text">
+        <h1>Profil Ayarları</h1>
+        @if (profile(); as p) {
+          <p>{{ p.customerNumber }}@if (p.segmentName) { · {{ p.segmentName }} }</p>
+        }
+      </div>
+    </header>
+
+    @if (profile(); as p) {
+      <section class="card">
+        <h2>Hesap Bilgileri</h2>
+
+        <dl class="facts">
+          <div>
+            <dt>Müşteri Numarası</dt>
+            <dd>{{ p.customerNumber }}</dd>
+          </div>
+          <div>
+            <dt>Segment</dt>
+            <dd>{{ p.segmentName ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Cinsiyet</dt>
+            <dd>{{ genderLabel() }}</dd>
+          </div>
+          <div>
+            <dt>Kart Sayısı</dt>
+            <dd>{{ p.cardCount }}</dd>
+          </div>
+        </dl>
+      </section>
+    }
+
+    <section class="card">
+      <h2>Kartlarım</h2>
+
+      @if (cards().length === 0) {
+        <p class="empty">Kayıtlı kartınız yok.</p>
+      } @else {
+        <ul class="cards">
+          @for (item of cards(); track item.card.id) {
+            <li>
+              <span class="dot" aria-hidden="true"></span>
+              <span class="product">{{ item.productName }}</span>
+              <span class="kind">
+                {{ item.card.cardType === 'Supplementary' ? 'Ek kart' : 'Asıl kart' }}
+              </span>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <section class="card">
+      <h2>Şifre Değiştir</h2>
+
+      <form class="pw" (ngSubmit)="changePassword()">
+        <label for="current">Mevcut şifre</label>
+        <input
+          id="current"
+          name="current"
+          type="password"
+          autocomplete="current-password"
+          [ngModel]="current()"
+          (ngModelChange)="current.set($event)"
+          [disabled]="saving()" />
+
+        <label for="next">Yeni şifre</label>
+        <input
+          id="next"
+          name="next"
+          type="password"
+          autocomplete="new-password"
+          [ngModel]="next()"
+          (ngModelChange)="next.set($event)"
+          [disabled]="saving()" />
+
+        <label for="confirm">Yeni şifre (tekrar)</label>
+        <input
+          id="confirm"
+          name="confirm"
+          type="password"
+          autocomplete="new-password"
+          [ngModel]="confirm()"
+          (ngModelChange)="confirm.set($event)"
+          [disabled]="saving()" />
+
+        @if (pwError()) {
+          <p class="alert small">{{ pwError() }}</p>
+        }
+        @if (pwDone()) {
+          <p class="ok">Şifreniz değiştirildi.</p>
+        }
+
+        <button type="submit" [disabled]="saving()">
+          {{ saving() ? 'Kaydediliyor…' : 'Şifreyi Değiştir' }}
+        </button>
+      </form>
+    </section>
+  }
+</main>

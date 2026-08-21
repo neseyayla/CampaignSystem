@@ -12,6 +12,10 @@ export type EarningType = 'CardBased' | 'CustomerBased';
 
 export type CampaignStatus = 'Pending' | 'Ongoing' | 'Loading' | 'Ended';
 
+export type Gender = 'Male' | 'Female';
+
+export type CardType = 'Primary' | 'Supplementary';
+
 export interface Campaign {
   id: number;
   name: string;
@@ -24,6 +28,13 @@ export interface Campaign {
   rewardPoint: number | null;
   maxRewardAmount: number | null;
   earningType: EarningType;
+
+  /** Null when the campaign is open to every gender. */
+  gender: Gender | null;
+
+  /** Null when the campaign covers both primary and supplementary cards. */
+  cardType: CardType | null;
+
   status: CampaignStatus;
   isActive: boolean;
 }
@@ -37,6 +48,12 @@ export interface CreateCampaign {
   description: string | null;
   campaignType: CampaignType;
   earningType: EarningType;
+
+  // Null rather than omitted: the API reads null as "no restriction", which is what an
+  // empty choice on the form means.
+  gender: Gender | null;
+  cardType: CardType | null;
+
   startDate: string;
   endDate: string;
   minimumAmount: number | null;
@@ -55,3 +72,9 @@ export interface CampaignCriteria {
   merchantIds: number[];
   transactionCodeIds: number[];
 }
+
+/**
+ * What the update endpoint accepts. Same fields as CreateCampaign: the server decides id,
+ * status and isActive in both cases, so neither is ever sent.
+ */
+export type UpdateCampaign = CreateCampaign;

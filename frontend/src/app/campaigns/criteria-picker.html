@@ -1,31 +1,63 @@
-<fieldset>
-  <legend>{{ label() }}</legend>
+<div class="field-label">
+  {{ label() }}
+  @if (selected().length > 0) {
+    <span class="count">{{ selected().length }} seçili</span>
+  }
+</div>
 
-  <ul>
-    @for (option of options(); track option.id) {
-      <li>
-        <label>
-          <input
-            type="checkbox"
-            [checked]="isSelected(option.id)"
-            (change)="toggle(option.id, $any($event.target).checked)" />
-          <span class="code">{{ option.code }}</span>
-          <span class="name">{{ option.name }}</span>
-        </label>
-      </li>
+<!-- Behaves like a multi-select field: the whole control opens the list, and each selection
+     is a removable chip. -->
+<div class="picker" (click)="openModal()">
+  <div class="chips">
+    @for (item of selectedItems(); track item.id) {
+      <span class="chip">
+        <span class="code">{{ item.code }}</span>
+        <span class="chip-name">{{ item.name }}</span>
+        <button
+          type="button"
+          class="chip-x"
+          (click)="remove(item.id); $event.stopPropagation()"
+          aria-label="Kaldır">×</button>
+      </span>
     } @empty {
-      <li class="empty">No options</li>
+      <span class="placeholder">Kısıt yok — tümü dahil</span>
     }
-  </ul>
+  </div>
 
-  <footer>
-    @if (selected().length === 0) {
-      <!-- The rule that trips people up: nothing ticked is the widest possible campaign,
-           not the narrowest. Saying so here is cheaper than explaining it afterwards. -->
-      <span class="hint">Nothing selected — no restriction on this criterion</span>
-    } @else {
-      <span class="count">{{ selected().length }} selected</span>
-      <button type="button" (click)="clear()">Clear</button>
-    }
-  </footer>
-</fieldset>
+  <span class="chev" aria-hidden="true">
+    <svg viewBox="0 0 12 8" width="12" height="8"><path fill="currentColor" d="M1 1.5 6 6.5l5-5"/></svg>
+  </span>
+</div>
+
+@if (open()) {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <header>
+        <h3>{{ label() }}</h3>
+        <button type="button" class="modal-close" (click)="closeModal()" aria-label="Kapat">×</button>
+      </header>
+
+      <ul>
+        @for (option of options(); track option.id) {
+          <li>
+            <label [class.on]="isSelected(option.id)">
+              <input
+                type="checkbox"
+                [checked]="isSelected(option.id)"
+                (change)="toggle(option.id, $any($event.target).checked)" />
+              <span class="code">{{ option.code }}</span>
+              <span class="name">{{ option.name }}</span>
+            </label>
+          </li>
+        } @empty {
+          <li class="empty">Kayıt yok</li>
+        }
+      </ul>
+
+      <footer>
+        <span class="count">{{ selected().length }} seçili</span>
+        <button type="button" class="done-btn" (click)="closeModal()">Tamam</button>
+      </footer>
+    </div>
+  </div>
+}
