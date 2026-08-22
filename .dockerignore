@@ -1,0 +1,19 @@
+# Build outputs — the image rebuilds these itself; copying them would only bloat the context.
+**/bin
+**/obj
+
+# IDE / VCS
+**/.vs
+**/.vscode
+.git
+.gitignore
+**/*.user
+
+# The two Angular apps are separate front ends, not part of the API image.
+frontend
+customer-frontend
+
+# Docker's own files
+Dockerfile
+.dockerignore
+docker-compose*.yml
