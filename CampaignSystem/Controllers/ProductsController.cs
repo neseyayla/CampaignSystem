@@ -5,8 +5,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CampaignSystem.Controllers;
 
+// Reads are open to any signed-in user: a card holder needs product names to read their own
+// cards, and product names are harmless reference data. Managing products stays Admin-only,
+// pinned on each write below.
 [ApiController]
-[Authorize(Roles = "Admin")]
+[Authorize]
 [Route("api/products")]
 public class ProductsController(IProductService productService) : ControllerBase
 {
@@ -28,6 +31,7 @@ public class ProductsController(IProductService productService) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType<ProductDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ProductDto>> Create(
@@ -46,6 +50,7 @@ public class ProductsController(IProductService productService) : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -67,6 +72,7 @@ public class ProductsController(IProductService productService) : ControllerBase
 
     /// <summary>Hard delete — Product carries no IsActive flag.</summary>
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
