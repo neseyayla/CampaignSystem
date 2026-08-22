@@ -280,9 +280,17 @@ public class RewardService(
         var transactionCodeIds = await context.CampaignTransactionCodes
             .Where(x => x.CampaignId == campaign.Id).Select(x => x.TransactionCodeId).ToListAsync(cancellationToken);
 
+        // Capped at now as well as at the campaign's end: a transaction dated in the future
+        // has not happened yet, so the live preview must not pay on it. The batch runs after a
+        // campaign closes, when every transaction in the window is already in the past, so this
+        // cap only ever trims the preview — never the settled figure.
+        var now = DateTime.Now;
+
         var query = context.Transactions
             .AsNoTracking()
-            .Where(t => t.TransactionDate >= campaign.StartDate && t.TransactionDate <= campaign.EndDate);
+            .Where(t => t.TransactionDate >= campaign.StartDate
+                     && t.TransactionDate <= campaign.EndDate
+                     && t.TransactionDate <= now);
 
         if (campaign.MinimumAmount is not null)
         {
@@ -338,16 +346,34 @@ public class RewardService(
         {
             var enrolments = await context.CampaignParticipations
                 .Where(p => p.CampaignId == campaign.Id && p.Status == ParticipationStatus.Active)
-                .Select(p => new { p.CustomerId, p.CardId })
+                .Select(p => new { p.CustomerId, p.CardId, p.ParticipationDate })
                 .ToListAsync(cancellationToken);
 
-            var customerLevel = enrolments.Where(e => e.CardId == null)
-                .Select(e => e.CustomerId).ToList();
+            // Earned from the day of joining, not from the campaign's start: spending a
+            // customer made before they signed up does not count. Keyed by the level they
+            // signed up at — one card, or every card at customer level — and by the earliest
+            // active enrollment date, so re-joining never moves the start forward.
+            var customerLevelFrom = enrolments
+                .Where(e => e.CardId == null)
+                .GroupBy(e => e.CustomerId)
+                .ToDictionary(g => g.Key, g => g.Min(e => e.ParticipationDate));
 
-            var cardLevel = enrolments.Where(e => e.CardId != null)
-                .Select(e => e.CardId!.Value).ToList();
+            var cardLevelFrom = enrolments
+                .Where(e => e.CardId != null)
+                .GroupBy(e => e.CardId!.Value)
+                .ToDictionary(g => g.Key, g => g.Min(e => e.ParticipationDate));
 
-            query = query.Where(t => customerLevel.Contains(t.CustomerId) || cardLevel.Contains(t.CardId));
+            // The date cut is per enrollment, so the membership test moves in memory: EF cannot
+            // translate "is this transaction after this particular customer's join date".
+            var candidates = await query.ToListAsync(cancellationToken);
+
+            return candidates
+                .Where(t =>
+                    (customerLevelFrom.TryGetValue(t.CustomerId, out var customerFrom)
+                        && t.TransactionDate >= customerFrom)
+                    || (cardLevelFrom.TryGetValue(t.CardId, out var cardFrom)
+                        && t.TransactionDate >= cardFrom))
+                .ToList();
         }
 
         return await query.ToListAsync(cancellationToken);

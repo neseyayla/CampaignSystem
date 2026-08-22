@@ -359,4 +359,130 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
 
         Assert.Equal(scenario.CardB.Id, reward.CardId);
     }
+
+    [Fact]
+    public async Task Preview_DoesNotCountTransactionsDatedInTheFuture()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        var suffix = DateTime.Now.Ticks.ToString()[^10..];
+
+        // A campaign still running: its window reaches into the future, so a transaction can be
+        // dated after now yet inside the period. The preview must not pay on it.
+        var campaign = new Campaign
+        {
+            Name = "Future test",
+            CampaignType = CampaignType.Mass,
+            EarningType = EarningType.CustomerBased,
+            StartDate = DateTime.Now.AddDays(-10),
+            EndDate = DateTime.Now.AddDays(20),
+            MinimumAmount = 250m,
+            RewardPoint = 50m,
+            Status = CampaignStatus.Ongoing,
+            IsActive = true
+        };
+
+        var (customer, card) = await AddCustomerWithCardAsync(context, campaign, suffix);
+
+        context.Transactions.AddRange(
+            NewTransaction(suffix, 0, card, customer, 300m, DateTime.Now.AddDays(-2)),   // already happened
+            NewTransaction(suffix, 1, card, customer, 300m, DateTime.Now.AddDays(5)));   // not yet
+        await context.SaveChangesAsync();
+
+        var preview = await CreateService(context).PreviewAsync(campaign.Id, customer.Id);
+
+        Assert.Equal(ResultStatus.Success, preview.Status);
+
+        // Only the past transaction pays; the future one is not counted.
+        Assert.Equal(50m, preview.Value!.TotalRewardPoint);
+        Assert.Equal(1, preview.Value.Lines.Single().QualifyingCount);
+    }
+
+    [Fact]
+    public async Task EnrollmentCampaign_CountsOnlyFromTheJoinDate()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        var suffix = DateTime.Now.Ticks.ToString()[^10..];
+
+        var campaign = new Campaign
+        {
+            Name = "Enrollment test",
+            CampaignType = CampaignType.EnrollmentRequired,
+            EarningType = EarningType.CardBased,
+            StartDate = DateTime.Now.AddDays(-60),
+            EndDate = DateTime.Now.AddDays(-30),
+            MinimumAmount = 250m,
+            RewardPoint = 50m,
+            Status = CampaignStatus.Loading,
+            IsActive = true
+        };
+
+        var (customer, card) = await AddCustomerWithCardAsync(context, campaign, suffix);
+
+        // Joined halfway through the campaign, at the card level.
+        var joinDate = campaign.StartDate.AddDays(15);
+        context.CampaignParticipations.Add(new CampaignParticipation
+        {
+            CampaignId = campaign.Id,
+            CustomerId = customer.Id,
+            CardId = card.Id,
+            ParticipationDate = joinDate,
+            Status = ParticipationStatus.Active
+        });
+
+        context.Transactions.AddRange(
+            NewTransaction(suffix, 0, card, customer, 300m, joinDate.AddDays(-5)),  // before joining
+            NewTransaction(suffix, 1, card, customer, 300m, joinDate.AddDays(5)));  // after joining
+        await context.SaveChangesAsync();
+
+        var result = await CreateService(context).CalculateAsync(campaign.Id);
+
+        Assert.Equal(ResultStatus.Success, result.Status);
+
+        // Only the transaction made after the join date counts; the earlier one is ignored.
+        Assert.Equal(1, result.Value!.QualifyingTransactions);
+        Assert.Equal(50m, result.Value.TotalRewardPoint);
+    }
+
+    private static async Task<(Customer, Card)> AddCustomerWithCardAsync(
+        CampaignDbContext context, Campaign campaign, string suffix)
+    {
+        var customer = new Customer
+        {
+            CustomerNumber = $"T{suffix}",
+            Gender = Gender.Female,
+            SegmentId = ScenarioBuilder.FarmerSegmentId,
+            IsActive = true
+        };
+
+        var card = new Card
+        {
+            Customer = customer,
+            ProductId = ScenarioBuilder.VisaGoldProductId,
+            CardType = CardType.Primary,
+            IsActive = true
+        };
+
+        context.Campaigns.Add(campaign);
+        context.Customers.Add(customer);
+        context.Cards.Add(card);
+        await context.SaveChangesAsync();
+
+        return (customer, card);
+    }
+
+    private static Transaction NewTransaction(
+        string suffix, int index, Card card, Customer customer, decimal amount, DateTime date) => new()
+    {
+        Rrn = $"R{suffix}{index:D2}",
+        CardId = card.Id,
+        CustomerId = customer.Id,
+        MerchantId = ScenarioBuilder.OpetMerchantId,
+        TransactionCodeId = ScenarioBuilder.SaleTransactionCodeId,
+        TransactionDate = date,
+        Amount = amount
+    };
 }
