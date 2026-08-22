@@ -158,6 +158,15 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Applies any pending migrations at startup, but only when explicitly asked to. The container
+// sets RunMigrationsAtStartup=true so its empty database gets the schema on first boot; running
+// locally leaves it unset, so nothing here touches the LocalDB you use by hand.
+if (app.Configuration.GetValue<bool>("RunMigrationsAtStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    scope.ServiceProvider.GetRequiredService<CampaignDbContext>().Database.Migrate();
+}
+
 
 
 app.UseRouting();
