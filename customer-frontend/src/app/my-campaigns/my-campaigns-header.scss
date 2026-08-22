@@ -260,10 +260,13 @@ $line: #e8ebf1;
 
 .sort-menu {
   position: absolute;
-  top: calc(100% + 0.4rem);
+  // Touches the button (no gap), so moving the cursor down into the menu never crosses a dead
+  // zone that would trip mouseleave and close it early.
+  top: 100%;
+  // Full width of the filter above it, so the dropdown matches the button, not wider.
+  left: 0;
   right: 0;
   z-index: 25;
-  min-width: 14rem;
   padding: 0.4rem;
   background: #fff;
   border: 1px solid $line;

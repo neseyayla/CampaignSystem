@@ -201,7 +201,9 @@
 }
 
 .meter {
-  height: 0.375rem;
+  height: 0.5rem;
+  /* Never let the flex column squash the bar — its height is fixed, not negotiable. */
+  flex-shrink: 0;
   margin-top: 0.5rem;
   border-radius: 999px;
   background: #eef1f5;
@@ -234,10 +236,15 @@
   color: #92400e;
 }
 
+/* Progress + dates as one block pinned to the bottom, so the meter sits right above the
+   dates instead of floating near the description with a gap below it. */
+.lower {
+  margin-top: auto;
+}
+
 /* ── Dates ────────────────────────────────────── */
 
 .dates {
-  margin-top: auto;
   padding-top: 0.9rem;
 }
 

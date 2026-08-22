@@ -71,8 +71,12 @@
     </section>
 
     <section class="card">
-      <h2>Şifre Değiştir</h2>
+      <button type="button" class="pw-toggle" (click)="pwOpen.set(!pwOpen())" [attr.aria-expanded]="pwOpen()">
+        <span>Şifre Değiştir</span>
+        <span class="pw-chevron" [class.open]="pwOpen()" aria-hidden="true">⌄</span>
+      </button>
 
+      @if (pwOpen()) {
       <form class="pw" (ngSubmit)="changePassword()">
         <label for="current">Mevcut şifre</label>
         <input
@@ -115,6 +119,7 @@
           {{ saving() ? 'Kaydediliyor…' : 'Şifreyi Değiştir' }}
         </button>
       </form>
+      }
     </section>
   }
 </main>
