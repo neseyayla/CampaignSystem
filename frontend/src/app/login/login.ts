@@ -44,7 +44,7 @@ export class Login {
     const { customerNumber, password } = this.form.getRawValue();
 
     this.auth.login(customerNumber, password).subscribe({
-      next: () => void this.router.navigate(['/campaigns/new']),
+      next: () => void this.router.navigate(['/campaigns']),
       error: (response: HttpErrorResponse) => {
         this.error.set(
           typeof response.error === 'string' && response.error.length > 0
