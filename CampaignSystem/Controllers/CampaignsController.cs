@@ -105,4 +105,51 @@ public class CampaignsController(ICampaignService campaignService) : ControllerB
             _ => StatusCode(StatusCodes.Status500InternalServerError)
         };
     }
+
+    /// <summary>The campaign's terms, in display order.</summary>
+    [HttpGet("{id:int}/conditions")]
+    [ProducesResponseType<List<CampaignConditionDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<CampaignConditionDto>>> GetConditions(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var conditions = await campaignService.GetConditionsAsync(id, cancellationToken);
+
+        return conditions is null ? NotFound() : Ok(conditions);
+    }
+
+    /// <summary>
+    /// Replaces the campaign's whole set of terms — an operator's edit, reorder, removal
+    /// or free-hand addition.
+    /// </summary>
+    [HttpPut("{id:int}/conditions")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetConditions(
+        int id,
+        List<CampaignConditionDto> conditions,
+        CancellationToken cancellationToken)
+    {
+        var updated = await campaignService.SetConditionsAsync(id, conditions, cancellationToken);
+
+        return updated ? NoContent() : NotFound();
+    }
+
+    /// <summary>
+    /// Rebuilds the campaign's terms from its current rules and criteria. Only the
+    /// previously auto-generated lines are replaced — anything an operator typed in by
+    /// hand is left alone.
+    /// </summary>
+    [HttpPost("{id:int}/conditions/generate")]
+    [ProducesResponseType<List<CampaignConditionDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<CampaignConditionDto>>> GenerateConditions(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var conditions = await campaignService.GenerateConditionsAsync(id, cancellationToken);
+
+        return conditions is null ? NotFound() : Ok(conditions);
+    }
 }

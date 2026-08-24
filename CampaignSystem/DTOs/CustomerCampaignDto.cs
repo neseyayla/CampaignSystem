@@ -64,4 +64,11 @@ public class CustomerCampaignDto
 
     /// <summary>Which kinds of transaction count. Empty means all of them.</summary>
     public List<string> TransactionCodes { get; set; } = [];
+
+    /// <summary>
+    /// The campaign's terms, in display order, ready to show under "Kampanya Koşulları".
+    /// Written once by an operator through <see cref="Services.ICampaignService"/> rather
+    /// than derived on the fly here, so the customer reads exactly what was reviewed.
+    /// </summary>
+    public List<string> Conditions { get; set; } = [];
 }
