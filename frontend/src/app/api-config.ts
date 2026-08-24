@@ -6,4 +6,4 @@
  *
  * This moves into environment files once there is somewhere to deploy to.
  */
-export const API_BASE_URL = 'http://localhost:5284/api';
+export const API_BASE_URL = '/api';

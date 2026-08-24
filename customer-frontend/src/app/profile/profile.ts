@@ -33,6 +33,9 @@ export class Profile {
   });
 
   // Password form.
+  /** The change-password form is hidden until the customer opens it. */
+  readonly pwOpen = signal(false);
+
   readonly current = signal('');
   readonly next = signal('');
   readonly confirm = signal('');

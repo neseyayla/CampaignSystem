@@ -89,7 +89,7 @@
 
       <span class="nav-divider"></span>
 
-      <div class="filter">
+      <div class="filter" (mouseleave)="sortOpen.set(false)">
         <button type="button" class="filter-button" (click)="sortOpen.set(!sortOpen())">
           <span class="filter-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M6 12h12M9 17h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
           <span>Sırala &amp; Filtrele</span>
@@ -105,7 +105,7 @@
               Puana göre (yüksek)
             </button>
             <button type="button" [class.on]="sortBy() === 'name'" (click)="setSort('name')">
-              Ada göre (A–Z)
+              İsme göre (A–Z)
             </button>
           </div>
         }
@@ -175,6 +175,9 @@
                     <p class="desc">{{ detail.campaign.description }}</p>
                   }
 
+                  <!-- Progress and dates travel together, pinned to the bottom of the card, so
+                       the meter sits directly above the "Son gün" line rather than floating up. -->
+                  <div class="lower">
                   @if (isEarning(detail) && detail.campaign.hasStarted) {
                     <div class="earned">
                       <span class="amount">{{ points(detail.progress.totalRewardPoint) }}</span>
@@ -216,6 +219,7 @@
                     <p class="range">
                       {{ day(detail.campaign.startDate) }} – {{ day(detail.campaign.endDate) }}
                     </p>
+                  </div>
                   </div>
                 </div>
               </a>

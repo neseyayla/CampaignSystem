@@ -1,8 +1,9 @@
 /**
- * Where the API lives.
+ * Where the API lives — a same-origin path, not an absolute host.
  *
- * The same API the staff application talks to. Both are served from their own port and
- * both call this one address; nothing about the customer's screens runs on a separate
- * backend.
+ * The page is served by nginx (or the dev server), which proxies "/api" to the actual API.
+ * Keeping it relative means the app works wherever it is reached from — localhost, a LAN
+ * address, or a public tunnel — without baking a host name that would only be right on one
+ * machine. In Docker the proxy lives in nginx.conf; for "ng serve" it lives in proxy.conf.json.
  */
-export const API_BASE_URL = 'http://localhost:5284/api';
+export const API_BASE_URL = '/api';
