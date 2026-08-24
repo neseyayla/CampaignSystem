@@ -38,6 +38,11 @@ services:
       # Only the container applies migrations on boot, so its empty database gets the schema.
       # Unset when you run locally, so your LocalDB is never touched automatically.
       RunMigrationsAtStartup: "true"
+      # Daily batch schedule. Env vars override appsettings.json (the "__" is the ":" separator),
+      # so change the time here and "docker compose up -d api" — no rebuild needed. Set Enabled
+      # to "false" to turn the scheduled run off (e.g. if you only trigger POST /api/batch/run).
+      DailyBatch__RunAt: "02:00"
+      DailyBatch__Enabled: "true"
       # "db" is the service name above; Docker's internal DNS resolves it to the container.
       # No User Secrets in a container, so these come in as env vars — the secret parts from .env.
       ConnectionStrings__DefaultConnection: "Server=db,1433;Database=CampaignSystem;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=False"
