@@ -122,14 +122,49 @@ export class MyCampaigns {
   }
 
   join(detail: CustomerCampaignDetail): void {
-    // A card based campaign accumulates on one card, so it has to be told which one. A
-    // customer based campaign pools them all and must not name a card at all.
-    if (detail.campaign.earningType === 'CardBased') {
-      this.openCardPicker(detail.campaign.campaignId);
+    const campaignId = detail.campaign.campaignId;
+
+    // A customer based campaign pools every card and must not name one.
+    if (detail.campaign.earningType !== 'CardBased') {
+      this.send(campaignId, null);
       return;
     }
 
-    this.send(detail.campaign.campaignId, null);
+    // A card based campaign accrues on a single card, so we need to know which. With the cards
+    // already in hand we can decide right away; otherwise fetch them first.
+    if (this.cards().length > 0) {
+      this.enrollOrPick(campaignId);
+      return;
+    }
+
+    this.enrollError.set(null);
+    this.enrolling.set(true);
+    this.service.cards().subscribe({
+      next: cards => {
+        this.cards.set(cards);
+        this.enrolling.set(false);
+        this.enrollOrPick(campaignId);
+      },
+      error: () => {
+        this.enrolling.set(false);
+        this.openCardPicker(campaignId);   // open so the error is visible
+        this.enrollError.set('Kartlarınız alınamadı.');
+      }
+    });
+  }
+
+  /**
+   * One card means there is nothing to choose, so join with it directly; more than one opens
+   * the picker so the customer decides which card the campaign should accrue on.
+   */
+  private enrollOrPick(campaignId: number): void {
+    const cards = this.cards();
+
+    if (cards.length === 1) {
+      this.send(campaignId, cards[0].card.id);
+    } else {
+      this.openCardPicker(campaignId);
+    }
   }
 
   chooseCard(cardId: number): void {
@@ -273,6 +308,12 @@ export class MyCampaigns {
       error: (err: HttpErrorResponse) => {
         this.enrolling.set(false);
         this.enrollError.set(this.messageOf(err));
+
+        // A direct single-card join failed with the picker closed, so open it — otherwise the
+        // error has nowhere to show and the customer cannot retry with another card.
+        if (cardId !== null && this.choosingCardFor() === null) {
+          this.choosingCardFor.set(campaignId);
+        }
       }
     });
   }
