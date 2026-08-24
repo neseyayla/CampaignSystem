@@ -39,6 +39,9 @@ export interface CustomerCampaign {
 
   /** Empty means every kind of transaction counts. */
   transactionCodes: string[];
+
+  /** The campaign's terms, in display order, ready to show under "Kampanya Koşulları". */
+  conditions: string[];
 }
 
 export interface RewardPreviewLine {

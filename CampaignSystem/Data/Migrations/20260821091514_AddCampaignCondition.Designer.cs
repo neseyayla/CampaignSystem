@@ -4,6 +4,7 @@ using CampaignSystem.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CampaignSystem.Data.Migrations
 {
     [DbContext(typeof(CampaignDbContext))]
-    partial class CampaignDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260821091514_AddCampaignCondition")]
+    partial class AddCampaignCondition
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -122,129 +125,6 @@ namespace CampaignSystem.Data.Migrations
                     b.HasIndex("CampaignId");
 
                     b.ToTable("CAMPAIGN_CONDITION", (string)null);
-                });
-
-            modelBuilder.Entity("CampaignSystem.Entities.CampaignConditionTemplate", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Key")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<string>("TemplateText")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Key")
-                        .IsUnique();
-
-                    b.ToTable("CAMPAIGN_CONDITION_TEMPLATE", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            IsActive = true,
-                            Key = "DateRange",
-                            TemplateText = "Kampanya {StartDate} - {EndDate} tarihleri arasında geçerlidir."
-                        },
-                        new
-                        {
-                            Id = 2,
-                            IsActive = true,
-                            Key = "EnrollmentRequired",
-                            TemplateText = "Kampanyadan yararlanabilmek için kampanyaya katılım sağlanması gerekmektedir."
-                        },
-                        new
-                        {
-                            Id = 3,
-                            IsActive = true,
-                            Key = "MinAndMaxAmount",
-                            TemplateText = "İşlem tutarı {MinimumAmount} TL ile {MaximumAmount} TL arasında olmalıdır."
-                        },
-                        new
-                        {
-                            Id = 4,
-                            IsActive = true,
-                            Key = "MinAmountOnly",
-                            TemplateText = "En az {MinimumAmount} TL tutarında işlem yapılması gerekmektedir."
-                        },
-                        new
-                        {
-                            Id = 5,
-                            IsActive = true,
-                            Key = "MaxAmountOnly",
-                            TemplateText = "İşlem tutarı en fazla {MaximumAmount} TL olmalıdır."
-                        },
-                        new
-                        {
-                            Id = 6,
-                            IsActive = true,
-                            Key = "RewardPoint",
-                            TemplateText = "Uygun her işlem için {RewardPoint} TL Worldpuan kazandırır."
-                        },
-                        new
-                        {
-                            Id = 7,
-                            IsActive = true,
-                            Key = "MaxRewardAmount",
-                            TemplateText = "Kampanya kapsamında {PerUnit} başına en fazla {MaxRewardAmount} TL Worldpuan kazanılabilir."
-                        },
-                        new
-                        {
-                            Id = 8,
-                            IsActive = true,
-                            Key = "Gender",
-                            TemplateText = "Kampanya yalnızca {GenderText} müşteriler için geçerlidir."
-                        },
-                        new
-                        {
-                            Id = 9,
-                            IsActive = true,
-                            Key = "CardType",
-                            TemplateText = "Kampanya yalnızca {CardTypeText} kartlar için geçerlidir."
-                        },
-                        new
-                        {
-                            Id = 10,
-                            IsActive = true,
-                            Key = "SegmentList",
-                            TemplateText = "Kampanya yalnızca şu müşteri gruplarına açıktır: {Names}."
-                        },
-                        new
-                        {
-                            Id = 11,
-                            IsActive = true,
-                            Key = "ProductList",
-                            TemplateText = "Kampanya yalnızca şu kart tiplerinde geçerlidir: {Names}."
-                        },
-                        new
-                        {
-                            Id = 12,
-                            IsActive = true,
-                            Key = "MerchantList",
-                            TemplateText = "Kampanya yalnızca şu üye işyerlerinde yapılan alışverişlerde geçerlidir: {Names}."
-                        },
-                        new
-                        {
-                            Id = 13,
-                            IsActive = true,
-                            Key = "TransactionCodeList",
-                            TemplateText = "Kampanya yalnızca şu işlem türlerinde geçerlidir: {Names}."
-                        });
                 });
 
             modelBuilder.Entity("CampaignSystem.Entities.CampaignMerchant", b =>

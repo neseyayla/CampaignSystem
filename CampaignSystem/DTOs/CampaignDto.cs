@@ -39,4 +39,7 @@ public class CampaignDto
     public CampaignStatus Status { get; set; }
 
     public bool IsActive { get; set; }
+
+    /// <summary>The campaign's terms, in display order. Empty until generated.</summary>
+    public List<string> Conditions { get; set; } = [];
 }

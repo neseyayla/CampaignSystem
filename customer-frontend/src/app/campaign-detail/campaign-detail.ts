@@ -50,33 +50,12 @@ export class CampaignDetail {
       });
   }
 
-  /** The campaign's conditions, in the words a card holder would use. */
+  /**
+   * The campaign's terms, written once by an operator from its rules and shown here
+   * exactly as reviewed — not re-derived on this screen.
+   */
   terms(): string[] {
-    const c = this.detail()?.campaign;
-
-    if (!c) {
-      return [];
-    }
-
-    const list: string[] = [];
-
-    if (c.minimumAmount !== null) {
-      list.push(`En az ${this.points(c.minimumAmount)} TL harcama`);
-    }
-    if (c.maximumAmount !== null) {
-      list.push(`En çok ${this.points(c.maximumAmount)} TL harcama`);
-    }
-    if (c.merchants.length > 0) {
-      list.push(c.merchants.join(', '));
-    }
-    if (c.transactionCodes.length > 0) {
-      list.push(c.transactionCodes.join(', '));
-    }
-    if (c.maxRewardAmount !== null) {
-      list.push(`En çok ${this.points(c.maxRewardAmount)} puan`);
-    }
-
-    return list;
+    return this.detail()?.campaign.conditions ?? [];
   }
 
   qualifyingCount(): number {

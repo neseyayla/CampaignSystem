@@ -148,6 +148,15 @@ public class CustomerCampaignService(
             .Select(x => new { x.CampaignId, x.TransactionCode.Name })
             .ToListAsync(cancellationToken);
 
+        // Written once by an operator rather than derived here, so what the customer reads
+        // is exactly what was reviewed — not a live re-guess at every request.
+        var conditionRows = await context.CampaignConditions
+            .AsNoTracking()
+            .Where(x => ids.Contains(x.CampaignId))
+            .OrderBy(x => x.DisplayOrder)
+            .Select(x => new { x.CampaignId, x.Text })
+            .ToListAsync(cancellationToken);
+
         var enrolledIn = (await context.CampaignParticipations
                 .AsNoTracking()
                 .Where(p => p.CustomerId == customer.Id
@@ -168,6 +177,9 @@ public class CustomerCampaignService(
 
         var codesOf = codeRows.GroupBy(x => x.CampaignId)
             .ToDictionary(g => g.Key, g => g.Select(x => x.Name).OrderBy(n => n).ToList());
+
+        var conditionsOf = conditionRows.GroupBy(x => x.CampaignId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Text).ToList());
 
         var now = DateTime.Now;
 
@@ -193,7 +205,8 @@ public class CustomerCampaignService(
                 MinimumAmount = c.MinimumAmount,
                 MaximumAmount = c.MaximumAmount,
                 Merchants = merchantsOf.GetValueOrDefault(c.Id, []),
-                TransactionCodes = codesOf.GetValueOrDefault(c.Id, [])
+                TransactionCodes = codesOf.GetValueOrDefault(c.Id, []),
+                Conditions = conditionsOf.GetValueOrDefault(c.Id, [])
             })
             .ToList();
     }

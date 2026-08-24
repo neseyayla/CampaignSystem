@@ -79,6 +79,8 @@ public class Campaign
 
     public ICollection<CampaignTransactionCode> CampaignTransactionCodes { get; set; } = [];
 
+    public ICollection<CampaignCondition> Conditions { get; set; } = [];
+
     public ICollection<CampaignParticipation> Participations { get; set; } = [];
 
     public ICollection<CampaignReward> Rewards { get; set; } = [];
