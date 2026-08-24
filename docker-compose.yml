@@ -1,5 +1,6 @@
 # Brings up the whole system with one command: a SQL Server container and the API that talks
-# to it. Development only — the passwords and keys here are placeholders, not secrets.
+# to it. Secrets (SA password, signing key) are read from a .env file that is NOT committed —
+# copy .env.example to .env and fill it in. Only non-secret config lives in this file.
 
 services:
   # ── Database ────────────────────────────────────────────────
@@ -7,8 +8,8 @@ services:
     image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
       ACCEPT_EULA: "Y"
-      # SQL Server requires a strong SA password (8+ chars, upper/lower/digit/symbol).
-      MSSQL_SA_PASSWORD: "Campaign_Dev_2026!"
+      # From .env — a strong SA password (8+ chars, upper/lower/digit/symbol).
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
     ports:
       # host:container — lets you also connect from SSMS on localhost,1433 if you want.
       - "1433:1433"
@@ -38,10 +39,10 @@ services:
       # Unset when you run locally, so your LocalDB is never touched automatically.
       RunMigrationsAtStartup: "true"
       # "db" is the service name above; Docker's internal DNS resolves it to the container.
-      # No User Secrets in a container, so the connection string comes in as an env var.
-      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=CampaignSystem;User Id=sa;Password=Campaign_Dev_2026!;TrustServerCertificate=True;Encrypt=False"
-      # The app refuses to start without this; a dev-only key, at least 32 characters.
-      Jwt__SigningKey: "docker-dev-only-signing-key-please-change-1234567890"
+      # No User Secrets in a container, so these come in as env vars — the secret parts from .env.
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=CampaignSystem;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=False"
+      # The app refuses to start without this; at least 32 characters.
+      Jwt__SigningKey: "${JWT_SIGNING_KEY}"
     ports:
       - "5284:8080"                      # reach the API on http://localhost:5284
 
