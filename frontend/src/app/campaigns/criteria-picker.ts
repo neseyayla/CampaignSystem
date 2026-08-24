@@ -26,7 +26,9 @@ export class CriteriaPicker {
 
   protected readonly selectedItems = computed(() => {
     const ids = this.selected();
-    return this.options().filter(option => ids.includes(option.id));
+    return this.options()
+      .filter(option => ids.includes(option.id))
+      .sort((a, b) => (a.code < b.code ? -1 : a.code > b.code ? 1 : 0));
   });
 
   protected isSelected(id: number): boolean {
