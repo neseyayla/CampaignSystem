@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { debounceTime, forkJoin, of, switchMap } from 'rxjs';
+import { EMPTY, Subject, catchError, debounceTime, forkJoin, of, switchMap } from 'rxjs';
 
 import { CampaignService } from '../services/campaign.service';
 import { LookupService } from '../services/lookup.service';
@@ -62,11 +62,8 @@ export class CampaignForm {
   protected readonly conditionsSaving = signal(false);
   protected readonly conditionsNotice = signal<string | null>(null);
 
-  /**
-   * The same auto-generated sentences a saved campaign would get, kept live while a new one
-   * is still being filled in — there is no id yet to call .../conditions/generate with.
-   */
-  protected readonly conditionsPreview = signal<string[]>([]);
+  /** Fires whenever something that feeds the "new campaign" preview changes. See ctor. */
+  private readonly conditionsPreviewTrigger = new Subject<void>();
 
   protected readonly editing = computed(() => this.campaignId() !== null);
 
@@ -152,60 +149,87 @@ export class CampaignForm {
     });
 
     // Keeps the "new campaign" preview in step with the rule fields (amounts, dates,
-    // gender…), debounced so it does not call the API on every keystroke.
+    // gender…), debounced so it does not call the API on every keystroke; and with the
+    // criteria pickers, which are signals rather than form controls and so do not appear in
+    // valueChanges (undebounced there — a checkbox toggle is already a single, deliberate
+    // change, not a keystroke stream).
+    //
+    // Both funnel into the same trigger, piped through switchMap rather than each calling
+    // previewConditions from its own independent .subscribe(): two calls in flight at once
+    // (e.g. a field edit and a criteria toggle landing close together) could otherwise
+    // resolve out of order, and the older, no-longer-current response would win and stomp
+    // the newer one — including wiping out lines the operator had just added. switchMap
+    // cancels the previous request the moment a new trigger fires, so only the latest
+    // response is ever applied.
     this.form.valueChanges
       .pipe(debounceTime(300))
-      .subscribe(() => this.refreshConditionsPreview());
+      .subscribe(() => this.conditionsPreviewTrigger.next());
 
-    // And with the criteria pickers, which are signals rather than form controls and so do
-    // not appear in valueChanges.
     effect(() => {
       this.selectedSegments();
       this.selectedProducts();
       this.selectedMerchants();
       this.selectedTransactionCodes();
 
-      this.refreshConditionsPreview();
+      this.conditionsPreviewTrigger.next();
     });
-  }
 
-  /**
-   * Recomputes the "new campaign" preview from the form's current values. A no-op once the
-   * campaign is saved — from then on the "Kampanya Koşulları" section below, backed by the
-   * real generate/save endpoints, takes over.
-   */
-  private refreshConditionsPreview(): void {
-    if (this.editing()) {
-      return;
-    }
+    this.conditionsPreviewTrigger
+      .pipe(
+        switchMap(() => {
+          if (this.editing()) {
+            return EMPTY;
+          }
 
-    const value = this.form.getRawValue();
+          const value = this.form.getRawValue();
 
-    const request: CampaignConditionsPreviewRequest = {
-      campaignType: value.campaignType,
-      earningType: value.earningType,
-      gender: (value.gender || null) as Gender | null,
-      cardType: (value.cardType || null) as CardType | null,
-      startDate: value.startDate ? value.startDate + 'T00:00:00' : null,
-      endDate: value.endDate ? value.endDate + 'T23:59:59' : null,
-      minimumAmount: value.minimumAmount,
-      maximumAmount: value.maximumAmount,
-      rewardPoint: value.rewardPoint,
-      maxRewardAmount: value.maxRewardAmount,
-      criteria: {
-        segmentIds: this.selectedSegments(),
-        productIds: this.selectedProducts(),
-        merchantIds: this.selectedMerchants(),
-        transactionCodeIds: this.selectedTransactionCodes()
-      }
-    };
+          const request: CampaignConditionsPreviewRequest = {
+            campaignType: value.campaignType,
+            earningType: value.earningType,
+            gender: (value.gender || null) as Gender | null,
+            cardType: (value.cardType || null) as CardType | null,
+            startDate: value.startDate ? value.startDate + 'T00:00:00' : null,
+            endDate: value.endDate ? value.endDate + 'T23:59:59' : null,
+            minimumAmount: value.minimumAmount,
+            maximumAmount: value.maximumAmount,
+            rewardPoint: value.rewardPoint,
+            maxRewardAmount: value.maxRewardAmount,
+            criteria: {
+              segmentIds: this.selectedSegments(),
+              productIds: this.selectedProducts(),
+              merchantIds: this.selectedMerchants(),
+              transactionCodeIds: this.selectedTransactionCodes()
+            }
+          };
 
-    this.campaignService.previewConditions(request).subscribe({
-      next: list => this.conditionsPreview.set(list),
-      // A stray 400 while the form is mid-edit is not worth surfacing — the preview just
-      // stays as it was until the next valid change comes through.
-      error: () => {}
-    });
+          // A stray 400 while the form is mid-edit is not worth surfacing — the preview
+          // just stays as it was until the next valid change comes through. Caught here
+          // (rather than left for the outer subscribe's error handler) so one bad request
+          // does not end the switchMap stream for every trigger after it.
+          return this.campaignService.previewConditions(request).pipe(catchError(() => EMPTY));
+        })
+      )
+      .subscribe(autoTexts => {
+        // Only the auto-generated lines are replaced, the same rule the persisted
+        // "Yeniden Oluştur" button follows: a line the operator added by hand
+        // (`addCondition`) survives every refresh, renumbered to read after the fresh
+        // auto-generated block rather than being wiped out by it.
+        const manual = this.conditions().filter(c => !c.isAutoGenerated);
+
+        const auto: CampaignCondition[] = autoTexts.map((text, index) => ({
+          id: 0,
+          text,
+          displayOrder: index,
+          isAutoGenerated: true
+        }));
+
+        const renumberedManual = manual.map((c, index) => ({
+          ...c,
+          displayOrder: auto.length + index
+        }));
+
+        this.conditions.set([...auto, ...renumberedManual]);
+      });
   }
 
   /**
@@ -278,7 +302,6 @@ export class CampaignForm {
 
     this.conditions.set([]);
     this.conditionsNotice.set(null);
-    this.conditionsPreview.set([]);
   }
 
   // Loading and saving -------------------------------------------------------
@@ -384,17 +407,20 @@ export class CampaignForm {
     // The campaign has to exist before its criteria can point at it, so the criteria call
     // waits for the id — which create supplies in its response and update already knows.
     //
-    // A brand new campaign also gets its terms generated right away, once its rules and
-    // criteria are both in place — that first draft is what "Kampanya Koşulları" shows the
-    // moment the record reopens. An update does not repeat this: an operator may already
-    // have edited those lines by hand, and saving the form is not the moment to overwrite
-    // them again — that is what the "Yeniden Oluştur" button below is for.
+    // A brand new campaign also writes its terms right away, using exactly what the
+    // "Kampanya Koşulları (Önizleme)" section above already holds — auto-generated lines
+    // plus anything the operator added or edited before saving. Calling generate here
+    // instead would recompute the auto lines fresh, which happens to match, but would
+    // silently drop any manual line the operator had already added during creation. An
+    // update does not repeat this: an operator may already have edited those lines by
+    // hand, and saving the form is not the moment to overwrite them again — that is what
+    // the "Yeniden Oluştur" button below is for.
     const saved$ =
       id === null
         ? this.campaignService.create(campaign).pipe(
             switchMap(created =>
               this.campaignService.setCriteria(created.id, criteria).pipe(
-                switchMap(() => this.campaignService.generateConditions(created.id)),
+                switchMap(() => this.campaignService.setConditions(created.id, this.conditions())),
                 switchMap(() => of(created.id))
               )
             )
