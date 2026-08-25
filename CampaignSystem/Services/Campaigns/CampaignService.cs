@@ -63,6 +63,7 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
             Name = dto.Name,
             Description = dto.Description,
             CampaignType = dto.CampaignType,
+            EnrollmentBasis = dto.CampaignType == CampaignType.EnrollmentRequired ? dto.EnrollmentBasis : null,
             EarningType = dto.EarningType,
             Gender = dto.Gender,
             CardType = dto.CardType,
@@ -104,6 +105,7 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
         campaign.Name = dto.Name;
         campaign.Description = dto.Description;
         campaign.CampaignType = dto.CampaignType;
+        campaign.EnrollmentBasis = dto.CampaignType == CampaignType.EnrollmentRequired ? dto.EnrollmentBasis : null;
         campaign.EarningType = dto.EarningType;
         campaign.Gender = dto.Gender;
         campaign.CardType = dto.CardType;
@@ -351,6 +353,7 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
         Name = campaign.Name,
         Description = campaign.Description,
         CampaignType = campaign.CampaignType,
+        EnrollmentBasis = campaign.EnrollmentBasis,
         StartDate = campaign.StartDate,
         EndDate = campaign.EndDate,
         MinimumAmount = campaign.MinimumAmount,

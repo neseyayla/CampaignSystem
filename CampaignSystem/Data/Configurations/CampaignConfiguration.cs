@@ -26,6 +26,13 @@ public class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
             .IsUnicode(false)
             .IsRequired();
 
+        // Null for a MASS campaign. Stored as the enum member name like Status: this is a
+        // rule internal to this application, not a code the bank's other systems share.
+        builder.Property(x => x.EnrollmentBasis)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsUnicode(false);
+
         builder.Property(x => x.StartDate).HasColumnType("datetime2");
         builder.Property(x => x.EndDate).HasColumnType("datetime2");
 

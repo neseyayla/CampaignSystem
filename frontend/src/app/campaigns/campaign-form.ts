@@ -14,6 +14,7 @@ import {
   CardType,
   CreateCampaign,
   EarningType,
+  EnrollmentBasis,
   Gender
 } from '../models/campaign';
 import { LookupOption } from '../models/lookup';
@@ -70,6 +71,13 @@ export class CampaignForm {
   protected readonly editing = computed(() => this.campaignId() !== null);
 
   /**
+   * Mirrors the campaignType control so the SI enrollment-basis panel below can show or
+   * hide without waiting on the debounced valueChanges subscription used for the
+   * conditions preview.
+   */
+  protected readonly campaignType = signal<CampaignType>('Mass');
+
+  /**
    * True once Sil has been pressed and before it is confirmed. Deleting takes two presses
    * rather than a browser confirm box, so the question stays on the screen it belongs to and
    * a stray click cannot remove a campaign.
@@ -83,6 +91,9 @@ export class CampaignForm {
     // Typed as the full union rather than the default literal, so loading an existing
     // campaign can put any of the values back into the control.
     campaignType: ['Mass' as CampaignType, Validators.required],
+    // Only meaningful once campaignType is 'EnrollmentRequired' (SI) — the inline panel that
+    // asks for it appears then, and this default is what it starts pre-selected to.
+    enrollmentBasis: ['ParticipationDate' as EnrollmentBasis],
     earningType: ['CardBased' as EarningType, Validators.required],
 
     // '' is the "all" option. It becomes null on the way out, which is how the API
@@ -124,6 +135,19 @@ export class CampaignForm {
         this.load(Number(id));
       } else {
         this.clear();
+      }
+    });
+
+    // Undebounced, unlike the preview subscription below: the enrollment-basis panel has to
+    // appear the instant SI is picked, not after a 300ms wait.
+    this.form.controls.campaignType.valueChanges.subscribe(value => {
+      this.campaignType.set(value);
+
+      // Re-selecting SI after having left it starts the operator from the default again,
+      // same as a brand new campaign — nothing is remembered from an earlier, discarded
+      // choice.
+      if (value !== 'EnrollmentRequired') {
+        this.form.controls.enrollmentBasis.setValue('ParticipationDate');
       }
     });
 
@@ -235,6 +259,7 @@ export class CampaignForm {
       name: '',
       description: '',
       campaignType: 'Mass',
+      enrollmentBasis: 'ParticipationDate',
       earningType: 'CardBased',
       gender: '',
       cardType: '',
@@ -285,6 +310,9 @@ export class CampaignForm {
       name: campaign.name,
       description: campaign.description ?? '',
       campaignType: campaign.campaignType,
+      // Falls back to the default so the panel has something selected if the operator
+      // switches back to SI, even though a MASS campaign carries null here.
+      enrollmentBasis: campaign.enrollmentBasis ?? 'ParticipationDate',
       earningType: campaign.earningType,
       gender: campaign.gender ?? '',
       cardType: campaign.cardType ?? '',
@@ -327,6 +355,9 @@ export class CampaignForm {
       name: value.name,
       description: value.description || null,
       campaignType: value.campaignType,
+      // Null unless SI is actually selected: the field means nothing for a MASS campaign,
+      // and the API rejects an EnrollmentRequired campaign that omits it.
+      enrollmentBasis: value.campaignType === 'EnrollmentRequired' ? value.enrollmentBasis : null,
       earningType: value.earningType,
       gender: (value.gender || null) as Gender | null,
       cardType: (value.cardType || null) as CardType | null,

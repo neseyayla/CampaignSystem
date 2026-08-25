@@ -8,6 +8,12 @@
  */
 export type CampaignType = 'Mass' | 'EnrollmentRequired';
 
+/**
+ * For an EnrollmentRequired (SI) campaign, which transactions count toward the reward once
+ * a customer has joined. Null for a MASS campaign, which has no enrollment to measure from.
+ */
+export type EnrollmentBasis = 'ParticipationDate' | 'CampaignPeriod';
+
 export type EarningType = 'CardBased' | 'CustomerBased';
 
 export type CampaignStatus = 'Pending' | 'Ongoing' | 'Loading' | 'Ended';
@@ -21,6 +27,10 @@ export interface Campaign {
   name: string;
   description: string | null;
   campaignType: CampaignType;
+
+  /** Null for a MASS campaign. */
+  enrollmentBasis: EnrollmentBasis | null;
+
   startDate: string;
   endDate: string;
   minimumAmount: number | null;
@@ -50,6 +60,10 @@ export interface CreateCampaign {
   name: string;
   description: string | null;
   campaignType: CampaignType;
+
+  /** Required when campaignType is EnrollmentRequired; null otherwise. */
+  enrollmentBasis: EnrollmentBasis | null;
+
   earningType: EarningType;
 
   // Null rather than omitted: the API reads null as "no restriction", which is what an

@@ -16,6 +16,9 @@ public class CampaignDto
 
     public CampaignType CampaignType { get; set; }
 
+    /// <summary>Null for a MASS campaign, which has no enrollment to measure from.</summary>
+    public EnrollmentBasis? EnrollmentBasis { get; set; }
+
     public DateTime StartDate { get; set; }
 
     public DateTime EndDate { get; set; }

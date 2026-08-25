@@ -29,6 +29,20 @@
         </select>
       </label>
 
+      @if (campaignType() === 'EnrollmentRequired') {
+        <fieldset class="level enrollment-basis wide">
+          <legend>Puan Hesaplaması</legend>
+          <label class="radio">
+            <input type="radio" formControlName="enrollmentBasis" value="ParticipationDate" />
+            Kampanyaya katılım tarihinden itibaren
+          </label>
+          <label class="radio">
+            <input type="radio" formControlName="enrollmentBasis" value="CampaignPeriod" />
+            Kampanya tarihi aralığındaki tüm işlemler dahil
+          </label>
+        </fieldset>
+      }
+
       <fieldset class="level">
         <legend>Kazanım Tipi</legend>
         <label class="radio">

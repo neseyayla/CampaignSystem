@@ -21,6 +21,12 @@ public class CreateCampaignDto : IValidatableObject
     [Required]
     public CampaignType CampaignType { get; set; }
 
+    /// <summary>
+    /// Required when <see cref="CampaignType"/> is EnrollmentRequired (SI); left null a MASS
+    /// campaign has nothing to set it to.
+    /// </summary>
+    public EnrollmentBasis? EnrollmentBasis { get; set; }
+
     [Required]
     public EarningType EarningType { get; set; }
 
@@ -60,6 +66,13 @@ public class CreateCampaignDto : IValidatableObject
             yield return new ValidationResult(
                 "EndDate must be later than StartDate.",
                 [nameof(EndDate)]);
+        }
+
+        if (CampaignType == CampaignType.EnrollmentRequired && EnrollmentBasis is null)
+        {
+            yield return new ValidationResult(
+                "EnrollmentBasis is required for an EnrollmentRequired (SI) campaign.",
+                [nameof(EnrollmentBasis)]);
         }
 
         if (MinimumAmount is not null && MaximumAmount is not null && MinimumAmount > MaximumAmount)
