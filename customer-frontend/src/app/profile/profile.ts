@@ -3,7 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 
-import { Card, CustomerProfile } from '../models/customer-campaign';
+import { Card, CustomerProfile, CustomerTransaction } from '../models/customer-campaign';
 import { CustomerService } from '../services/customer.service';
 import { TopBar } from '../shared/top-bar';
 
@@ -26,11 +26,48 @@ export class Profile {
 
   readonly profile = signal<CustomerProfile | null>(null);
   readonly cards = signal<{ card: Card; productName: string }[]>([]);
+  readonly transactions = signal<CustomerTransaction[]>([]);
 
   readonly genderLabel = computed(() => {
     const g = this.profile()?.gender;
     return g === 'Female' ? 'Kadın' : g === 'Male' ? 'Erkek' : '—';
   });
+
+  /** Which cards are expanded to show their spending. Several may be open at once. */
+  readonly openCards = signal<ReadonlySet<number>>(new Set());
+
+  toggleCard(cardId: number): void {
+    const next = new Set(this.openCards());
+    if (next.has(cardId)) {
+      next.delete(cardId);
+    } else {
+      next.add(cardId);
+    }
+    this.openCards.set(next);
+  }
+
+  isCardOpen(cardId: number): boolean {
+    return this.openCards().has(cardId);
+  }
+
+  /** This card's transactions, newest first (the list already arrives sorted). */
+  txForCard(cardId: number): CustomerTransaction[] {
+    return this.transactions().filter(t => t.cardId === cardId);
+  }
+
+  /** "24 Ağustos 2026" */
+  day(value: string): string {
+    return new Date(value).toLocaleDateString('tr-TR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  }
+
+  /** A signed amount in Turkish formatting, e.g. "1.250,00". */
+  amount(value: number): string {
+    return value.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
 
   // Password form.
   /** The change-password form is hidden until the customer opens it. */
@@ -46,11 +83,13 @@ export class Profile {
   constructor() {
     forkJoin({
       profile: this.service.profile(),
-      cards: this.service.cards()
+      cards: this.service.cards(),
+      transactions: this.service.transactions()
     }).subscribe({
-      next: ({ profile, cards }) => {
+      next: ({ profile, cards, transactions }) => {
         this.profile.set(profile);
         this.cards.set(cards);
+        this.transactions.set(transactions);
         this.loading.set(false);
       },
       error: () => {

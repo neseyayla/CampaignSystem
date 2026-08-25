@@ -58,12 +58,41 @@
       } @else {
         <ul class="cards">
           @for (item of cards(); track item.card.id) {
-            <li>
-              <span class="dot" aria-hidden="true"></span>
-              <span class="product">{{ item.productName }}</span>
-              <span class="kind">
-                {{ item.card.cardType === 'Supplementary' ? 'Ek kart' : 'Asıl kart' }}
-              </span>
+            <li class="card-item" [class.open]="isCardOpen(item.card.id)">
+              <button
+                type="button"
+                class="card-head"
+                (click)="toggleCard(item.card.id)"
+                [attr.aria-expanded]="isCardOpen(item.card.id)">
+                <span class="card-chip" aria-hidden="true"></span>
+
+                <span class="card-id">
+                  <span class="card-name">{{ item.productName }}</span>
+                  <span class="card-kind">
+                    {{ item.card.cardType === 'Supplementary' ? 'Ek kart' : 'Asıl kart' }}
+                  </span>
+                </span>
+
+                <span class="card-chevron" aria-hidden="true">⌄</span>
+              </button>
+
+              @if (isCardOpen(item.card.id)) {
+                @if (txForCard(item.card.id).length === 0) {
+                  <p class="card-empty">Bu kartla henüz harcama yok.</p>
+                } @else {
+                  <ul class="tx-list">
+                    @for (t of txForCard(item.card.id); track t.id) {
+                      <li [class.refund]="t.isRefund">
+                        <div class="tx-text">
+                          <span class="tx-merchant">{{ t.merchantName ?? t.typeName }}</span>
+                          <span class="tx-sub">{{ day(t.transactionDate) }} · {{ t.typeName }}</span>
+                        </div>
+                        <span class="tx-amount">{{ amount(t.amount) }} TL</span>
+                      </li>
+                    }
+                  </ul>
+                }
+              }
             </li>
           }
         </ul>

@@ -17,7 +17,12 @@
       </div>
 
       @if (rewards(); as summary) {
-        <div class="points-card">
+        <div class="points-card"
+             role="button"
+             tabindex="0"
+             title="Kazandıklarımı gör"
+             (click)="tab.set('earned')"
+             (keydown.enter)="tab.set('earned')">
           <div class="star-box" aria-hidden="true">
             <svg viewBox="0 0 24 24">
               <path d="M12 2.8l2.8 5.67 6.26.91-4.53 4.42 1.07 6.24L12 17.1l-5.6 2.94
@@ -121,15 +126,25 @@
         } @else {
           <ul class="history">
             @for (line of summary.campaigns; track line.campaignId) {
-              <li>
-                <div class="history-text">
-                  <span class="history-name">{{ line.campaignName }}</span>
-                  <span class="history-date">
-                    {{ day(line.rewardDate) }} · {{ line.qualifyingCount }} işlem
-                  </span>
-                </div>
+              <li [class.open]="breakdownFor() === line.campaignId">
+                <button type="button" class="history-row" (click)="toggleBreakdown(line.campaignId)">
+                  <div class="history-text">
+                    <span class="history-name">{{ line.campaignName }}</span>
+                    <span class="history-date">
+                      {{ day(line.rewardDate) }} · {{ line.qualifyingCount }} işlem
+                    </span>
+                  </div>
 
-                <span class="history-value">{{ points(line.totalRewardPoint) }}</span>
+                  <span class="history-value">{{ points(line.totalRewardPoint) }}</span>
+                  <span class="history-caret" aria-hidden="true">›</span>
+                </button>
+
+                <!-- ── Spending breakdown, slides open below the row ── -->
+                @if (breakdownFor() === line.campaignId) {
+                  <div class="bd-panel">
+                    <ng-container [ngTemplateOutlet]="bdPanel"></ng-container>
+                  </div>
+                }
               </li>
             }
           </ul>
@@ -275,3 +290,33 @@
     }
   }
 </main>
+
+<!-- ── Shared spending-breakdown body, used by the earned list and the grid cards ── -->
+<ng-template #bdPanel>
+  @if (breakdownLoading()) {
+    <p class="bd-info">Yükleniyor…</p>
+  } @else if (breakdownError()) {
+    <p class="bd-info">{{ breakdownError() }}</p>
+  } @else if (breakdown(); as bd) {
+    @if (bd.lines.length === 0) {
+      <p class="bd-info">Bu kampanyada sayılan bir harcama bulunamadı.</p>
+    } @else {
+      <ul class="bd-list">
+        @for (l of bd.lines; track l.transactionId) {
+          <li [class.reversed]="l.isReversed">
+            <div class="bd-text">
+              <span class="bd-merchant">{{ l.merchantName ?? 'Harcama' }}</span>
+              <span class="bd-date">
+                {{ day(l.transactionDate) }} · {{ points(l.amount) }} TL
+                @if (l.isReversed) { · iade edildi }
+              </span>
+            </div>
+            <span class="bd-points">
+              {{ l.isReversed ? '−' : '+' }}{{ points(l.rewardPoint) }}
+            </span>
+          </li>
+        }
+      </ul>
+    }
+  }
+</ng-template>

@@ -401,11 +401,6 @@
 }
 
 .history li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
   border-top: 1px solid #f1f4f8;
 }
 
@@ -413,8 +408,34 @@
   border-top: 0;
 }
 
+.history-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-row:hover {
+  background: #f8fafc;
+}
+
+.history-caret {
+  color: var(--faint);
+  font-size: 1.375rem;
+  line-height: 1;
+}
+
 .history-text {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 0.15rem;
   min-width: 0;
@@ -437,6 +458,95 @@
   color: var(--teal);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* ── Spending breakdown (slides open below the row) ── */
+
+.history li.open .history-caret {
+  transform: rotate(90deg);
+}
+
+.history-caret {
+  transition: transform 0.18s ease;
+}
+
+.bd-panel {
+  background: #f8fafc;
+  border-top: 1px solid #f1f4f8;
+  overflow: hidden;
+  animation: bd-slide 0.18s ease;
+}
+
+@keyframes bd-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-0.35rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bd-info {
+  padding: 2rem 1.5rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--faint);
+}
+
+.bd-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.bd-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1.5rem;
+  border-top: 1px solid #f1f4f8;
+}
+
+.bd-list li:first-child {
+  border-top: 0;
+}
+
+.bd-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.bd-merchant {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.bd-date {
+  font-size: 0.8125rem;
+  color: var(--faint);
+}
+
+.bd-points {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--teal);
+}
+
+.bd-list li.reversed .bd-points {
+  color: #d92d20;
+}
+
+.bd-list li.reversed .bd-merchant {
+  color: var(--faint);
+  text-decoration: line-through;
 }
 
 /* ── States ───────────────────────────────────── */

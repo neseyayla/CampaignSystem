@@ -69,11 +69,22 @@
         @if ((!d.campaign.enrollmentRequired || d.campaign.enrolled) && d.campaign.hasStarted) {
           <section class="block">
             <h2>Durumum</h2>
-            <div class="progress">
+
+            <!-- Pressing the progress block opens the purchases behind these points. -->
+            <div class="progress"
+                 [class.clickable]="breakdownLineCount() > 0"
+                 [class.open]="breakdownOpen()"
+                 role="button"
+                 tabindex="0"
+                 (click)="toggleBreakdown()"
+                 (keydown.enter)="toggleBreakdown()">
               <div class="progress-line">
                 <span class="earned-value">{{ points(d.progress.totalRewardPoint) }}</span>
                 <span class="earned-unit">puan kazandınız</span>
                 <span class="count-note">{{ qualifyingCount() }} işlem sayıldı</span>
+                @if (breakdownLineCount() > 0) {
+                  <span class="progress-caret" aria-hidden="true">›</span>
+                }
               </div>
 
               @if (d.campaign.maxRewardAmount !== null) {
@@ -89,6 +100,25 @@
                 </p>
               }
             </div>
+
+            @if (breakdownOpen() && breakdown(); as bd) {
+              <ul class="bd-list">
+                @for (l of bd.lines; track l.transactionId) {
+                  <li [class.reversed]="l.isReversed">
+                    <div class="bd-text">
+                      <span class="bd-merchant">{{ l.merchantName ?? 'Harcama' }}</span>
+                      <span class="bd-date">
+                        {{ day(l.transactionDate) }} · {{ points(l.amount) }} TL
+                        @if (l.isReversed) { · iade edildi }
+                      </span>
+                    </div>
+                    <span class="bd-points">
+                      {{ l.isReversed ? '−' : '+' }}{{ points(l.rewardPoint) }}
+                    </span>
+                  </li>
+                }
+              </ul>
+            }
           </section>
         } @else if (!d.campaign.hasStarted) {
           <p class="upcoming-note">{{ day(d.campaign.startDate) }} tarihinde başlıyor.</p>
