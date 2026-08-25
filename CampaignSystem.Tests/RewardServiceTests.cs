@@ -447,6 +447,97 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         Assert.Equal(50m, result.Value.TotalRewardPoint);
     }
 
+    [Fact]
+    public async Task ReversedTransaction_IsNotCountedWhenTheRewardIsCalculated()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        var suffix = DateTime.Now.Ticks.ToString()[^10..];
+
+        var campaign = new Campaign
+        {
+            Name = "Reversal calc test",
+            CampaignType = CampaignType.Mass,
+            EarningType = EarningType.CardBased,
+            StartDate = DateTime.Now.AddDays(-10),
+            EndDate = DateTime.Now.AddDays(-1),
+            MinimumAmount = 250m,
+            RewardPoint = 50m,
+            Status = CampaignStatus.Loading,
+            IsActive = true
+        };
+
+        var (customer, card) = await AddCustomerWithCardAsync(context, campaign, suffix);
+
+        var kept = NewTransaction(suffix, 0, card, customer, 300m, campaign.StartDate.AddDays(1));
+        var refunded = NewTransaction(suffix, 1, card, customer, 300m, campaign.StartDate.AddDays(2));
+        context.Transactions.AddRange(kept, refunded);
+        await context.SaveChangesAsync();
+
+        // A refund row pointing at the purchase is what stops it counting — there is no flag.
+        context.Transactions.Add(NewRefund(suffix, 2, refunded));
+        await context.SaveChangesAsync();
+
+        var result = await CreateService(context).CalculateAsync(campaign.Id);
+
+        Assert.Equal(ResultStatus.Success, result.Status);
+
+        // Only the purchase without a refund pays.
+        Assert.Equal(1, result.Value!.QualifyingTransactions);
+        Assert.Equal(50m, result.Value.TotalRewardPoint);
+    }
+
+    [Fact]
+    public async Task ReconcileReversals_ReducesARewardAfterOneOfItsTransactionsIsRefunded()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        var suffix = DateTime.Now.Ticks.ToString()[^10..];
+
+        var campaign = new Campaign
+        {
+            Name = "Reconcile test",
+            CampaignType = CampaignType.Mass,
+            EarningType = EarningType.CardBased,
+            StartDate = DateTime.Now.AddDays(-10),
+            EndDate = DateTime.Now.AddDays(-1),
+            MinimumAmount = 250m,
+            RewardPoint = 50m,
+            Status = CampaignStatus.Loading,
+            IsActive = true
+        };
+
+        var (customer, card) = await AddCustomerWithCardAsync(context, campaign, suffix);
+
+        var first = NewTransaction(suffix, 0, card, customer, 300m, campaign.StartDate.AddDays(1));
+        var second = NewTransaction(suffix, 1, card, customer, 300m, campaign.StartDate.AddDays(2));
+        context.Transactions.AddRange(first, second);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+
+        // Both transactions count: the reward is loaded at 100, dated now (inside the window).
+        var calculation = await service.CalculateAsync(campaign.Id);
+        Assert.Equal(100m, calculation.Value!.TotalRewardPoint);
+
+        // One of the two purchases is refunded after the reward was loaded: a refund row lands.
+        context.Transactions.Add(NewRefund(suffix, 2, second));
+        await context.SaveChangesAsync();
+
+        var reduced = await service.ReconcileReversalsAsync();
+
+        Assert.Equal(1, reduced);
+
+        var reward = await context.CampaignRewards.SingleAsync(r => r.CampaignId == campaign.Id);
+        Assert.Equal(1, reward.QualifyingCount);
+        Assert.Equal(50m, reward.RewardPoint);
+
+        // A second run finds nothing more to do — reconciliation is idempotent.
+        Assert.Equal(0, await service.ReconcileReversalsAsync());
+    }
+
     private static async Task<(Customer, Card)> AddCustomerWithCardAsync(
         CampaignDbContext context, Campaign campaign, string suffix)
     {
@@ -484,5 +575,21 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         TransactionCodeId = ScenarioBuilder.SaleTransactionCodeId,
         TransactionDate = date,
         Amount = amount
+    };
+
+    /// <summary>
+    /// A refund row reversing an already-saved purchase: İade code, negative amount, carrying
+    /// its own reference and pointing back at the original. The original must already have an id.
+    /// </summary>
+    private static Transaction NewRefund(string suffix, int index, Transaction original) => new()
+    {
+        Rrn = $"F{suffix}{index:D2}",
+        CardId = original.CardId,
+        CustomerId = original.CustomerId,
+        MerchantId = original.MerchantId,
+        TransactionCodeId = 4,            // İade (IA)
+        TransactionDate = DateTime.Now,
+        Amount = -original.Amount,
+        OriginalTransactionId = original.Id
     };
 }

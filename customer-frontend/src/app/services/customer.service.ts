@@ -8,7 +8,9 @@ import {
   CustomerCampaign,
   CustomerCampaignDetail,
   CustomerProfile,
+  CustomerTransaction,
   Product,
+  RewardBreakdown,
   RewardSummary
 } from '../models/customer-campaign';
 
@@ -55,6 +57,11 @@ export class CustomerService {
     return this.http.get<RewardSummary>(`${API_BASE_URL}/me/rewards`);
   }
 
+  /** The purchases behind one finished campaign's reward — earners and refunds. */
+  rewardBreakdown(campaignId: number): Observable<RewardBreakdown> {
+    return this.http.get<RewardBreakdown>(`${API_BASE_URL}/me/rewards/${campaignId}/transactions`);
+  }
+
   /**
    * The customer's cards, with the product names attached.
    *
@@ -88,6 +95,11 @@ export class CustomerService {
   /** The signed-in customer's own details. */
   profile(): Observable<CustomerProfile> {
     return this.http.get<CustomerProfile>(`${API_BASE_URL}/me/profile`);
+  }
+
+  /** The customer's own spending history, newest first. */
+  transactions(): Observable<CustomerTransaction[]> {
+    return this.http.get<CustomerTransaction[]>(`${API_BASE_URL}/me/transactions`);
   }
 
   /** Changes the customer's own password; the current one is verified server-side. */

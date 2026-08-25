@@ -3,7 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { switchMap } from 'rxjs';
 
-import { Card, CustomerCampaignDetail } from '../models/customer-campaign';
+import { Card, CustomerCampaignDetail, RewardBreakdown } from '../models/customer-campaign';
 import { CustomerService } from '../services/customer.service';
 import { TopBar } from '../shared/top-bar';
 
@@ -26,6 +26,12 @@ export class CampaignDetail {
   readonly notFound = signal(false);
   readonly detail = signal<CustomerCampaignDetail | null>(null);
 
+  /** The purchases behind this campaign's points for the customer — earners and refunds. */
+  readonly breakdown = signal<RewardBreakdown | null>(null);
+
+  /** Whether the "Durumum" block is expanded to show that breakdown. */
+  readonly breakdownOpen = signal(false);
+
   readonly choosingCard = signal(false);
   readonly cards = signal<{ card: Card; productName: string }[]>([]);
   readonly enrolling = signal(false);
@@ -40,6 +46,7 @@ export class CampaignDetail {
         next: detail => {
           this.detail.set(detail);
           this.loading.set(false);
+          this.loadBreakdown(detail.campaign.campaignId);
         },
         error: (err: HttpErrorResponse) => {
           // 404 covers "does not exist", "no longer open" and "not eligible" alike — from
@@ -60,6 +67,17 @@ export class CampaignDetail {
 
   qualifyingCount(): number {
     return this.detail()?.progress.lines.reduce((t, l) => t + l.qualifyingCount, 0) ?? 0;
+  }
+
+  /** How many purchases the breakdown has to show; used to decide whether it can open. */
+  breakdownLineCount(): number {
+    return this.breakdown()?.lines.length ?? 0;
+  }
+
+  toggleBreakdown(): void {
+    if (this.breakdownLineCount() > 0) {
+      this.breakdownOpen.set(!this.breakdownOpen());
+    }
   }
 
   capped(): boolean {
@@ -117,6 +135,14 @@ export class CampaignDetail {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
+    });
+  }
+
+  private loadBreakdown(campaignId: number): void {
+    this.breakdown.set(null);
+    this.service.rewardBreakdown(campaignId).subscribe({
+      next: breakdown => this.breakdown.set(breakdown),
+      error: () => this.breakdown.set(null)
     });
   }
 

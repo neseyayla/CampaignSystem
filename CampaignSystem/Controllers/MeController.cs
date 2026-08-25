@@ -24,6 +24,7 @@ public class MeController(
     IRewardService rewardService,
     ICardService cardService,
     ICustomerService customerService,
+    ITransactionService transactionService,
     IAuthService authService) : ControllerBase
 {
     /// <summary>The signed-in customer's own details.</summary>
@@ -142,6 +143,23 @@ public class MeController(
     }
 
     /// <summary>
+    /// The purchases behind one campaign's reward, for the drill-down under "Kazandıklarım":
+    /// each earning purchase, and any refunded one flagged so the screen can show it in red.
+    /// </summary>
+    [HttpGet("rewards/{campaignId:int}/transactions")]
+    [ProducesResponseType<RewardBreakdownDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<RewardBreakdownDto>> GetRewardBreakdown(
+        int campaignId,
+        CancellationToken cancellationToken)
+    {
+        var breakdown = await rewardService.GetRewardBreakdownAsync(
+            User.CustomerId(), campaignId, cancellationToken);
+
+        return breakdown is null ? NotFound() : Ok(breakdown);
+    }
+
+    /// <summary>
     /// The customer's own cards, so they can pick one when joining a card based campaign.
     /// </summary>
     [HttpGet("cards")]
@@ -149,5 +167,14 @@ public class MeController(
     public async Task<ActionResult<List<CardDto>>> GetCards(CancellationToken cancellationToken)
     {
         return Ok(await cardService.GetAllAsync(User.CustomerId(), cancellationToken));
+    }
+
+    /// <summary>The customer's own spending history, newest first, for the profile screen.</summary>
+    [HttpGet("transactions")]
+    [ProducesResponseType<List<CustomerTransactionDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<CustomerTransactionDto>>> GetTransactions(
+        CancellationToken cancellationToken)
+    {
+        return Ok(await transactionService.GetCustomerHistoryAsync(User.CustomerId(), cancellationToken));
     }
 }

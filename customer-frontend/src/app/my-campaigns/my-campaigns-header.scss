@@ -52,6 +52,14 @@ $line: #e8ebf1;
   border: 1px solid $line;
   border-radius: 16px;
   box-shadow: 0 5px 18px rgba(60, 45, 10, 0.05);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.15s ease;
+}
+
+.points-card:hover {
+  transform: translateY(-1px);
+  border-color: #e2d9c2;
+  box-shadow: 0 8px 22px rgba(60, 45, 10, 0.1);
 }
 
 .star-box {

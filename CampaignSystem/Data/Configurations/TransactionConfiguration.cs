@@ -33,6 +33,12 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
         builder.HasIndex(x => new { x.CustomerId, x.TransactionDate });
         builder.HasIndex(x => new { x.CardId, x.TransactionDate });
 
+        // A purchase can be refunded once. The filter lets the many ordinary rows keep a null
+        // here while still forbidding two refunds against the same original.
+        builder.HasIndex(x => x.OriginalTransactionId)
+            .IsUnique()
+            .HasFilter("[OriginalTransactionId] IS NOT NULL");
+
         builder.HasOne(x => x.Card)
             .WithMany(x => x.Transactions)
             .HasForeignKey(x => x.CardId)
@@ -51,6 +57,12 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
         builder.HasOne(x => x.TransactionCode)
             .WithMany(x => x.Transactions)
             .HasForeignKey(x => x.TransactionCodeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Self-reference: a refund row points at the purchase it reverses.
+        builder.HasOne(x => x.OriginalTransaction)
+            .WithMany()
+            .HasForeignKey(x => x.OriginalTransactionId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

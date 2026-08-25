@@ -8,6 +8,7 @@
   --line: #e8ecf1;
   --surface: #fff;
   --teal: #0f766e;
+  --gold: #f2b705;
 
   display: block;
 }
@@ -144,38 +145,121 @@
   margin: 0;
   padding: 0;
   list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
 }
 
-.cards li {
+.card-item {
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card-item:hover,
+.card-item.open {
+  border-color: #d7dee7;
+}
+
+.card-item:hover {
+  box-shadow: 0 4px 14px rgb(16 35 61 / 8%);
+}
+
+.card-head {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.6rem 0;
-  border-top: 1px solid #f1f4f8;
+  gap: 0.8rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.cards li:first-child {
-  border-top: 0;
+/* A little chip so each row reads as a card rather than a list item. */
+.card-chip {
+  position: relative;
+  flex: none;
+  width: 2rem;
+  height: 1.4rem;
+  border-radius: 0.3rem;
+  /* Gold, like a real card chip and the bank's accent colour. */
+  background: linear-gradient(135deg, #f7d25a, var(--gold) 55%, #cf9a04);
 }
 
-.dot {
-  width: 0.6rem;
-  height: 0.6rem;
-  border-radius: 2px;
-  background: var(--navy);
-  transform: rotate(45deg);
+.card-chip::after {
+  content: '';
+  position: absolute;
+  left: 0.3rem;
+  top: 0.36rem;
+  width: 0.55rem;
+  height: 0.45rem;
+  border-radius: 0.12rem;
+  /* Contact lines, a shade darker than the chip. */
+  background: rgb(120 86 6 / 45%);
 }
 
-.cards .product {
-  font-size: 0.9375rem;
+.card-id {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.card-name {
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--ink);
 }
 
-.cards .kind {
+.card-kind {
+  font-size: 0.75rem;
+  color: var(--faint);
+}
+
+.card-chevron {
   margin-left: auto;
+  color: var(--faint);
+  font-size: 1.05rem;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.card-item.open .card-chevron {
+  transform: rotate(180deg);
+}
+
+.card-empty {
+  margin: 0;
+  padding: 0 1rem 0.85rem 3.8rem;
   font-size: 0.8125rem;
-  color: var(--muted);
+  color: var(--faint);
+}
+
+/* Transactions live inside the card: no border of their own, just a divider. */
+.cards .tx-list {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  border-top: 1px solid #f1f4f8;
+  max-height: 20rem;
+  overflow-y: auto;
+  animation: bd-slide 0.18s ease;
+}
+
+@keyframes bd-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-0.3rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ── Password ─────────────────────────────────── */
@@ -266,4 +350,58 @@
   margin: 0;
   font-size: 0.875rem;
   color: var(--faint);
+}
+
+/* ── Spending history ─────────────────────────── */
+
+.tx-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 22rem;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+}
+
+.tx-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #f1f4f8;
+}
+
+.tx-list li:first-child {
+  border-top: 0;
+}
+
+.tx-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.tx-merchant {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.tx-sub {
+  font-size: 0.8125rem;
+  color: var(--faint);
+}
+
+.tx-amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+.tx-list li.refund .tx-amount {
+  color: #d92d20;
 }

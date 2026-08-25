@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, ElementRef, HostListener, computed, inject, signal } from '@angular/core';
 import { forkJoin } from 'rxjs';
@@ -6,6 +7,7 @@ import {
   Card,
   CustomerCampaign,
   CustomerCampaignDetail,
+  RewardBreakdown,
   RewardSummary
 } from '../models/customer-campaign';
 import { RouterLink } from '@angular/router';
@@ -26,7 +28,7 @@ export type Tab = 'all' | 'joinable' | 'earning' | 'earned';
  */
 @Component({
   selector: 'app-my-campaigns',
-  imports: [TopBar, RouterLink],
+  imports: [TopBar, RouterLink, NgTemplateOutlet],
   templateUrl: './my-campaigns.html',
   styleUrls: ['./my-campaigns.css', './my-campaigns-header.scss']
 })
@@ -84,6 +86,12 @@ export class MyCampaigns {
     });
   });
 
+  /** The campaign whose spending breakdown panel is open, by id, if any. */
+  readonly breakdownFor = signal<number | null>(null);
+  readonly breakdown = signal<RewardBreakdown | null>(null);
+  readonly breakdownLoading = signal(false);
+  readonly breakdownError = signal<string | null>(null);
+
   /** The campaign whose card picker is open, if any. */
   readonly choosingCardFor = signal<number | null>(null);
   readonly cards = signal<{ card: Card; productName: string }[]>([]);
@@ -119,6 +127,40 @@ export class MyCampaigns {
         this.loading.set(false);
       }
     });
+  }
+
+  /**
+   * Expands the given campaign to show the purchases behind its points, or collapses it if it
+   * is already the open one. Works from both the earned list and the grid's progress block;
+   * only one is open at a time.
+   */
+  toggleBreakdown(campaignId: number): void {
+    if (this.breakdownFor() === campaignId) {
+      this.closeBreakdown();
+      return;
+    }
+
+    this.breakdownFor.set(campaignId);
+    this.breakdown.set(null);
+    this.breakdownError.set(null);
+    this.breakdownLoading.set(true);
+
+    this.service.rewardBreakdown(campaignId).subscribe({
+      next: breakdown => {
+        this.breakdown.set(breakdown);
+        this.breakdownLoading.set(false);
+      },
+      error: () => {
+        this.breakdownError.set('Harcama dökümü alınamadı.');
+        this.breakdownLoading.set(false);
+      }
+    });
+  }
+
+  closeBreakdown(): void {
+    this.breakdownFor.set(null);
+    this.breakdown.set(null);
+    this.breakdownError.set(null);
   }
 
   join(detail: CustomerCampaignDetail): void {

@@ -20,4 +20,12 @@ public interface ITransactionService
     Task<ServiceResult<TransactionDto>> CreateAsync(
         CreateTransactionDto dto,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// One customer's own transactions, newest first, with merchant and type names resolved
+    /// for display. Backs the customer's profile spending history.
+    /// </summary>
+    Task<List<CustomerTransactionDto>> GetCustomerHistoryAsync(
+        int customerId,
+        CancellationToken cancellationToken = default);
 }

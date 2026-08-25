@@ -85,6 +85,35 @@ export interface RewardSummary {
   campaigns: RewardCampaignLine[];
 }
 
+/** One purchase behind a campaign's reward, for the drill-down under "Kazandıklarım". */
+export interface RewardBreakdownLine {
+  transactionId: number;
+  transactionDate: string;
+  amount: number;
+  merchantName: string | null;
+  /** The campaign's per-transaction points; shown green when earned, red when reversed. */
+  rewardPoint: number;
+  isReversed: boolean;
+}
+
+export interface RewardBreakdown {
+  campaignId: number;
+  campaignName: string;
+  rewardPointPerTransaction: number;
+  lines: RewardBreakdownLine[];
+}
+
+/** One line of the customer's own spending history, for the profile screen. */
+export interface CustomerTransaction {
+  id: number;
+  transactionDate: string;
+  amount: number;
+  cardId: number;
+  merchantName: string | null;
+  typeName: string;
+  isRefund: boolean;
+}
+
 export interface Card {
   id: number;
   customerId: number;

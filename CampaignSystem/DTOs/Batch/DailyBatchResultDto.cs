@@ -23,6 +23,12 @@ public class DailyBatchResultDto
     public decimal TotalRewardPoint { get; set; }
 
     /// <summary>
+    /// Reward rows reduced because a purchase they counted was refunded, across every campaign
+    /// still inside its refund window.
+    /// </summary>
+    public int RewardsReduced { get; set; }
+
+    /// <summary>
     /// Campaigns that were due but could not be loaded, with the reason. The run carries on
     /// past a failure so that one bad campaign cannot hold up the rest.
     /// </summary>

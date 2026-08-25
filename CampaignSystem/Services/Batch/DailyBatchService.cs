@@ -30,11 +30,16 @@ public class DailyBatchService(
 
         await LoadDueRewardsAsync(now, result, cancellationToken);
 
+        // After loading, reconcile refunds: a purchase counted at loading time may have been
+        // reversed since, and while the campaign is still inside its refund window those points
+        // are clawed back.
+        result.RewardsReduced = await rewardService.ReconcileReversalsAsync(cancellationToken);
+
         logger.LogInformation(
             "Daily batch finished. Started {Started}, closed {Closed}, loaded {Loaded} campaigns, " +
-            "wrote {Rewards} rewards worth {Points} points, {Failures} failures.",
+            "wrote {Rewards} rewards worth {Points} points, reduced {Reduced} rewards, {Failures} failures.",
             result.Started, result.Closed, result.Loaded,
-            result.RewardsCreated, result.TotalRewardPoint, result.Failures.Count);
+            result.RewardsCreated, result.TotalRewardPoint, result.RewardsReduced, result.Failures.Count);
 
         return result;
     }
