@@ -35,6 +35,9 @@ services:
         condition: service_healthy      # wait for the healthcheck above to pass
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
+      # The batch schedules on the container's local clock. Without this the container is UTC,
+      # so "00:30" would fire at 03:30 in Türkiye. Pin the zone so RunAt means local time.
+      TZ: "Europe/Istanbul"
       # Only the container applies migrations on boot, so its empty database gets the schema.
       # Unset when you run locally, so your LocalDB is never touched automatically.
       RunMigrationsAtStartup: "true"
