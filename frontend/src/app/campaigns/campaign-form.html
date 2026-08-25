@@ -145,6 +145,26 @@
     </div>
   </section>
 
+  @if (!editing()) {
+    <section class="conditions">
+      <h2>Kampanya Koşulları (Önizleme)</h2>
+
+      <p class="hint">
+        Kampanya kaydedildiğinde bu cümleler otomatik olarak oluşturulur. Formu
+        doldurdukça önizleme güncellenir; kaydettikten sonra bu satırlar elle
+        düzenlenebilir hale gelir.
+      </p>
+
+      <ol class="condition-list">
+        @for (line of conditionsPreview(); track $index) {
+          <li>{{ line }}</li>
+        } @empty {
+          <li class="empty">Kuralları ve kriterleri doldurdukça koşul cümleleri burada görünecek.</li>
+        }
+      </ol>
+    </section>
+  }
+
   @if (editing()) {
     <section class="conditions">
       <h2>Kampanya Koşulları</h2>

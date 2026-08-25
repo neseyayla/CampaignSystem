@@ -6,6 +6,7 @@ import { API_BASE_URL } from '../api-config';
 import {
   Campaign,
   CampaignCondition,
+  CampaignConditionsPreviewRequest,
   CampaignCriteria,
   CreateCampaign,
   UpdateCampaign
@@ -76,5 +77,13 @@ export class CampaignService {
    */
   generateConditions(id: number): Observable<CampaignCondition[]> {
     return this.http.post<CampaignCondition[]>(`${this.baseUrl}/${id}/conditions/generate`, {});
+  }
+
+  /**
+   * The same sentences generateConditions would write, computed from a draft that has not
+   * been saved yet. Backs the live preview on the "new campaign" screen.
+   */
+  previewConditions(request: CampaignConditionsPreviewRequest): Observable<string[]> {
+    return this.http.post<string[]>(`${this.baseUrl}/conditions/preview`, request);
   }
 }

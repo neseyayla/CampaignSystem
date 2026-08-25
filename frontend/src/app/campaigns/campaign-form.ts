@@ -1,13 +1,14 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin, of, switchMap } from 'rxjs';
+import { debounceTime, forkJoin, of, switchMap } from 'rxjs';
 
 import { CampaignService } from '../services/campaign.service';
 import { LookupService } from '../services/lookup.service';
 import {
   Campaign,
   CampaignCondition,
+  CampaignConditionsPreviewRequest,
   CampaignCriteria,
   CampaignType,
   CardType,
@@ -59,6 +60,12 @@ export class CampaignForm {
   protected readonly conditions = signal<CampaignCondition[]>([]);
   protected readonly conditionsSaving = signal(false);
   protected readonly conditionsNotice = signal<string | null>(null);
+
+  /**
+   * The same auto-generated sentences a saved campaign would get, kept live while a new one
+   * is still being filled in — there is no id yet to call .../conditions/generate with.
+   */
+  protected readonly conditionsPreview = signal<string[]>([]);
 
   protected readonly editing = computed(() => this.campaignId() !== null);
 
@@ -118,6 +125,62 @@ export class CampaignForm {
       } else {
         this.clear();
       }
+    });
+
+    // Keeps the "new campaign" preview in step with the rule fields (amounts, dates,
+    // gender…), debounced so it does not call the API on every keystroke.
+    this.form.valueChanges
+      .pipe(debounceTime(300))
+      .subscribe(() => this.refreshConditionsPreview());
+
+    // And with the criteria pickers, which are signals rather than form controls and so do
+    // not appear in valueChanges.
+    effect(() => {
+      this.selectedSegments();
+      this.selectedProducts();
+      this.selectedMerchants();
+      this.selectedTransactionCodes();
+
+      this.refreshConditionsPreview();
+    });
+  }
+
+  /**
+   * Recomputes the "new campaign" preview from the form's current values. A no-op once the
+   * campaign is saved — from then on the "Kampanya Koşulları" section below, backed by the
+   * real generate/save endpoints, takes over.
+   */
+  private refreshConditionsPreview(): void {
+    if (this.editing()) {
+      return;
+    }
+
+    const value = this.form.getRawValue();
+
+    const request: CampaignConditionsPreviewRequest = {
+      campaignType: value.campaignType,
+      earningType: value.earningType,
+      gender: (value.gender || null) as Gender | null,
+      cardType: (value.cardType || null) as CardType | null,
+      startDate: value.startDate ? value.startDate + 'T00:00:00' : null,
+      endDate: value.endDate ? value.endDate + 'T23:59:59' : null,
+      minimumAmount: value.minimumAmount,
+      maximumAmount: value.maximumAmount,
+      rewardPoint: value.rewardPoint,
+      maxRewardAmount: value.maxRewardAmount,
+      criteria: {
+        segmentIds: this.selectedSegments(),
+        productIds: this.selectedProducts(),
+        merchantIds: this.selectedMerchants(),
+        transactionCodeIds: this.selectedTransactionCodes()
+      }
+    };
+
+    this.campaignService.previewConditions(request).subscribe({
+      next: list => this.conditionsPreview.set(list),
+      // A stray 400 while the form is mid-edit is not worth surfacing — the preview just
+      // stays as it was until the next valid change comes through.
+      error: () => {}
     });
   }
 
@@ -190,6 +253,7 @@ export class CampaignForm {
 
     this.conditions.set([]);
     this.conditionsNotice.set(null);
+    this.conditionsPreview.set([]);
   }
 
   // Loading and saving -------------------------------------------------------

@@ -152,4 +152,18 @@ public class CampaignsController(ICampaignService campaignService) : ControllerB
 
         return conditions is null ? NotFound() : Ok(conditions);
     }
+
+    /// <summary>
+    /// The same auto-generated sentences <c>conditions/generate</c> would write, computed
+    /// from a draft that has not been saved yet. Backs the live preview on the "new
+    /// campaign" screen, where there is no id to call the endpoint above with.
+    /// </summary>
+    [HttpPost("conditions/preview")]
+    [ProducesResponseType<List<string>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<string>>> PreviewConditions(
+        CampaignConditionsPreviewDto dto,
+        CancellationToken cancellationToken)
+    {
+        return Ok(await campaignService.PreviewConditionsAsync(dto, cancellationToken));
+    }
 }

@@ -58,4 +58,13 @@ public interface ICampaignService
     Task<List<CampaignConditionDto>?> GenerateConditionsAsync(
         int campaignId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The same sentences <see cref="GenerateConditionsAsync"/> would write, computed from a
+    /// draft that has not been saved yet — what the campaign definition screen shows while
+    /// the operator is still filling the form in.
+    /// </summary>
+    Task<List<string>> PreviewConditionsAsync(
+        CampaignConditionsPreviewDto dto,
+        CancellationToken cancellationToken = default);
 }
