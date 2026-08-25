@@ -93,6 +93,37 @@ public class TransactionService(
         return ServiceResult<TransactionDto>.Success(ToDto(transaction));
     }
 
+    public async Task<List<CustomerTransactionDto>> GetCustomerHistoryAsync(
+        int customerId,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await transactions.FindAsync(t => t.CustomerId == customerId, cancellationToken);
+
+        // Reference tables are small, so read them whole once and map in memory rather than
+        // joining per row.
+        var merchantNames = (await merchants.GetAllAsync(cancellationToken))
+            .ToDictionary(m => m.Id, m => m.MerchantName);
+
+        var typeNames = (await transactionCodes.GetAllAsync(cancellationToken))
+            .ToDictionary(c => c.Id, c => c.Name);
+
+        return rows
+            .OrderByDescending(t => t.TransactionDate)
+            .Select(t => new CustomerTransactionDto
+            {
+                Id = t.Id,
+                TransactionDate = t.TransactionDate,
+                Amount = t.Amount,
+                CardId = t.CardId,
+                MerchantName = t.MerchantId is not null
+                    ? merchantNames.GetValueOrDefault(t.MerchantId.Value)
+                    : null,
+                TypeName = typeNames.GetValueOrDefault(t.TransactionCodeId, "—"),
+                IsRefund = t.OriginalTransactionId is not null
+            })
+            .ToList();
+    }
+
     private static TransactionDto ToDto(Transaction transaction) => new()
     {
         Id = transaction.Id,

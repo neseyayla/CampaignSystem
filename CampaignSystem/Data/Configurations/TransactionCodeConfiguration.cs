@@ -26,6 +26,7 @@ public class TransactionCodeConfiguration : IEntityTypeConfiguration<Transaction
         builder.HasData(
             new TransactionCode { Id = 1, Code = "SA", Name = "Satış" },
             new TransactionCode { Id = 2, Code = "NA", Name = "Nakit Avans" },
-            new TransactionCode { Id = 3, Code = "OD", Name = "Borç Ödeme" });
+            new TransactionCode { Id = 3, Code = "OD", Name = "Borç Ödeme" },
+            new TransactionCode { Id = 4, Code = "IA", Name = "İade" });
     }
 }

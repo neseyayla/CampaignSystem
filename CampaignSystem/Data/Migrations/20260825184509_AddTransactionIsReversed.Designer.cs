@@ -4,6 +4,7 @@ using CampaignSystem.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CampaignSystem.Data.Migrations
 {
     [DbContext(typeof(CampaignDbContext))]
-    partial class CampaignDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260825184509_AddTransactionIsReversed")]
+    partial class AddTransactionIsReversed
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -900,11 +903,11 @@ namespace CampaignSystem.Data.Migrations
                     b.Property<int>("CustomerId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("IsReversed")
+                        .HasColumnType("bit");
+
                     b.Property<int?>("MerchantId")
                         .HasColumnType("int");
-
-                    b.Property<long?>("OriginalTransactionId")
-                        .HasColumnType("bigint");
 
                     b.Property<string>("Rrn")
                         .HasMaxLength(24)
@@ -920,10 +923,6 @@ namespace CampaignSystem.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("MerchantId");
-
-                    b.HasIndex("OriginalTransactionId")
-                        .IsUnique()
-                        .HasFilter("[OriginalTransactionId] IS NOT NULL");
 
                     b.HasIndex("Rrn")
                         .IsUnique()
@@ -982,12 +981,6 @@ namespace CampaignSystem.Data.Migrations
                             Id = 3,
                             Code = "OD",
                             Name = "Borç Ödeme"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Code = "IA",
-                            Name = "İade"
                         });
                 });
 
@@ -1189,11 +1182,6 @@ namespace CampaignSystem.Data.Migrations
                         .HasForeignKey("MerchantId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("CampaignSystem.Entities.Transaction", "OriginalTransaction")
-                        .WithMany()
-                        .HasForeignKey("OriginalTransactionId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("CampaignSystem.Entities.TransactionCode", "TransactionCode")
                         .WithMany("Transactions")
                         .HasForeignKey("TransactionCodeId")
@@ -1205,8 +1193,6 @@ namespace CampaignSystem.Data.Migrations
                     b.Navigation("Customer");
 
                     b.Navigation("Merchant");
-
-                    b.Navigation("OriginalTransaction");
 
                     b.Navigation("TransactionCode");
                 });

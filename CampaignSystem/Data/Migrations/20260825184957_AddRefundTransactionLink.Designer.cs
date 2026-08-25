@@ -4,6 +4,7 @@ using CampaignSystem.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CampaignSystem.Data.Migrations
 {
     [DbContext(typeof(CampaignDbContext))]
-    partial class CampaignDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260825184957_AddRefundTransactionLink")]
+    partial class AddRefundTransactionLink
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -899,6 +902,9 @@ namespace CampaignSystem.Data.Migrations
 
                     b.Property<int>("CustomerId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("IsReversed")
+                        .HasColumnType("bit");
 
                     b.Property<int?>("MerchantId")
                         .HasColumnType("int");

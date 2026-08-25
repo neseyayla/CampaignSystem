@@ -43,4 +43,22 @@ public interface IRewardService
     Task<CustomerRewardSummaryDto?> GetCustomerSummaryAsync(
         int customerId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The purchases behind one campaign's reward for a customer, in date order, each earning
+    /// or reversed, for the drill-down under "Kazandıklarım". Null when the campaign is not
+    /// found; an empty line list when the customer earned nothing from it.
+    /// </summary>
+    Task<RewardBreakdownDto?> GetRewardBreakdownAsync(
+        int customerId,
+        int campaignId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Recomputes every campaign whose rewards were loaded within the refund window and, where
+    /// a reversed transaction has lowered what a customer should have earned, reduces the
+    /// stored reward. Reconciliation only ever lowers a reward; it never raises one. Returns
+    /// how many reward rows were adjusted.
+    /// </summary>
+    Task<int> ReconcileReversalsAsync(CancellationToken cancellationToken = default);
 }

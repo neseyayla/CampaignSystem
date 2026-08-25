@@ -27,6 +27,13 @@ public class Transaction
 
     public decimal Amount { get; set; }
 
+    /// <summary>
+    /// Set only on a refund row: the original purchase this İade transaction reverses. Null on
+    /// an ordinary transaction. A purchase counts as refunded when such a row points at it —
+    /// there is no stored flag, the fact is derived from the refund's existence.
+    /// </summary>
+    public long? OriginalTransactionId { get; set; }
+
     public Card Card { get; set; } = null!;
 
     public Customer Customer { get; set; } = null!;
@@ -34,4 +41,7 @@ public class Transaction
     public Merchant? Merchant { get; set; }
 
     public TransactionCode TransactionCode { get; set; } = null!;
+
+    /// <summary>The original purchase, when this row is a refund. Null otherwise.</summary>
+    public Transaction? OriginalTransaction { get; set; }
 }

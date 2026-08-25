@@ -257,6 +257,115 @@ public class RewardService(
         };
     }
 
+    public async Task<RewardBreakdownDto?> GetRewardBreakdownAsync(
+        int customerId,
+        int campaignId,
+        CancellationToken cancellationToken = default)
+    {
+        var campaign = await context.Campaigns
+            .FirstOrDefaultAsync(c => c.Id == campaignId && c.IsActive, cancellationToken);
+
+        if (campaign is null)
+        {
+            return null;
+        }
+
+        // Reversed purchases are kept so refunds can be shown in red alongside the earners.
+        var lines = (await QualifyingTransactions(campaign, cancellationToken, includeReversed: true))
+            .Where(t => t.CustomerId == customerId)
+            .OrderBy(t => t.TransactionDate)
+            .ToList();
+
+        var merchantIds = lines
+            .Where(t => t.MerchantId is not null)
+            .Select(t => t.MerchantId!.Value)
+            .Distinct()
+            .ToList();
+
+        var merchantNames = await context.Merchants
+            .Where(m => merchantIds.Contains(m.Id))
+            .ToDictionaryAsync(m => m.Id, m => m.MerchantName, cancellationToken);
+
+        // A purchase shows red when a refund row points at it — derived here, not a stored flag.
+        var lineIds = lines.Select(t => t.Id).ToList();
+        var refundedIds = (await context.Transactions
+                .Where(r => r.OriginalTransactionId != null && lineIds.Contains(r.OriginalTransactionId.Value))
+                .Select(r => r.OriginalTransactionId!.Value)
+                .ToListAsync(cancellationToken))
+            .ToHashSet();
+
+        var point = campaign.RewardPoint ?? 0m;
+
+        return new RewardBreakdownDto
+        {
+            CampaignId = campaign.Id,
+            CampaignName = campaign.Name,
+            RewardPointPerTransaction = point,
+            Lines = lines.Select(t => new RewardBreakdownLineDto
+            {
+                TransactionId = t.Id,
+                TransactionDate = t.TransactionDate,
+                Amount = t.Amount,
+                MerchantName = t.MerchantId is not null
+                    ? merchantNames.GetValueOrDefault(t.MerchantId.Value)
+                    : null,
+                RewardPoint = point,
+                IsReversed = refundedIds.Contains(t.Id)
+            }).ToList()
+        };
+    }
+
+    public async Task<int> ReconcileReversalsAsync(CancellationToken cancellationToken = default)
+    {
+        var cutoff = DateTime.Now.Date.AddDays(-options.Value.RefundReconciliationWindowDays);
+
+        // Only campaigns already paid, and only while still inside the refund window: their
+        // rewards were loaded on or after the cutoff day.
+        var campaigns = await context.Campaigns
+            .Where(c => c.IsActive
+                        && c.Status == CampaignStatus.Ended
+                        && c.Rewards.Any(r => r.RewardDate >= cutoff))
+            .ToListAsync(cancellationToken);
+
+        var adjusted = 0;
+
+        foreach (var campaign in campaigns)
+        {
+            // QualifyingTransactions already leaves out reversed purchases, so grouping it
+            // gives what each reward should be now.
+            var qualifying = await QualifyingTransactions(campaign, cancellationToken);
+
+            var newCounts = Group(qualifying, campaign)
+                .ToDictionary(g => (g.CustomerId, g.CardId), g => g.Count);
+
+            var rewards = await context.CampaignRewards
+                .Where(r => r.CampaignId == campaign.Id)
+                .ToListAsync(cancellationToken);
+
+            foreach (var reward in rewards)
+            {
+                var newCount = newCounts.GetValueOrDefault((reward.CustomerId, reward.CardId), 0);
+                var newPoint = ApplyCap(newCount * (campaign.RewardPoint ?? 0m), campaign.MaxRewardAmount);
+
+                // A reversal can only lower a reward; a row that has not dropped is left alone,
+                // which also makes a second run over the same refunds a no-op.
+                if (newPoint < reward.RewardPoint)
+                {
+                    reward.QualifyingCount = newCount;
+                    reward.RewardPoint = newPoint;
+                    adjusted++;
+                }
+            }
+        }
+
+        if (adjusted > 0)
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        return adjusted;
+    }
+
     /// <summary>
     /// The transactions that meet every one of the campaign's conditions.
     ///
@@ -266,7 +375,8 @@ public class RewardService(
     /// </summary>
     private async Task<List<Transaction>> QualifyingTransactions(
         Campaign campaign,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool includeReversed = false)
     {
         var segmentIds = await context.CampaignSegments
             .Where(x => x.CampaignId == campaign.Id).Select(x => x.SegmentId).ToListAsync(cancellationToken);
@@ -290,7 +400,19 @@ public class RewardService(
             .AsNoTracking()
             .Where(t => t.TransactionDate >= campaign.StartDate
                      && t.TransactionDate <= campaign.EndDate
-                     && t.TransactionDate <= now);
+                     && t.TransactionDate <= now
+                     // A refund row (the negative İade transaction) is never a purchase and
+                     // never earns; only the original it reverses is ever in scope.
+                     && t.OriginalTransactionId == null);
+
+        // A refunded purchase no longer earns, so it is dropped from the first calculation and
+        // every recalculation. "Refunded" is not a stored flag — it is true when a refund row
+        // points at this transaction, derived here. The breakdown screen is the one caller that
+        // keeps refunded purchases (to show them in red), so it asks for them explicitly.
+        if (!includeReversed)
+        {
+            query = query.Where(t => !context.Transactions.Any(r => r.OriginalTransactionId == t.Id));
+        }
 
         if (campaign.MinimumAmount is not null)
         {
