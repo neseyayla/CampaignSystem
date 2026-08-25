@@ -21,16 +21,30 @@
         }
       </label>
 
-      <label>
-        <span>Kampanya Türü</span>
-        <select formControlName="campaignType">
-          <option value="Mass">MASS — herkese açık</option>
-          <option value="EnrollmentRequired">SI — katılım gerekli</option>
-        </select>
-      </label>
+      <div class="stacked">
+        <label>
+          <span>Kampanya Türü</span>
+          <select formControlName="campaignType">
+            <option value="Mass">MASS — herkese açık</option>
+            <option value="EnrollmentRequired">SI — katılım gerekli</option>
+          </select>
+        </label>
+
+        <fieldset class="level">
+          <legend>Kazanım Tipi</legend>
+          <label class="radio">
+            <input type="radio" formControlName="earningType" value="CardBased" />
+            Kart Bazlı
+          </label>
+          <label class="radio">
+            <input type="radio" formControlName="earningType" value="CustomerBased" />
+            Müşteri Bazlı
+          </label>
+        </fieldset>
+      </div>
 
       @if (campaignType() === 'EnrollmentRequired') {
-        <fieldset class="level enrollment-basis wide">
+        <fieldset class="level enrollment-basis">
           <legend>Puan Hesaplaması</legend>
           <label class="radio">
             <input type="radio" formControlName="enrollmentBasis" value="ParticipationDate" />
@@ -42,18 +56,6 @@
           </label>
         </fieldset>
       }
-
-      <fieldset class="level">
-        <legend>Kazanım Tipi</legend>
-        <label class="radio">
-          <input type="radio" formControlName="earningType" value="CardBased" />
-          Kart Bazlı
-        </label>
-        <label class="radio">
-          <input type="radio" formControlName="earningType" value="CustomerBased" />
-          Müşteri Bazlı
-        </label>
-      </fieldset>
 
       <label class="wide">
         <span>Açıklama</span>

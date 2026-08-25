@@ -57,6 +57,16 @@ h2 {
   grid-column: 1 / -1;
 }
 
+/* Kampanya Türü + Kazanım Tipi share one grid column, stacked, so the SI panel that
+   appears next to them (.enrollment-basis) gets a column of its own instead of pushing
+   everything into a third row. */
+.stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
 label {
   display: flex;
   flex-direction: column;
