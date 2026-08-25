@@ -63,6 +63,7 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
             Name = dto.Name,
             Description = dto.Description,
             CampaignType = dto.CampaignType,
+            EnrollmentBasis = dto.CampaignType == CampaignType.EnrollmentRequired ? dto.EnrollmentBasis : null,
             EarningType = dto.EarningType,
             Gender = dto.Gender,
             CardType = dto.CardType,
@@ -104,6 +105,7 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
         campaign.Name = dto.Name;
         campaign.Description = dto.Description;
         campaign.CampaignType = dto.CampaignType;
+        campaign.EnrollmentBasis = dto.CampaignType == CampaignType.EnrollmentRequired ? dto.EnrollmentBasis : null;
         campaign.EarningType = dto.EarningType;
         campaign.Gender = dto.Gender;
         campaign.CardType = dto.CardType;
@@ -351,6 +353,7 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
         Name = campaign.Name,
         Description = campaign.Description,
         CampaignType = campaign.CampaignType,
+        EnrollmentBasis = campaign.EnrollmentBasis,
         StartDate = campaign.StartDate,
         EndDate = campaign.EndDate,
         MinimumAmount = campaign.MinimumAmount,
@@ -537,6 +540,99 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
             .Select(x => x.TransactionCode.Name)
             .ToListAsync(cancellationToken);
 
+        return BuildAutoConditionTexts(
+            templates,
+            campaign.CampaignType,
+            campaign.StartDate,
+            campaign.EndDate,
+            campaign.MinimumAmount,
+            campaign.MaximumAmount,
+            campaign.RewardPoint,
+            campaign.MaxRewardAmount,
+            campaign.AccumulatesPerCard,
+            campaign.Gender,
+            campaign.CardType,
+            segmentNames,
+            productNames,
+            merchantNames,
+            transactionCodeNames);
+    }
+
+    public async Task<List<string>> PreviewConditionsAsync(
+        CampaignConditionsPreviewDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var templates = await context.CampaignConditionTemplates
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .ToDictionaryAsync(x => x.Key, cancellationToken);
+
+        // Unlike the persisted flow, nothing has been saved yet — the campaign's scope is
+        // still just a handful of ids the operator picked, so the names are looked up
+        // directly rather than through the CampaignSegments/CampaignProducts/... junction
+        // tables (which only exist once a campaign row does).
+        var segmentNames = await context.Segments
+            .Where(x => dto.Criteria.SegmentIds.Contains(x.Id))
+            .Select(x => x.SegmentName)
+            .ToListAsync(cancellationToken);
+
+        var productNames = await context.Products
+            .Where(x => dto.Criteria.ProductIds.Contains(x.Id))
+            .Select(x => x.ProductName)
+            .ToListAsync(cancellationToken);
+
+        var merchantNames = await context.Merchants
+            .Where(x => dto.Criteria.MerchantIds.Contains(x.Id))
+            .Select(x => x.MerchantName)
+            .ToListAsync(cancellationToken);
+
+        var transactionCodeNames = await context.TransactionCodes
+            .Where(x => dto.Criteria.TransactionCodeIds.Contains(x.Id))
+            .Select(x => x.Name)
+            .ToListAsync(cancellationToken);
+
+        return BuildAutoConditionTexts(
+            templates,
+            dto.CampaignType,
+            dto.StartDate,
+            dto.EndDate,
+            dto.MinimumAmount,
+            dto.MaximumAmount,
+            dto.RewardPoint,
+            dto.MaxRewardAmount,
+            dto.EarningType == EarningType.CardBased,
+            dto.Gender,
+            dto.CardType,
+            segmentNames,
+            productNames,
+            merchantNames,
+            transactionCodeNames);
+    }
+
+    /// <summary>
+    /// The template-rendering core both <see cref="BuildAutoConditionTextsAsync"/> (a saved
+    /// campaign) and <see cref="PreviewConditionsAsync"/> (a draft that is not saved yet)
+    /// reduce to before calling this. Takes plain values rather than a <see cref="Campaign"/>
+    /// so a draft with no database row can produce exactly the same sentences a saved one
+    /// would.
+    /// </summary>
+    private static List<string> BuildAutoConditionTexts(
+        Dictionary<string, CampaignConditionTemplate> templates,
+        CampaignType campaignType,
+        DateTime? startDate,
+        DateTime? endDate,
+        decimal? minimumAmount,
+        decimal? maximumAmount,
+        decimal? rewardPoint,
+        decimal? maxRewardAmount,
+        bool accumulatesPerCard,
+        Gender? gender,
+        CardType? cardType,
+        List<string> segmentNames,
+        List<string> productNames,
+        List<string> merchantNames,
+        List<string> transactionCodeNames)
+    {
         var lines = new List<string>();
 
         void AddLine(string key, Dictionary<string, string> tokens)
@@ -547,67 +643,72 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
             }
         }
 
-        AddLine("DateRange", new Dictionary<string, string>
+        // A draft with no dates yet has nothing to say here — this only happens on the
+        // preview path, since a saved campaign always has both.
+        if (startDate is not null && endDate is not null)
         {
-            ["StartDate"] = campaign.StartDate.ToString("dd.MM.yyyy"),
-            ["EndDate"] = campaign.EndDate.ToString("dd.MM.yyyy")
-        });
+            AddLine("DateRange", new Dictionary<string, string>
+            {
+                ["StartDate"] = startDate.Value.ToString("dd.MM.yyyy"),
+                ["EndDate"] = endDate.Value.ToString("dd.MM.yyyy")
+            });
+        }
 
-        if (campaign.CampaignType == CampaignType.EnrollmentRequired)
+        if (campaignType == CampaignType.EnrollmentRequired)
         {
             AddLine("EnrollmentRequired", []);
         }
 
-        if (campaign.MinimumAmount is not null && campaign.MaximumAmount is not null)
+        if (minimumAmount is not null && maximumAmount is not null)
         {
             AddLine("MinAndMaxAmount", new Dictionary<string, string>
             {
-                ["MinimumAmount"] = campaign.MinimumAmount.Value.ToString("N0"),
-                ["MaximumAmount"] = campaign.MaximumAmount.Value.ToString("N0")
+                ["MinimumAmount"] = minimumAmount.Value.ToString("N0"),
+                ["MaximumAmount"] = maximumAmount.Value.ToString("N0")
             });
         }
-        else if (campaign.MinimumAmount is not null)
+        else if (minimumAmount is not null)
         {
             AddLine("MinAmountOnly", new Dictionary<string, string>
             {
-                ["MinimumAmount"] = campaign.MinimumAmount.Value.ToString("N0")
+                ["MinimumAmount"] = minimumAmount.Value.ToString("N0")
             });
         }
-        else if (campaign.MaximumAmount is not null)
+        else if (maximumAmount is not null)
         {
             AddLine("MaxAmountOnly", new Dictionary<string, string>
             {
-                ["MaximumAmount"] = campaign.MaximumAmount.Value.ToString("N0")
+                ["MaximumAmount"] = maximumAmount.Value.ToString("N0")
             });
         }
 
-        if (campaign.RewardPoint is not null)
+        if (rewardPoint is not null)
         {
             AddLine("RewardPoint", new Dictionary<string, string>
             {
-                ["RewardPoint"] = campaign.RewardPoint.Value.ToString("N0")
+                ["RewardPoint"] = rewardPoint.Value.ToString("N0")
             });
         }
 
-        if (campaign.MaxRewardAmount is not null)
+        if (maxRewardAmount is not null)
         {
-            var perUnit = campaign.AccumulatesPerCard ? "kart" : "müşteri";
+            var perUnit = accumulatesPerCard ? "kart" : "müşteri";
             AddLine("MaxRewardAmount", new Dictionary<string, string>
             {
                 ["PerUnit"] = perUnit,
-                ["MaxRewardAmount"] = campaign.MaxRewardAmount.Value.ToString("N0")
+                ["MaxRewardAmount"] = maxRewardAmount.Value.ToString("N0")
             });
         }
 
-        if (campaign.Gender is not null)
+        if (gender is not null)
         {
-            var genderText = campaign.Gender == Gender.Female ? "kadın" : "erkek";
+            var genderText = gender == Gender.Female ? "kadın" : "erkek";
             AddLine("Gender", new Dictionary<string, string> { ["GenderText"] = genderText });
         }
 
-        if (campaign.CardType is not null)
+        if (cardType is not null)
         {
-            var cardTypeText = campaign.CardType == CardType.Primary ? "asıl" : "ek";
+            var cardTypeText = cardType == CardType.Primary ? "asıl" : "ek";
             AddLine("CardType", new Dictionary<string, string> { ["CardTypeText"] = cardTypeText });
         }
 

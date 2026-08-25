@@ -18,6 +18,12 @@ public class Campaign
 
     public CampaignType CampaignType { get; set; }
 
+    /// <summary>
+    /// Only meaningful when <see cref="CampaignType"/> is <see cref="Enums.CampaignType.EnrollmentRequired"/>
+    /// — null for a MASS campaign, which has no enrollment to measure from.
+    /// </summary>
+    public EnrollmentBasis? EnrollmentBasis { get; set; }
+
     public DateTime StartDate { get; set; }
 
     public DateTime EndDate { get; set; }

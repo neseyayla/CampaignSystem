@@ -349,10 +349,9 @@ public class RewardService(
                 .Select(p => new { p.CustomerId, p.CardId, p.ParticipationDate })
                 .ToListAsync(cancellationToken);
 
-            // Earned from the day of joining, not from the campaign's start: spending a
-            // customer made before they signed up does not count. Keyed by the level they
-            // signed up at — one card, or every card at customer level — and by the earliest
-            // active enrollment date, so re-joining never moves the start forward.
+            // Keyed by the level the customer signed up at — one card, or every card at
+            // customer level — and by the earliest active enrollment date, so re-joining
+            // never moves the start forward.
             var customerLevelFrom = enrolments
                 .Where(e => e.CardId == null)
                 .GroupBy(e => e.CustomerId)
@@ -363,6 +362,15 @@ public class RewardService(
                 .GroupBy(e => e.CardId!.Value)
                 .ToDictionary(g => g.Key, g => g.Min(e => e.ParticipationDate));
 
+            // Set on the campaign definition screen: whether a customer only earns from the
+            // day they joined, or — having joined at all — earns on everything in the
+            // campaign's window. The query above already bounds every candidate to the
+            // campaign's date range, so "from the campaign period" only has to stop treating
+            // the join date itself as a cutoff.
+            Func<DateTime, DateTime> cutoff = campaign.EnrollmentBasis == EnrollmentBasis.CampaignPeriod
+                ? joinedOn => campaign.StartDate
+                : joinedOn => joinedOn;
+
             // The date cut is per enrollment, so the membership test moves in memory: EF cannot
             // translate "is this transaction after this particular customer's join date".
             var candidates = await query.ToListAsync(cancellationToken);
@@ -370,9 +378,9 @@ public class RewardService(
             return candidates
                 .Where(t =>
                     (customerLevelFrom.TryGetValue(t.CustomerId, out var customerFrom)
-                        && t.TransactionDate >= customerFrom)
+                        && t.TransactionDate >= cutoff(customerFrom))
                     || (cardLevelFrom.TryGetValue(t.CardId, out var cardFrom)
-                        && t.TransactionDate >= cardFrom))
+                        && t.TransactionDate >= cutoff(cardFrom)))
                 .ToList();
         }
 

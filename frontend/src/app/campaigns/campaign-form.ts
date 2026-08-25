@@ -1,18 +1,20 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin, of, switchMap } from 'rxjs';
+import { debounceTime, forkJoin, of, switchMap } from 'rxjs';
 
 import { CampaignService } from '../services/campaign.service';
 import { LookupService } from '../services/lookup.service';
 import {
   Campaign,
   CampaignCondition,
+  CampaignConditionsPreviewRequest,
   CampaignCriteria,
   CampaignType,
   CardType,
   CreateCampaign,
   EarningType,
+  EnrollmentBasis,
   Gender
 } from '../models/campaign';
 import { LookupOption } from '../models/lookup';
@@ -60,7 +62,20 @@ export class CampaignForm {
   protected readonly conditionsSaving = signal(false);
   protected readonly conditionsNotice = signal<string | null>(null);
 
+  /**
+   * The same auto-generated sentences a saved campaign would get, kept live while a new one
+   * is still being filled in — there is no id yet to call .../conditions/generate with.
+   */
+  protected readonly conditionsPreview = signal<string[]>([]);
+
   protected readonly editing = computed(() => this.campaignId() !== null);
+
+  /**
+   * Mirrors the campaignType control so the SI enrollment-basis panel below can show or
+   * hide without waiting on the debounced valueChanges subscription used for the
+   * conditions preview.
+   */
+  protected readonly campaignType = signal<CampaignType>('Mass');
 
   /**
    * True once Sil has been pressed and before it is confirmed. Deleting takes two presses
@@ -76,6 +91,9 @@ export class CampaignForm {
     // Typed as the full union rather than the default literal, so loading an existing
     // campaign can put any of the values back into the control.
     campaignType: ['Mass' as CampaignType, Validators.required],
+    // Only meaningful once campaignType is 'EnrollmentRequired' (SI) — the inline panel that
+    // asks for it appears then, and this default is what it starts pre-selected to.
+    enrollmentBasis: ['ParticipationDate' as EnrollmentBasis],
     earningType: ['CardBased' as EarningType, Validators.required],
 
     // '' is the "all" option. It becomes null on the way out, which is how the API
@@ -118,6 +136,75 @@ export class CampaignForm {
       } else {
         this.clear();
       }
+    });
+
+    // Undebounced, unlike the preview subscription below: the enrollment-basis panel has to
+    // appear the instant SI is picked, not after a 300ms wait.
+    this.form.controls.campaignType.valueChanges.subscribe(value => {
+      this.campaignType.set(value);
+
+      // Re-selecting SI after having left it starts the operator from the default again,
+      // same as a brand new campaign — nothing is remembered from an earlier, discarded
+      // choice.
+      if (value !== 'EnrollmentRequired') {
+        this.form.controls.enrollmentBasis.setValue('ParticipationDate');
+      }
+    });
+
+    // Keeps the "new campaign" preview in step with the rule fields (amounts, dates,
+    // gender…), debounced so it does not call the API on every keystroke.
+    this.form.valueChanges
+      .pipe(debounceTime(300))
+      .subscribe(() => this.refreshConditionsPreview());
+
+    // And with the criteria pickers, which are signals rather than form controls and so do
+    // not appear in valueChanges.
+    effect(() => {
+      this.selectedSegments();
+      this.selectedProducts();
+      this.selectedMerchants();
+      this.selectedTransactionCodes();
+
+      this.refreshConditionsPreview();
+    });
+  }
+
+  /**
+   * Recomputes the "new campaign" preview from the form's current values. A no-op once the
+   * campaign is saved — from then on the "Kampanya Koşulları" section below, backed by the
+   * real generate/save endpoints, takes over.
+   */
+  private refreshConditionsPreview(): void {
+    if (this.editing()) {
+      return;
+    }
+
+    const value = this.form.getRawValue();
+
+    const request: CampaignConditionsPreviewRequest = {
+      campaignType: value.campaignType,
+      earningType: value.earningType,
+      gender: (value.gender || null) as Gender | null,
+      cardType: (value.cardType || null) as CardType | null,
+      startDate: value.startDate ? value.startDate + 'T00:00:00' : null,
+      endDate: value.endDate ? value.endDate + 'T23:59:59' : null,
+      minimumAmount: value.minimumAmount,
+      maximumAmount: value.maximumAmount,
+      rewardPoint: value.rewardPoint,
+      maxRewardAmount: value.maxRewardAmount,
+      criteria: {
+        segmentIds: this.selectedSegments(),
+        productIds: this.selectedProducts(),
+        merchantIds: this.selectedMerchants(),
+        transactionCodeIds: this.selectedTransactionCodes()
+      }
+    };
+
+    this.campaignService.previewConditions(request).subscribe({
+      next: list => this.conditionsPreview.set(list),
+      // A stray 400 while the form is mid-edit is not worth surfacing — the preview just
+      // stays as it was until the next valid change comes through.
+      error: () => {}
     });
   }
 
@@ -172,6 +259,7 @@ export class CampaignForm {
       name: '',
       description: '',
       campaignType: 'Mass',
+      enrollmentBasis: 'ParticipationDate',
       earningType: 'CardBased',
       gender: '',
       cardType: '',
@@ -190,6 +278,7 @@ export class CampaignForm {
 
     this.conditions.set([]);
     this.conditionsNotice.set(null);
+    this.conditionsPreview.set([]);
   }
 
   // Loading and saving -------------------------------------------------------
@@ -221,6 +310,9 @@ export class CampaignForm {
       name: campaign.name,
       description: campaign.description ?? '',
       campaignType: campaign.campaignType,
+      // Falls back to the default so the panel has something selected if the operator
+      // switches back to SI, even though a MASS campaign carries null here.
+      enrollmentBasis: campaign.enrollmentBasis ?? 'ParticipationDate',
       earningType: campaign.earningType,
       gender: campaign.gender ?? '',
       cardType: campaign.cardType ?? '',
@@ -263,6 +355,9 @@ export class CampaignForm {
       name: value.name,
       description: value.description || null,
       campaignType: value.campaignType,
+      // Null unless SI is actually selected: the field means nothing for a MASS campaign,
+      // and the API rejects an EnrollmentRequired campaign that omits it.
+      enrollmentBasis: value.campaignType === 'EnrollmentRequired' ? value.enrollmentBasis : null,
       earningType: value.earningType,
       gender: (value.gender || null) as Gender | null,
       cardType: (value.cardType || null) as CardType | null,
