@@ -73,6 +73,8 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
             MaximumAmount = dto.MaximumAmount,
             RewardPoint = dto.RewardPoint,
             MaxRewardAmount = dto.MaxRewardAmount,
+            RefundClawbackEnabled = dto.RefundClawbackEnabled,
+            RefundClawbackDays = dto.RefundClawbackDays,
 
             // The starting status follows from the dates. From here on the daily batch keeps
             // it moving.
@@ -115,6 +117,8 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
         campaign.MaximumAmount = dto.MaximumAmount;
         campaign.RewardPoint = dto.RewardPoint;
         campaign.MaxRewardAmount = dto.MaxRewardAmount;
+        campaign.RefundClawbackEnabled = dto.RefundClawbackEnabled;
+        campaign.RefundClawbackDays = dto.RefundClawbackDays;
 
         repository.Update(campaign);
         await repository.SaveChangesAsync(cancellationToken);
@@ -360,6 +364,8 @@ public class CampaignService(IRepository<Campaign> repository, CampaignDbContext
         MaximumAmount = campaign.MaximumAmount,
         RewardPoint = campaign.RewardPoint,
         MaxRewardAmount = campaign.MaxRewardAmount,
+        RefundClawbackEnabled = campaign.RefundClawbackEnabled,
+        RefundClawbackDays = campaign.RefundClawbackDays,
         EarningType = campaign.EarningType,
         Gender = campaign.Gender,
         CardType = campaign.CardType,

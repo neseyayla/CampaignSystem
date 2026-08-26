@@ -317,53 +317,87 @@ public class RewardService(
 
     public async Task<int> ReconcileReversalsAsync(CancellationToken cancellationToken = default)
     {
-        var cutoff = DateTime.Now.Date.AddDays(-options.Value.RefundReconciliationWindowDays);
+        var today = DateTime.Now.Date;
 
-        // Only campaigns already paid, and only while still inside the refund window: their
-        // rewards were loaded on or after the cutoff day.
+        // Campaigns that reclaim points and have actually paid.
         var campaigns = await context.Campaigns
             .Where(c => c.IsActive
                         && c.Status == CampaignStatus.Ended
-                        && c.Rewards.Any(r => r.RewardDate >= cutoff))
+                        && c.RefundClawbackEnabled
+                        && c.Rewards.Any(r => r.RewardType == RewardType.Earn))
             .ToListAsync(cancellationToken);
 
-        var adjusted = 0;
+        var clawbacks = 0;
+        var now = DateTime.Now;
 
         foreach (var campaign in campaigns)
         {
-            // QualifyingTransactions already leaves out reversed purchases, so grouping it
-            // gives what each reward should be now.
-            var qualifying = await QualifyingTransactions(campaign, cancellationToken);
-
-            var newCounts = Group(qualifying, campaign)
-                .ToDictionary(g => (g.CustomerId, g.CardId), g => g.Count);
-
             var rewards = await context.CampaignRewards
                 .Where(r => r.CampaignId == campaign.Id)
                 .ToListAsync(cancellationToken);
 
-            foreach (var reward in rewards)
-            {
-                var newCount = newCounts.GetValueOrDefault((reward.CustomerId, reward.CardId), 0);
-                var newPoint = ApplyCap(newCount * (campaign.RewardPoint ?? 0m), campaign.MaxRewardAmount);
+            // The window runs from the day the reward was loaded — every Earn row of a campaign
+            // shares that date. Once it has passed, a refund is settled and the campaign is left
+            // alone. Null days means no limit.
+            var loadDate = rewards
+                .Where(r => r.RewardType == RewardType.Earn)
+                .Max(r => r.RewardDate)
+                .Date;
 
-                // A reversal can only lower a reward; a row that has not dropped is left alone,
-                // which also makes a second run over the same refunds a no-op.
-                if (newPoint < reward.RewardPoint)
+            if (campaign.RefundClawbackDays is int days && today > loadDate.AddDays(days))
+            {
+                continue;
+            }
+
+            // What each group should be now, with refunded purchases left out.
+            var correct = Group(await QualifyingTransactions(campaign, cancellationToken), campaign)
+                .ToDictionary(
+                    g => (g.CustomerId, g.CardId),
+                    g => (Count: g.Count,
+                          Point: ApplyCap(g.Count * (campaign.RewardPoint ?? 0m), campaign.MaxRewardAmount)));
+
+            // The net of every row so far — the Earn row plus any earlier Clawback rows — per group.
+            var groups = rewards
+                .GroupBy(r => (r.CustomerId, r.CardId))
+                .Select(g => new
                 {
-                    reward.QualifyingCount = newCount;
-                    reward.RewardPoint = newPoint;
-                    adjusted++;
+                    g.Key.CustomerId,
+                    g.Key.CardId,
+                    NetPoint = g.Sum(r => r.RewardPoint),
+                    NetCount = g.Sum(r => r.QualifyingCount)
+                });
+
+            foreach (var g in groups)
+            {
+                var c = correct.GetValueOrDefault((g.CustomerId, g.CardId), (Count: 0, Point: 0m));
+
+                // A reversal can only lower the net. When it has dropped, record the shortfall as
+                // a negative Clawback row rather than editing the Earn row. When it has not, do
+                // nothing — which also makes a second run over the same refunds a no-op.
+                if (g.NetPoint > c.Point)
+                {
+                    context.CampaignRewards.Add(new CampaignReward
+                    {
+                        CampaignId = campaign.Id,
+                        CustomerId = g.CustomerId,
+                        CardId = g.CardId,
+                        RewardType = RewardType.Clawback,
+                        QualifyingCount = c.Count - g.NetCount,   // negative
+                        RewardPoint = c.Point - g.NetPoint,       // negative
+                        RewardDate = now
+                    });
+
+                    clawbacks++;
                 }
             }
         }
 
-        if (adjusted > 0)
+        if (clawbacks > 0)
         {
             await context.SaveChangesAsync(cancellationToken);
         }
 
-        return adjusted;
+        return clawbacks;
     }
 
     /// <summary>

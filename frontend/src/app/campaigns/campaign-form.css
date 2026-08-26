@@ -349,3 +349,14 @@ footer .danger {
 footer .danger:hover:not(:disabled) {
   background: #8f1e18;
 }
+
+/* Refund-clawback toggle: inline checkbox on its own row. */
+label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
+}
+label.check input {
+  width: auto;
+}

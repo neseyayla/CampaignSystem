@@ -31,6 +31,10 @@ public class CampaignDto
 
     public decimal? MaxRewardAmount { get; set; }
 
+    public bool RefundClawbackEnabled { get; set; }
+
+    public int? RefundClawbackDays { get; set; }
+
     public EarningType EarningType { get; set; }
 
     /// <summary>Null when the campaign is open to every gender.</summary>

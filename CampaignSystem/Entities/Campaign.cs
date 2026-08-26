@@ -44,6 +44,18 @@ public class Campaign
     /// </summary>
     public decimal? MaxRewardAmount { get; set; }
 
+    /// <summary>
+    /// Whether refunding a counted purchase claws its points back after the campaign has paid.
+    /// Off means a refund is ignored once the reward is granted.
+    /// </summary>
+    public bool RefundClawbackEnabled { get; set; }
+
+    /// <summary>
+    /// How many days after the reward is loaded a refund can still claw points back. Null while
+    /// clawback is enabled means no time limit; ignored when clawback is off.
+    /// </summary>
+    public int? RefundClawbackDays { get; set; }
+
     public EarningType EarningType { get; set; }
 
     /// <summary>
