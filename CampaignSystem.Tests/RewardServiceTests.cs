@@ -505,6 +505,7 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
             EndDate = DateTime.Now.AddDays(-1),
             MinimumAmount = 250m,
             RewardPoint = 50m,
+            RefundClawbackEnabled = true,
             Status = CampaignStatus.Loading,
             IsActive = true
         };
@@ -526,16 +527,130 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         context.Transactions.Add(NewRefund(suffix, 2, second));
         await context.SaveChangesAsync();
 
-        var reduced = await service.ReconcileReversalsAsync();
+        var clawbacks = await service.ReconcileReversalsAsync();
 
-        Assert.Equal(1, reduced);
+        Assert.Equal(1, clawbacks);
 
-        var reward = await context.CampaignRewards.SingleAsync(r => r.CampaignId == campaign.Id);
-        Assert.Equal(1, reward.QualifyingCount);
-        Assert.Equal(50m, reward.RewardPoint);
+        // The Earn row is untouched; a negative Clawback row records the loss, so the two net to 50.
+        var rows = await context.CampaignRewards
+            .Where(r => r.CampaignId == campaign.Id)
+            .ToListAsync();
+
+        Assert.Equal(50m, rows.Sum(r => r.RewardPoint));
+        Assert.Equal(100m, rows.Single(r => r.RewardType == RewardType.Earn).RewardPoint);
+
+        var clawback = rows.Single(r => r.RewardType == RewardType.Clawback);
+        Assert.Equal(-50m, clawback.RewardPoint);
+        Assert.Equal(-1, clawback.QualifyingCount);
 
         // A second run finds nothing more to do — reconciliation is idempotent.
         Assert.Equal(0, await service.ReconcileReversalsAsync());
+    }
+
+    [Fact]
+    public async Task ReconcileReversals_SkipsACampaignThatDoesNotReclaimPoints()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        var (campaign, service) = await PaidCampaignWithOneRefundAsync(
+            context, clawbackEnabled: false, clawbackDays: null);
+
+        // Clawback is off, so the refund is ignored: no Clawback row, points unchanged.
+        Assert.Equal(0, await service.ReconcileReversalsAsync());
+
+        var rows = await context.CampaignRewards.Where(r => r.CampaignId == campaign.Id).ToListAsync();
+        Assert.DoesNotContain(rows, r => r.RewardType == RewardType.Clawback);
+        Assert.Equal(100m, rows.Sum(r => r.RewardPoint));
+    }
+
+    [Fact]
+    public async Task ReconcileReversals_SkipsACampaignPastItsRefundWindow()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        var (campaign, service) = await PaidCampaignWithOneRefundAsync(
+            context, clawbackEnabled: true, clawbackDays: 10);
+
+        // The reward was loaded 20 days ago — past the 10-day window, so nothing is clawed back.
+        await ShiftRewardLoadDateAsync(context, campaign.Id, DateTime.Now.AddDays(-20));
+
+        Assert.Equal(0, await service.ReconcileReversalsAsync());
+        Assert.DoesNotContain(
+            await context.CampaignRewards.Where(r => r.CampaignId == campaign.Id).ToListAsync(),
+            r => r.RewardType == RewardType.Clawback);
+    }
+
+    [Fact]
+    public async Task ReconcileReversals_StillClawsBackOnTheWindowsLastDay()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        var (campaign, service) = await PaidCampaignWithOneRefundAsync(
+            context, clawbackEnabled: true, clawbackDays: 30);
+
+        // Loaded exactly 30 days ago: today is the last day of the window, so it still claws back.
+        await ShiftRewardLoadDateAsync(context, campaign.Id, DateTime.Now.AddDays(-30));
+
+        Assert.Equal(1, await service.ReconcileReversalsAsync());
+    }
+
+    /// <summary>
+    /// A card-based campaign paid at 100 (two 300 TL purchases), then one purchase refunded.
+    /// The caller sets the clawback fields and, where it matters, shifts the load date before
+    /// reconciling.
+    /// </summary>
+    private static async Task<(Campaign, RewardService)> PaidCampaignWithOneRefundAsync(
+        CampaignDbContext context, bool clawbackEnabled, int? clawbackDays)
+    {
+        var suffix = DateTime.Now.Ticks.ToString()[^10..];
+
+        var campaign = new Campaign
+        {
+            Name = "Clawback scenario",
+            CampaignType = CampaignType.Mass,
+            EarningType = EarningType.CardBased,
+            StartDate = DateTime.Now.AddDays(-10),
+            EndDate = DateTime.Now.AddDays(-1),
+            MinimumAmount = 250m,
+            RewardPoint = 50m,
+            RefundClawbackEnabled = clawbackEnabled,
+            RefundClawbackDays = clawbackDays,
+            Status = CampaignStatus.Loading,
+            IsActive = true
+        };
+
+        var (customer, card) = await AddCustomerWithCardAsync(context, campaign, suffix);
+
+        var first = NewTransaction(suffix, 0, card, customer, 300m, campaign.StartDate.AddDays(1));
+        var second = NewTransaction(suffix, 1, card, customer, 300m, campaign.StartDate.AddDays(2));
+        context.Transactions.AddRange(first, second);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        await service.CalculateAsync(campaign.Id);
+
+        context.Transactions.Add(NewRefund(suffix, 2, second));
+        await context.SaveChangesAsync();
+
+        return (campaign, service);
+    }
+
+    private static async Task ShiftRewardLoadDateAsync(
+        CampaignDbContext context, int campaignId, DateTime loadedAt)
+    {
+        var earn = await context.CampaignRewards
+            .Where(r => r.CampaignId == campaignId && r.RewardType == RewardType.Earn)
+            .ToListAsync();
+
+        foreach (var e in earn)
+        {
+            e.RewardDate = loadedAt;
+        }
+
+        await context.SaveChangesAsync();
     }
 
     private static async Task<(Customer, Card)> AddCustomerWithCardAsync(

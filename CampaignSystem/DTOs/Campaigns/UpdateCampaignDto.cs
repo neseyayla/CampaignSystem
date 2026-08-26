@@ -54,6 +54,13 @@ public class UpdateCampaignDto : IValidatableObject
     [Range(0, 9999999999999999.99)]
     public decimal? MaxRewardAmount { get; set; }
 
+    /// <summary>Whether a refund claws its points back after the campaign has paid.</summary>
+    public bool RefundClawbackEnabled { get; set; }
+
+    /// <summary>Days after the reward is loaded that a refund can still claw points back.</summary>
+    [Range(0, 3650)]
+    public int? RefundClawbackDays { get; set; }
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (EndDate <= StartDate)
@@ -75,6 +82,13 @@ public class UpdateCampaignDto : IValidatableObject
             yield return new ValidationResult(
                 "MinimumAmount cannot be greater than MaximumAmount.",
                 [nameof(MinimumAmount)]);
+        }
+
+        if (RefundClawbackEnabled && RefundClawbackDays is null)
+        {
+            yield return new ValidationResult(
+                "RefundClawbackDays is required when refund clawback is enabled.",
+                [nameof(RefundClawbackDays)]);
         }
     }
 }

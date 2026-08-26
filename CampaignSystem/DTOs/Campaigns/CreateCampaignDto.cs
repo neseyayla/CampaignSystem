@@ -54,6 +54,16 @@ public class CreateCampaignDto : IValidatableObject
     [Range(0, 9999999999999999.99)]
     public decimal? MaxRewardAmount { get; set; }
 
+    /// <summary>Whether a refund claws its points back after the campaign has paid.</summary>
+    public bool RefundClawbackEnabled { get; set; }
+
+    /// <summary>
+    /// Days after the reward is loaded that a refund can still claw points back. Null with
+    /// clawback enabled means no time limit.
+    /// </summary>
+    [Range(0, 3650)]
+    public int? RefundClawbackDays { get; set; }
+
     /// <summary>
     /// Checks that span several properties at once, which a single attribute cannot
     /// express. ASP.NET Core runs this during model binding, so a failure returns 400
@@ -80,6 +90,13 @@ public class CreateCampaignDto : IValidatableObject
             yield return new ValidationResult(
                 "MinimumAmount cannot be greater than MaximumAmount.",
                 [nameof(MinimumAmount)]);
+        }
+
+        if (RefundClawbackEnabled && RefundClawbackDays is null)
+        {
+            yield return new ValidationResult(
+                "RefundClawbackDays is required when refund clawback is enabled.",
+                [nameof(RefundClawbackDays)]);
         }
     }
 }

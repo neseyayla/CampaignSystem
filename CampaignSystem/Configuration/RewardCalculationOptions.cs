@@ -16,12 +16,4 @@ public class RewardCalculationOptions
     /// Zero means the batch may run as soon as the campaign ends.
     /// </summary>
     public int DaysAfterCampaignEnd { get; set; }
-
-    /// <summary>
-    /// How long after a campaign's rewards are loaded a refund can still claw points back. The
-    /// daily batch recomputes each campaign whose rewards were loaded within this many days and
-    /// reduces any reward whose transactions have since been reversed. A refund arriving after
-    /// the window is not clawed back — the points are considered settled.
-    /// </summary>
-    public int RefundReconciliationWindowDays { get; set; } = 30;
 }

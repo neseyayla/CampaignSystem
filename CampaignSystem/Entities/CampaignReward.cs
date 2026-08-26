@@ -1,9 +1,12 @@
+using CampaignSystem.Enums;
+
 namespace CampaignSystem.Entities;
 
 /// <summary>
 /// Result row written by the end-of-campaign batch job. Maps to CAMPAIGN_REWARD.
-/// A unique constraint on (CampaignId, CustomerId, CardId) prevents double rewards
-/// at the database level if the batch job runs twice.
+/// A unique constraint on (CampaignId, CustomerId, CardId) — applied only to Earn rows —
+/// prevents double rewards at the database level if the batch job runs twice. A refund later
+/// adds a negative <see cref="Enums.RewardType.Clawback"/> row rather than editing the Earn one.
 /// </summary>
 public class CampaignReward
 {
@@ -16,10 +19,16 @@ public class CampaignReward
     /// <summary>Null for a customer level reward.</summary>
     public int? CardId { get; set; }
 
-    /// <summary>Number of transactions that met every campaign criterion.</summary>
+    /// <summary>Whether this row is a granted reward or a later refund clawback.</summary>
+    public RewardType RewardType { get; set; } = RewardType.Earn;
+
+    /// <summary>
+    /// Transactions this row accounts for. Positive on an Earn row (those that met every
+    /// criterion); negative on a Clawback row (those dropped by a refund).
+    /// </summary>
     public int QualifyingCount { get; set; }
 
-    /// <summary>Points granted, after the campaign cap has been applied.</summary>
+    /// <summary>Points: positive when granted (after the cap), negative on a clawback.</summary>
     public decimal RewardPoint { get; set; }
 
     public DateTime RewardDate { get; set; }
