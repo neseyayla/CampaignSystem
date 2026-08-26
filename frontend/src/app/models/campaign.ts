@@ -37,6 +37,13 @@ export interface Campaign {
   maximumAmount: number | null;
   rewardPoint: number | null;
   maxRewardAmount: number | null;
+
+  /** Whether a refund reclaims points after the campaign has paid. */
+  refundClawbackEnabled: boolean;
+
+  /** Days after the reward is loaded a refund can still claw points back; null = no limit. */
+  refundClawbackDays: number | null;
+
   earningType: EarningType;
 
   /** Null when the campaign is open to every gender. */
@@ -77,6 +84,8 @@ export interface CreateCampaign {
   maximumAmount: number | null;
   rewardPoint: number | null;
   maxRewardAmount: number | null;
+  refundClawbackEnabled: boolean;
+  refundClawbackDays: number | null;
 }
 
 /**

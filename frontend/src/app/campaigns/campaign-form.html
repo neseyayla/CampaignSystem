@@ -87,6 +87,25 @@
         <span>Maksimum Ödül</span>
         <input type="number" formControlName="maxRewardAmount" min="0" step="0.01" />
       </label>
+
+      <label class="check">
+        <input type="checkbox" formControlName="refundClawbackEnabled" />
+        <span>İade sonrası puan geri alımı</span>
+      </label>
+
+      @if (clawbackOn()) {
+        <label>
+          <span>Geri Alım (gün)</span>
+          <input
+            type="number"
+            formControlName="refundClawbackDays"
+            min="0"
+            step="1" />
+          @if (invalid('refundClawbackDays')) {
+            <small class="error">Gün sayısı zorunludur.</small>
+          }
+        </label>
+      }
     </div>
   </section>
 

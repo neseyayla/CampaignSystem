@@ -74,6 +74,9 @@ export class CampaignForm {
    */
   protected readonly campaignType = signal<CampaignType>('Mass');
 
+  // Mirrors the refund-clawback checkbox so the "days" input can appear the instant it is ticked.
+  protected readonly clawbackOn = signal(false);
+
   /**
    * True once Sil has been pressed and before it is confirmed. Deleting takes two presses
    * rather than a browser confirm box, so the question stays on the screen it belongs to and
@@ -102,7 +105,11 @@ export class CampaignForm {
     minimumAmount: [null as number | null],
     maximumAmount: [null as number | null],
     rewardPoint: [null as number | null],
-    maxRewardAmount: [null as number | null]
+    maxRewardAmount: [null as number | null],
+    // Refund clawback: whether a refund reclaims points after the campaign has paid, and for
+    // how many days after the reward is loaded it still does (null = no limit).
+    refundClawbackEnabled: [false],
+    refundClawbackDays: [null as number | null]
   });
 
   constructor() {
@@ -137,6 +144,23 @@ export class CampaignForm {
 
     // Undebounced, unlike the preview subscription below: the enrollment-basis panel has to
     // appear the instant SI is picked, not after a 300ms wait.
+    // A day count is required once clawback is on, and meaningless when it is off — so the
+    // validator (and any stale value) is added and removed with the checkbox.
+    this.form.controls.refundClawbackEnabled.valueChanges.subscribe(on => {
+      this.clawbackOn.set(on);
+
+      const days = this.form.controls.refundClawbackDays;
+
+      if (on) {
+        days.addValidators(Validators.required);
+      } else {
+        days.removeValidators(Validators.required);
+        days.setValue(null);
+      }
+
+      days.updateValueAndValidity();
+    });
+
     this.form.controls.campaignType.valueChanges.subscribe(value => {
       this.campaignType.set(value);
 
@@ -292,7 +316,9 @@ export class CampaignForm {
       minimumAmount: null,
       maximumAmount: null,
       rewardPoint: null,
-      maxRewardAmount: null
+      maxRewardAmount: null,
+      refundClawbackEnabled: false,
+      refundClawbackDays: null
     });
 
     this.selectedSegments.set([]);
@@ -347,7 +373,9 @@ export class CampaignForm {
       minimumAmount: campaign.minimumAmount,
       maximumAmount: campaign.maximumAmount,
       rewardPoint: campaign.rewardPoint,
-      maxRewardAmount: campaign.maxRewardAmount
+      maxRewardAmount: campaign.maxRewardAmount,
+      refundClawbackEnabled: campaign.refundClawbackEnabled,
+      refundClawbackDays: campaign.refundClawbackDays
     });
 
     this.selectedSegments.set(criteria.segmentIds);
@@ -394,7 +422,10 @@ export class CampaignForm {
       minimumAmount: value.minimumAmount,
       maximumAmount: value.maximumAmount,
       rewardPoint: value.rewardPoint,
-      maxRewardAmount: value.maxRewardAmount
+      maxRewardAmount: value.maxRewardAmount,
+      refundClawbackEnabled: value.refundClawbackEnabled,
+      // Only meaningful with clawback on; sent as null otherwise so it never lingers.
+      refundClawbackDays: value.refundClawbackEnabled ? value.refundClawbackDays : null
     };
 
     const criteria: CampaignCriteria = {
