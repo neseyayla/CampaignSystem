@@ -1,23 +1,31 @@
 using CampaignSystem.DTOs;
 using CampaignSystem.Entities;
 using CampaignSystem.Repositories;
+using CampaignSystem.Services.Caching;
 
 namespace CampaignSystem.Services;
 
 /// <summary>
 /// Segment business rules. No DbContext needed — every check is a single-table question,
 /// which the repository already answers.
+///
+/// The segment list is read on every campaign screen and changes only through the writes
+/// here, so it is cached through <see cref="LookupCache"/> and each write evicts the key.
 /// </summary>
 public class SegmentService(
     IRepository<Segment> segments,
     IRepository<Customer> customers,
-    IRepository<CampaignSegment> campaignSegments) : ISegmentService
+    IRepository<CampaignSegment> campaignSegments,
+    LookupCache cache) : ISegmentService
 {
-    public async Task<List<SegmentDto>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        var rows = await segments.GetAllAsync(cancellationToken);
-        return rows.Select(ToDto).ToList();
-    }
+    private const string ListCacheKey = "lookup:segments";
+
+    public Task<List<SegmentDto>> GetAllAsync(CancellationToken cancellationToken = default)
+        => cache.GetOrCreateAsync(ListCacheKey, async () =>
+        {
+            var rows = await segments.GetAllAsync(cancellationToken);
+            return rows.Select(ToDto).ToList();
+        });
 
     public async Task<SegmentDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
@@ -45,6 +53,7 @@ public class SegmentService(
 
         await segments.AddAsync(segment, cancellationToken);
         await segments.SaveChangesAsync(cancellationToken);
+        cache.Remove(ListCacheKey);
 
         return ServiceResult<SegmentDto>.Success(ToDto(segment));
     }
@@ -73,6 +82,7 @@ public class SegmentService(
 
         segments.Update(segment);
         await segments.SaveChangesAsync(cancellationToken);
+        cache.Remove(ListCacheKey);
 
         return ServiceResult.Success();
     }
@@ -97,6 +107,7 @@ public class SegmentService(
 
         segments.Remove(segment);
         await segments.SaveChangesAsync(cancellationToken);
+        cache.Remove(ListCacheKey);
 
         return ServiceResult.Success();
     }
