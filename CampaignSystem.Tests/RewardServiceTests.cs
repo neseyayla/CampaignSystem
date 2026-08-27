@@ -714,6 +714,57 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         Assert.Equal(50m, net);
     }
 
+    [Fact]
+    public async Task ReconcileReversals_ProcessesEachRefundOnce_AndHandlesLaterPartialRefunds()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        var suffix = DateTime.Now.Ticks.ToString()[^10..];
+
+        var campaign = new Campaign
+        {
+            Name = "Incremental partial",
+            CampaignType = CampaignType.Mass,
+            EarningType = EarningType.CardBased,
+            StartDate = DateTime.Now.AddDays(-10),
+            EndDate = DateTime.Now.AddDays(-1),
+            MinimumAmount = 250m,
+            RewardPoint = 50m,
+            RefundClawbackEnabled = true,
+            Status = CampaignStatus.Loading,
+            IsActive = true
+        };
+
+        var (customer, card) = await AddCustomerWithCardAsync(context, campaign, suffix);
+
+        var purchase = NewTransaction(suffix, 0, card, customer, 300m, campaign.StartDate.AddDays(1));
+        context.Transactions.Add(purchase);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        await service.CalculateAsync(campaign.Id);   // 300 >= 250 -> 50
+
+        decimal Net() => context.CampaignRewards.Where(r => r.CampaignId == campaign.Id).ToList().Sum(r => r.RewardPoint);
+
+        // First partial refund: 300 - 30 = 270, still >= 250, so no clawback — but it is processed.
+        context.Transactions.Add(NewPartialRefund(suffix, 1, purchase, 30m));
+        await context.SaveChangesAsync();
+
+        Assert.Equal(0, await service.ReconcileReversalsAsync());
+        Assert.Equal(50m, Net());
+        // Nothing is left unprocessed: the batch will not re-scan that refund.
+        Assert.False(await context.Transactions.AnyAsync(
+            r => r.OriginalTransactionId != null && r.ClawbackProcessedAt == null));
+
+        // A later partial refund: 300 - 30 - 60 = 210 < 250, so now the purchase drops.
+        context.Transactions.Add(NewPartialRefund(suffix, 2, purchase, 60m));
+        await context.SaveChangesAsync();
+
+        Assert.Equal(1, await service.ReconcileReversalsAsync());
+        Assert.Equal(0m, Net());
+    }
+
     /// <summary>
     /// A card-based campaign paid at 100 (two 300 TL purchases), then one purchase refunded.
     /// The caller sets the clawback fields and, where it matters, shifts the load date before

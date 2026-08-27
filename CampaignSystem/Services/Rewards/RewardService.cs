@@ -317,18 +317,35 @@ public class RewardService(
 
     public async Task<int> ReconcileReversalsAsync(CancellationToken cancellationToken = default)
     {
-        var today = DateTime.Now.Date;
+        // Only refunds the batch has not yet accounted for drive any work. Already-processed
+        // refunds are never re-scanned; a later partial refund arrives as a fresh unprocessed row
+        // and is handled then. The processed flag gates the work, never the maths: the effective
+        // amount below still sums every refund, processed or not.
+        var pendingRefunds = await context.Transactions
+            .Where(r => r.OriginalTransactionId != null && r.ClawbackProcessedAt == null)
+            .ToListAsync(cancellationToken);
 
-        // Campaigns that reclaim points and have actually paid.
+        if (pendingRefunds.Count == 0)
+        {
+            return 0;
+        }
+
+        var pendingCustomers = pendingRefunds.Select(r => r.CustomerId).Distinct().ToList();
+
+        var today = DateTime.Now.Date;
+        var now = DateTime.Now;
+
+        // Campaigns that reclaim points, have paid, and paid one of the customers with a new
+        // refund — every other campaign is skipped entirely.
         var campaigns = await context.Campaigns
             .Where(c => c.IsActive
                         && c.Status == CampaignStatus.Ended
                         && c.RefundClawbackEnabled
-                        && c.Rewards.Any(r => r.RewardType == RewardType.Earn))
+                        && c.Rewards.Any(r => r.RewardType == RewardType.Earn
+                                              && pendingCustomers.Contains(r.CustomerId)))
             .ToListAsync(cancellationToken);
 
         var clawbacks = 0;
-        var now = DateTime.Now;
 
         foreach (var campaign in campaigns)
         {
@@ -392,10 +409,14 @@ public class RewardService(
             }
         }
 
-        if (clawbacks > 0)
+        // Every refund seen this run is now accounted for. Marking them keeps the next run from
+        // re-scanning them; a purchase's later refunds arrive as new unprocessed rows.
+        foreach (var refund in pendingRefunds)
         {
-            await context.SaveChangesAsync(cancellationToken);
+            refund.ClawbackProcessedAt = now;
         }
+
+        await context.SaveChangesAsync(cancellationToken);
 
         return clawbacks;
     }

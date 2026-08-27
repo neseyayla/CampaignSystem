@@ -34,6 +34,14 @@ public class Transaction
     /// </summary>
     public long? OriginalTransactionId { get; set; }
 
+    /// <summary>
+    /// Set only on a refund row, once the reward batch has accounted for it. Null means the
+    /// batch has not yet processed this refund. It gates which campaigns the nightly clawback
+    /// re-checks — it never changes the maths: the effective amount always sums every refund,
+    /// processed or not.
+    /// </summary>
+    public DateTime? ClawbackProcessedAt { get; set; }
+
     public Card Card { get; set; } = null!;
 
     public Customer Customer { get; set; } = null!;
