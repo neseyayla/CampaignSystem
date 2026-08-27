@@ -1,23 +1,32 @@
 using CampaignSystem.DTOs;
 using CampaignSystem.Entities;
 using CampaignSystem.Repositories;
+using CampaignSystem.Services.Caching;
 
 namespace CampaignSystem.Services;
 
 /// <summary>
 /// Product business rules. No DbContext needed — every check is a single-table question,
 /// which the repository already answers.
+///
+/// The full product list is read on nearly every campaign screen (the definition form's
+/// dropdown, the customer's card labels) and changes only through the writes here, so it is
+/// cached through <see cref="LookupCache"/> and each write evicts the key.
 /// </summary>
 public class ProductService(
     IRepository<Product> products,
     IRepository<Card> cards,
-    IRepository<CampaignProduct> campaignProducts) : IProductService
+    IRepository<CampaignProduct> campaignProducts,
+    LookupCache cache) : IProductService
 {
-    public async Task<List<ProductDto>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        var rows = await products.GetAllAsync(cancellationToken);
-        return rows.Select(ToDto).ToList();
-    }
+    private const string ListCacheKey = "lookup:products";
+
+    public Task<List<ProductDto>> GetAllAsync(CancellationToken cancellationToken = default)
+        => cache.GetOrCreateAsync(ListCacheKey, async () =>
+        {
+            var rows = await products.GetAllAsync(cancellationToken);
+            return rows.Select(ToDto).ToList();
+        });
 
     public async Task<ProductDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
@@ -45,6 +54,7 @@ public class ProductService(
 
         await products.AddAsync(product, cancellationToken);
         await products.SaveChangesAsync(cancellationToken);
+        cache.Remove(ListCacheKey);
 
         return ServiceResult<ProductDto>.Success(ToDto(product));
     }
@@ -73,6 +83,7 @@ public class ProductService(
 
         products.Update(product);
         await products.SaveChangesAsync(cancellationToken);
+        cache.Remove(ListCacheKey);
 
         return ServiceResult.Success();
     }
@@ -97,6 +108,7 @@ public class ProductService(
 
         products.Remove(product);
         await products.SaveChangesAsync(cancellationToken);
+        cache.Remove(ListCacheKey);
 
         return ServiceResult.Success();
     }

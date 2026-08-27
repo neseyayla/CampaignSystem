@@ -1,23 +1,31 @@
 using CampaignSystem.DTOs;
 using CampaignSystem.Entities;
 using CampaignSystem.Repositories;
+using CampaignSystem.Services.Caching;
 
 namespace CampaignSystem.Services;
 
 /// <summary>
 /// TransactionCode business rules. No DbContext needed — every check is a single-table
 /// question, which the repository already answers.
+///
+/// The transaction-code list is read on every campaign screen and changes only through the
+/// writes here, so it is cached through <see cref="LookupCache"/> and each write evicts the key.
 /// </summary>
 public class TransactionCodeService(
     IRepository<TransactionCode> transactionCodes,
     IRepository<Transaction> transactions,
-    IRepository<CampaignTransactionCode> campaignTransactionCodes) : ITransactionCodeService
+    IRepository<CampaignTransactionCode> campaignTransactionCodes,
+    LookupCache cache) : ITransactionCodeService
 {
-    public async Task<List<TransactionCodeDto>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        var rows = await transactionCodes.GetAllAsync(cancellationToken);
-        return rows.Select(ToDto).ToList();
-    }
+    private const string ListCacheKey = "lookup:transaction-codes";
+
+    public Task<List<TransactionCodeDto>> GetAllAsync(CancellationToken cancellationToken = default)
+        => cache.GetOrCreateAsync(ListCacheKey, async () =>
+        {
+            var rows = await transactionCodes.GetAllAsync(cancellationToken);
+            return rows.Select(ToDto).ToList();
+        });
 
     public async Task<TransactionCodeDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
@@ -45,6 +53,7 @@ public class TransactionCodeService(
 
         await transactionCodes.AddAsync(transactionCode, cancellationToken);
         await transactionCodes.SaveChangesAsync(cancellationToken);
+        cache.Remove(ListCacheKey);
 
         return ServiceResult<TransactionCodeDto>.Success(ToDto(transactionCode));
     }
@@ -73,6 +82,7 @@ public class TransactionCodeService(
 
         transactionCodes.Update(transactionCode);
         await transactionCodes.SaveChangesAsync(cancellationToken);
+        cache.Remove(ListCacheKey);
 
         return ServiceResult.Success();
     }
@@ -98,6 +108,7 @@ public class TransactionCodeService(
 
         transactionCodes.Remove(transactionCode);
         await transactionCodes.SaveChangesAsync(cancellationToken);
+        cache.Remove(ListCacheKey);
 
         return ServiceResult.Success();
     }
