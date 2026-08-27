@@ -33,11 +33,9 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
         builder.HasIndex(x => new { x.CustomerId, x.TransactionDate });
         builder.HasIndex(x => new { x.CardId, x.TransactionDate });
 
-        // A purchase can be refunded once. The filter lets the many ordinary rows keep a null
-        // here while still forbidding two refunds against the same original.
-        builder.HasIndex(x => x.OriginalTransactionId)
-            .IsUnique()
-            .HasFilter("[OriginalTransactionId] IS NOT NULL");
+        // A purchase can be refunded more than once (partial refunds), so this is a plain
+        // lookup index — not unique — over the refund rows that point back at an original.
+        builder.HasIndex(x => x.OriginalTransactionId);
 
         builder.HasOne(x => x.Card)
             .WithMany(x => x.Transactions)

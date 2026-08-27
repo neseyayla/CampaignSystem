@@ -439,23 +439,45 @@ public class RewardService(
                      // never earns; only the original it reverses is ever in scope.
                      && t.OriginalTransactionId == null);
 
-        // A refunded purchase no longer earns, so it is dropped from the first calculation and
-        // every recalculation. "Refunded" is not a stored flag — it is true when a refund row
-        // points at this transaction, derived here. The breakdown screen is the one caller that
-        // keeps refunded purchases (to show them in red), so it asks for them explicitly.
-        if (!includeReversed)
+        if (includeReversed)
         {
-            query = query.Where(t => !context.Transactions.Any(r => r.OriginalTransactionId == t.Id));
-        }
+            // The breakdown keeps every criteria-matching purchase (refunded ones are shown
+            // apart), so it tests the original amount and never drops a refunded row here.
+            if (campaign.MinimumAmount is not null)
+            {
+                query = query.Where(t => t.Amount >= campaign.MinimumAmount);
+            }
 
-        if (campaign.MinimumAmount is not null)
-        {
-            query = query.Where(t => t.Amount >= campaign.MinimumAmount);
+            if (campaign.MaximumAmount is not null)
+            {
+                query = query.Where(t => t.Amount <= campaign.MaximumAmount);
+            }
         }
-
-        if (campaign.MaximumAmount is not null)
+        else
         {
-            query = query.Where(t => t.Amount <= campaign.MaximumAmount);
+            // Maximum is tested on the original amount: a purchase too large to qualify is not
+            // rescued by a partial refund.
+            if (campaign.MaximumAmount is not null)
+            {
+                query = query.Where(t => t.Amount <= campaign.MaximumAmount);
+            }
+
+            // Minimum, and being non-zero, are tested on the amount net of refunds. A partial
+            // refund drops the purchase only when the remainder falls below the minimum; a full
+            // refund takes it to zero and out. "Refunded" is derived from the refund rows here,
+            // not a stored flag.
+            query = query.Where(t =>
+                t.Amount + (context.Transactions
+                    .Where(r => r.OriginalTransactionId == t.Id)
+                    .Sum(r => (decimal?)r.Amount) ?? 0m) > 0m);
+
+            if (campaign.MinimumAmount is not null)
+            {
+                query = query.Where(t =>
+                    t.Amount + (context.Transactions
+                        .Where(r => r.OriginalTransactionId == t.Id)
+                        .Sum(r => (decimal?)r.Amount) ?? 0m) >= campaign.MinimumAmount);
+            }
         }
 
         if (merchantIds.Count > 0)

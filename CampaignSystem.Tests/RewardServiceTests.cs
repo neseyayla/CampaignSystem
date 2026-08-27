@@ -597,6 +597,123 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         Assert.Equal(1, await service.ReconcileReversalsAsync());
     }
 
+    [Fact]
+    public async Task PartialRefund_StillCounts_WhenTheRemainderMeetsTheMinimum()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        var suffix = DateTime.Now.Ticks.ToString()[^10..];
+
+        var campaign = new Campaign
+        {
+            Name = "Partial above min",
+            CampaignType = CampaignType.Mass,
+            EarningType = EarningType.CardBased,
+            StartDate = DateTime.Now.AddDays(-10),
+            EndDate = DateTime.Now.AddDays(-1),
+            MinimumAmount = 250m,
+            RewardPoint = 50m,
+            Status = CampaignStatus.Loading,
+            IsActive = true
+        };
+
+        var (customer, card) = await AddCustomerWithCardAsync(context, campaign, suffix);
+
+        var purchase = NewTransaction(suffix, 0, card, customer, 300m, campaign.StartDate.AddDays(1));
+        context.Transactions.Add(purchase);
+        await context.SaveChangesAsync();
+
+        // 300 − 30 = 270, still at or above the 250 minimum.
+        context.Transactions.Add(NewPartialRefund(suffix, 1, purchase, 30m));
+        await context.SaveChangesAsync();
+
+        var result = await CreateService(context).CalculateAsync(campaign.Id);
+
+        Assert.Equal(1, result.Value!.QualifyingTransactions);
+        Assert.Equal(50m, result.Value.TotalRewardPoint);
+    }
+
+    [Fact]
+    public async Task PartialRefund_StopsCounting_WhenTheRemainderFallsBelowTheMinimum()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        var suffix = DateTime.Now.Ticks.ToString()[^10..];
+
+        var campaign = new Campaign
+        {
+            Name = "Partial below min",
+            CampaignType = CampaignType.Mass,
+            EarningType = EarningType.CardBased,
+            StartDate = DateTime.Now.AddDays(-10),
+            EndDate = DateTime.Now.AddDays(-1),
+            MinimumAmount = 250m,
+            RewardPoint = 50m,
+            Status = CampaignStatus.Loading,
+            IsActive = true
+        };
+
+        var (customer, card) = await AddCustomerWithCardAsync(context, campaign, suffix);
+
+        var purchase = NewTransaction(suffix, 0, card, customer, 300m, campaign.StartDate.AddDays(1));
+        context.Transactions.Add(purchase);
+        await context.SaveChangesAsync();
+
+        // 300 − 60 = 240, below the 250 minimum, so the purchase no longer counts.
+        context.Transactions.Add(NewPartialRefund(suffix, 1, purchase, 60m));
+        await context.SaveChangesAsync();
+
+        var result = await CreateService(context).CalculateAsync(campaign.Id);
+
+        Assert.Equal(0, result.Value!.QualifyingTransactions);
+        Assert.Equal(0m, result.Value.TotalRewardPoint);
+    }
+
+    [Fact]
+    public async Task ReconcileReversals_ClawsBack_WhenAPartialRefundDropsBelowTheMinimum()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        var suffix = DateTime.Now.Ticks.ToString()[^10..];
+
+        var campaign = new Campaign
+        {
+            Name = "Partial clawback",
+            CampaignType = CampaignType.Mass,
+            EarningType = EarningType.CardBased,
+            StartDate = DateTime.Now.AddDays(-10),
+            EndDate = DateTime.Now.AddDays(-1),
+            MinimumAmount = 250m,
+            RewardPoint = 50m,
+            RefundClawbackEnabled = true,
+            Status = CampaignStatus.Loading,
+            IsActive = true
+        };
+
+        var (customer, card) = await AddCustomerWithCardAsync(context, campaign, suffix);
+
+        var first = NewTransaction(suffix, 0, card, customer, 300m, campaign.StartDate.AddDays(1));
+        var second = NewTransaction(suffix, 1, card, customer, 300m, campaign.StartDate.AddDays(2));
+        context.Transactions.AddRange(first, second);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        await service.CalculateAsync(campaign.Id);   // both count → 100
+
+        // A partial refund drops 'second' to 240, below the minimum, after the reward was loaded.
+        context.Transactions.Add(NewPartialRefund(suffix, 2, second, 60m));
+        await context.SaveChangesAsync();
+
+        Assert.Equal(1, await service.ReconcileReversalsAsync());
+
+        var net = (await context.CampaignRewards.Where(r => r.CampaignId == campaign.Id).ToListAsync())
+            .Sum(r => r.RewardPoint);
+        Assert.Equal(50m, net);
+    }
+
     /// <summary>
     /// A card-based campaign paid at 100 (two 300 TL purchases), then one purchase refunded.
     /// The caller sets the clawback fields and, where it matters, shifts the load date before
@@ -705,6 +822,19 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         TransactionCodeId = 4,            // İade (IA)
         TransactionDate = DateTime.Now,
         Amount = -original.Amount,
+        OriginalTransactionId = original.Id
+    };
+
+    /// <summary>A refund of a specific (partial) amount against an already-saved purchase.</summary>
+    private static Transaction NewPartialRefund(string suffix, int index, Transaction original, decimal amount) => new()
+    {
+        Rrn = $"P{suffix}{index:D2}",
+        CardId = original.CardId,
+        CustomerId = original.CustomerId,
+        MerchantId = original.MerchantId,
+        TransactionCodeId = 4,            // İade (IA)
+        TransactionDate = DateTime.Now,
+        Amount = -amount,
         OriginalTransactionId = original.Id
     };
 }
