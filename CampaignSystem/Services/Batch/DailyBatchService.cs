@@ -35,11 +35,18 @@ public class DailyBatchService(
         // are clawed back.
         result.RewardsReduced = await rewardService.ReconcileReversalsAsync(cancellationToken);
 
+        // Then sweep for unused points: a campaign whose redemption window has now closed has
+        // whatever was never redeemed clawed back, once, regardless of the refund reconciliation
+        // above.
+        result.PointsReclaimed = await rewardService.ReclaimUnusedPointsAsync(cancellationToken);
+
         logger.LogInformation(
             "Daily batch finished. Started {Started}, closed {Closed}, loaded {Loaded} campaigns, " +
-            "wrote {Rewards} rewards worth {Points} points, reduced {Reduced} rewards, {Failures} failures.",
+            "wrote {Rewards} rewards worth {Points} points, reduced {Reduced} rewards, " +
+            "reclaimed {Reclaimed} unused-point rewards, {Failures} failures.",
             result.Started, result.Closed, result.Loaded,
-            result.RewardsCreated, result.TotalRewardPoint, result.RewardsReduced, result.Failures.Count);
+            result.RewardsCreated, result.TotalRewardPoint, result.RewardsReduced,
+            result.PointsReclaimed, result.Failures.Count);
 
         return result;
     }

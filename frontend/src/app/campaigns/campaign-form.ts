@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -5,6 +6,7 @@ import { EMPTY, Subject, catchError, debounceTime, forkJoin, of, switchMap } fro
 
 import { CampaignService } from '../services/campaign.service';
 import { LookupService } from '../services/lookup.service';
+import { PointRedemptionService } from '../services/point-redemption.service';
 import {
   Campaign,
   CampaignCondition,
@@ -13,9 +15,11 @@ import {
   CampaignType,
   CardType,
   CreateCampaign,
+  CreatePointRedemption,
   EarningType,
   EnrollmentBasis,
-  Gender
+  Gender,
+  PointRedemption
 } from '../models/campaign';
 import { LookupOption } from '../models/lookup';
 import { CriteriaPicker } from './criteria-picker';
@@ -29,7 +33,7 @@ import { CriteriaPicker } from './criteria-picker';
  */
 @Component({
   selector: 'app-campaign-form',
-  imports: [ReactiveFormsModule, CriteriaPicker],
+  imports: [ReactiveFormsModule, CriteriaPicker, DatePipe],
   templateUrl: './campaign-form.html',
   styleUrl: './campaign-form.css'
 })
@@ -37,6 +41,7 @@ export class CampaignForm {
   private readonly formBuilder = inject(FormBuilder);
   private readonly campaignService = inject(CampaignService);
   private readonly lookupService = inject(LookupService);
+  private readonly pointRedemptionService = inject(PointRedemptionService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -49,6 +54,7 @@ export class CampaignForm {
   protected readonly selectedProducts = signal<number[]>([]);
   protected readonly selectedMerchants = signal<number[]>([]);
   protected readonly selectedTransactionCodes = signal<number[]>([]);
+  protected readonly selectedClawbackExemptProducts = signal<number[]>([]);
 
   /** The campaign being edited, or null while a new one is being entered. */
   protected readonly campaignId = signal<number | null>(null);
@@ -76,6 +82,21 @@ export class CampaignForm {
 
   // Mirrors the refund-clawback checkbox so the "days" input can appear the instant it is ticked.
   protected readonly clawbackOn = signal(false);
+
+  // Same idea for the unused-points clawback checkbox.
+  protected readonly unusedClawbackOn = signal(false);
+
+  protected readonly redemptions = signal<PointRedemption[]>([]);
+  protected readonly redemptionsSaving = signal(false);
+  protected readonly redemptionsError = signal<string | null>(null);
+
+  protected readonly redemptionForm = this.formBuilder.nonNullable.group({
+    customerId: [null as number | null, Validators.required],
+    cardId: [null as number | null],
+    amount: [null as number | null, [Validators.required, Validators.min(0.01)]],
+    redemptionDate: ['', Validators.required],
+    note: ['']
+  });
 
   /**
    * True once Sil has been pressed and before it is confirmed. Deleting takes two presses
@@ -109,7 +130,12 @@ export class CampaignForm {
     // Refund clawback: whether a refund reclaims points after the campaign has paid, and for
     // how many days after the reward is loaded it still does (null = no limit).
     refundClawbackEnabled: [false],
-    refundClawbackDays: [null as number | null]
+    refundClawbackDays: [null as number | null],
+    // Unused-points clawback: whether points never redeemed are clawed back once the window
+    // below has passed, counted from the day the reward is loaded — same shape as refund
+    // clawback above.
+    unusedPointsClawbackEnabled: [false],
+    unusedPointsClawbackDays: [null as number | null]
   });
 
   constructor() {
@@ -161,6 +187,21 @@ export class CampaignForm {
       days.updateValueAndValidity();
     });
 
+    this.form.controls.unusedPointsClawbackEnabled.valueChanges.subscribe(on => {
+      this.unusedClawbackOn.set(on);
+
+      const days = this.form.controls.unusedPointsClawbackDays;
+
+      if (on) {
+        days.addValidators(Validators.required);
+      } else {
+        days.removeValidators(Validators.required);
+        days.setValue(null);
+      }
+
+      days.updateValueAndValidity();
+    });
+
     this.form.controls.campaignType.valueChanges.subscribe(value => {
       this.campaignType.set(value);
 
@@ -194,6 +235,7 @@ export class CampaignForm {
       this.selectedProducts();
       this.selectedMerchants();
       this.selectedTransactionCodes();
+      this.selectedClawbackExemptProducts();
 
       this.conditionsPreviewTrigger.next();
     });
@@ -218,11 +260,16 @@ export class CampaignForm {
             maximumAmount: value.maximumAmount,
             rewardPoint: value.rewardPoint,
             maxRewardAmount: value.maxRewardAmount,
+            unusedPointsClawbackEnabled: value.unusedPointsClawbackEnabled,
+            unusedPointsClawbackDays: value.unusedPointsClawbackEnabled
+              ? value.unusedPointsClawbackDays
+              : null,
             criteria: {
               segmentIds: this.selectedSegments(),
               productIds: this.selectedProducts(),
               merchantIds: this.selectedMerchants(),
-              transactionCodeIds: this.selectedTransactionCodes()
+              transactionCodeIds: this.selectedTransactionCodes(),
+              clawbackExemptProductIds: this.selectedClawbackExemptProducts()
             }
           };
 
@@ -318,16 +365,23 @@ export class CampaignForm {
       rewardPoint: null,
       maxRewardAmount: null,
       refundClawbackEnabled: false,
-      refundClawbackDays: null
+      refundClawbackDays: null,
+      unusedPointsClawbackEnabled: false,
+      unusedPointsClawbackDays: null
     });
 
     this.selectedSegments.set([]);
     this.selectedProducts.set([]);
     this.selectedMerchants.set([]);
     this.selectedTransactionCodes.set([]);
+    this.selectedClawbackExemptProducts.set([]);
 
     this.conditions.set([]);
     this.conditionsNotice.set(null);
+
+    this.redemptions.set([]);
+    this.redemptionsError.set(null);
+    this.redemptionForm.reset({ customerId: null, cardId: null, amount: null, redemptionDate: '', note: '' });
   }
 
   // Loading and saving -------------------------------------------------------
@@ -346,6 +400,7 @@ export class CampaignForm {
         this.status.set(result.campaign.status);
         this.fill(result.campaign, result.criteria);
         this.conditions.set(result.conditions);
+        this.loadRedemptions(result.campaign.id);
       },
       error: () => {
         this.campaignId.set(null);
@@ -375,13 +430,16 @@ export class CampaignForm {
       rewardPoint: campaign.rewardPoint,
       maxRewardAmount: campaign.maxRewardAmount,
       refundClawbackEnabled: campaign.refundClawbackEnabled,
-      refundClawbackDays: campaign.refundClawbackDays
+      refundClawbackDays: campaign.refundClawbackDays,
+      unusedPointsClawbackEnabled: campaign.unusedPointsClawbackEnabled,
+      unusedPointsClawbackDays: campaign.unusedPointsClawbackDays
     });
 
     this.selectedSegments.set(criteria.segmentIds);
     this.selectedProducts.set(criteria.productIds);
     this.selectedMerchants.set(criteria.merchantIds);
     this.selectedTransactionCodes.set(criteria.transactionCodeIds);
+    this.selectedClawbackExemptProducts.set(criteria.clawbackExemptProductIds);
   }
 
   /** Writes the form: creates a campaign when id is null, updates it otherwise. */
@@ -425,14 +483,19 @@ export class CampaignForm {
       maxRewardAmount: value.maxRewardAmount,
       refundClawbackEnabled: value.refundClawbackEnabled,
       // Only meaningful with clawback on; sent as null otherwise so it never lingers.
-      refundClawbackDays: value.refundClawbackEnabled ? value.refundClawbackDays : null
+      refundClawbackDays: value.refundClawbackEnabled ? value.refundClawbackDays : null,
+      unusedPointsClawbackEnabled: value.unusedPointsClawbackEnabled,
+      unusedPointsClawbackDays: value.unusedPointsClawbackEnabled
+        ? value.unusedPointsClawbackDays
+        : null
     };
 
     const criteria: CampaignCriteria = {
       segmentIds: this.selectedSegments(),
       productIds: this.selectedProducts(),
       merchantIds: this.selectedMerchants(),
-      transactionCodeIds: this.selectedTransactionCodes()
+      transactionCodeIds: this.selectedTransactionCodes(),
+      clawbackExemptProductIds: this.selectedClawbackExemptProducts()
     };
 
     // The campaign has to exist before its criteria can point at it, so the criteria call
@@ -579,5 +642,57 @@ export class CampaignForm {
 
   private loadConditions(id: number): void {
     this.campaignService.getConditions(id).subscribe({ next: list => this.conditions.set(list) });
+  }
+
+  // Point redemptions ----------------------------------------------------------
+
+  private loadRedemptions(id: number): void {
+    this.pointRedemptionService.getByCampaign(id).subscribe({ next: list => this.redemptions.set(list) });
+  }
+
+  /**
+   * Records that a customer redeemed points earned from this campaign — the offset the
+   * unused-points clawback subtracts from what the campaign paid. Only available once the
+   * campaign exists, since a redemption has to point at one.
+   */
+  protected addRedemption(): void {
+    const id = this.campaignId();
+
+    if (id === null || this.redemptionForm.invalid) {
+      this.redemptionForm.markAllAsTouched();
+      return;
+    }
+
+    const value = this.redemptionForm.getRawValue();
+
+    this.redemptionsSaving.set(true);
+    this.redemptionsError.set(null);
+
+    this.pointRedemptionService
+      .create(id, {
+        customerId: value.customerId!,
+        cardId: value.cardId,
+        amount: value.amount!,
+        redemptionDate: value.redemptionDate + 'T00:00:00',
+        note: value.note || null
+      })
+      .subscribe({
+        next: redemption => {
+          this.redemptionsSaving.set(false);
+          this.redemptions.update(list => [redemption, ...list]);
+          this.redemptionForm.reset({ customerId: null, cardId: null, amount: null, redemptionDate: '', note: '' });
+        },
+        error: response => {
+          this.redemptionsSaving.set(false);
+          this.redemptionsError.set(
+            typeof response.error === 'string' ? response.error : 'Puan kullanım kaydı eklenemedi.'
+          );
+        }
+      });
+  }
+
+  protected redemptionInvalid(field: string): boolean {
+    const control = this.redemptionForm.get(field);
+    return !!control && control.invalid && control.touched;
   }
 }

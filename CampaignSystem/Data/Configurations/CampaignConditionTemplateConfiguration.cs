@@ -117,6 +117,20 @@ public class CampaignConditionTemplateConfiguration : IEntityTypeConfiguration<C
                 Key = "TransactionCodeList",
                 TemplateText = "Kampanya yalnızca şu işlem türlerinde geçerlidir: {Names}.",
                 IsActive = true
+            },
+            new CampaignConditionTemplate
+            {
+                Id = 14,
+                Key = "UnusedPointsClawback",
+                TemplateText = "Bu kampanyadan kazanılan kullanılmayan Worldpuanlar {ReclaimDate} tarihinde geri alınır.",
+                IsActive = true
+            },
+            new CampaignConditionTemplate
+            {
+                Id = 15,
+                Key = "UnusedPointsClawbackExempt",
+                TemplateText = "Şu kart tipleri bu geri alım kuralından muaftır: {Names}.",
+                IsActive = true
             });
     }
 }

@@ -19,4 +19,11 @@ public class CampaignCriteriaDto
     public List<int> MerchantIds { get; set; } = [];
 
     public List<int> TransactionCodeIds { get; set; } = [];
+
+    /// <summary>
+    /// Card products exempt from the campaign's unused-points clawback. Not a scope filter
+    /// like the four lists above — a product listed here is unaffected by the clawback rule
+    /// regardless of whether it otherwise qualifies for the campaign.
+    /// </summary>
+    public List<int> ClawbackExemptProductIds { get; set; } = [];
 }

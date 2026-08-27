@@ -64,6 +64,16 @@ public class CreateCampaignDto : IValidatableObject
     [Range(0, 3650)]
     public int? RefundClawbackDays { get; set; }
 
+    /// <summary>Whether points never redeemed are clawed back once the window below has passed.</summary>
+    public bool UnusedPointsClawbackEnabled { get; set; }
+
+    /// <summary>
+    /// Days after the reward is loaded a customer has to redeem it before the unused remainder
+    /// is clawed back. Required when unused-points clawback is enabled.
+    /// </summary>
+    [Range(0, 3650)]
+    public int? UnusedPointsClawbackDays { get; set; }
+
     /// <summary>
     /// Checks that span several properties at once, which a single attribute cannot
     /// express. ASP.NET Core runs this during model binding, so a failure returns 400
@@ -97,6 +107,13 @@ public class CreateCampaignDto : IValidatableObject
             yield return new ValidationResult(
                 "RefundClawbackDays is required when refund clawback is enabled.",
                 [nameof(RefundClawbackDays)]);
+        }
+
+        if (UnusedPointsClawbackEnabled && UnusedPointsClawbackDays is null)
+        {
+            yield return new ValidationResult(
+                "UnusedPointsClawbackDays is required when unused-points clawback is enabled.",
+                [nameof(UnusedPointsClawbackDays)]);
         }
     }
 }

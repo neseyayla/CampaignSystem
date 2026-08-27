@@ -35,6 +35,10 @@ public class CampaignDto
 
     public int? RefundClawbackDays { get; set; }
 
+    public bool UnusedPointsClawbackEnabled { get; set; }
+
+    public int? UnusedPointsClawbackDays { get; set; }
+
     public EarningType EarningType { get; set; }
 
     /// <summary>Null when the campaign is open to every gender.</summary>

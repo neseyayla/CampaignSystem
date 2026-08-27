@@ -34,5 +34,9 @@ public class CampaignConditionsPreviewDto
 
     public decimal? MaxRewardAmount { get; set; }
 
+    public bool UnusedPointsClawbackEnabled { get; set; }
+
+    public int? UnusedPointsClawbackDays { get; set; }
+
     public CampaignCriteriaDto Criteria { get; set; } = new();
 }

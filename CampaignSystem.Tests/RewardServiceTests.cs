@@ -765,6 +765,154 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         Assert.Equal(0m, Net());
     }
 
+    [Fact]
+    public async Task ReclaimUnusedPoints_ClawsBackWhateverWasNeverRedeemed()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        // The scenario from the feature request: 200 earned, 100 redeemed, 100 should come back.
+        var (campaign, customer, card) = await SeedEndedCampaignWithRewardAsync(
+            context, unusedPointsClawbackDays: 30, earned: 200m, loadDate: DateTime.Now.AddDays(-31));
+
+        context.PointRedemptions.Add(new PointRedemption
+        {
+            CampaignId = campaign.Id,
+            CustomerId = customer.Id,
+            CardId = card.Id,
+            Amount = 100m,
+            RedemptionDate = DateTime.Now
+        });
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        Assert.Equal(1, await service.ReclaimUnusedPointsAsync());
+
+        var rows = await context.CampaignRewards.Where(r => r.CampaignId == campaign.Id).ToListAsync();
+        var clawback = rows.Single(r => r.RewardType == RewardType.UnusedPointsClawback);
+        Assert.Equal(-100m, clawback.RewardPoint);
+        Assert.Equal(100m, rows.Sum(r => r.RewardPoint));
+
+        // A second run finds nothing more to do — the campaign was marked processed.
+        Assert.Equal(0, await service.ReclaimUnusedPointsAsync());
+    }
+
+    [Fact]
+    public async Task ReclaimUnusedPoints_SkipsWhenEverythingWasRedeemed()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        var (campaign, customer, card) = await SeedEndedCampaignWithRewardAsync(
+            context, unusedPointsClawbackDays: 30, earned: 200m, loadDate: DateTime.Now.AddDays(-31));
+
+        context.PointRedemptions.Add(new PointRedemption
+        {
+            CampaignId = campaign.Id,
+            CustomerId = customer.Id,
+            CardId = card.Id,
+            Amount = 200m,
+            RedemptionDate = DateTime.Now
+        });
+        await context.SaveChangesAsync();
+
+        Assert.Equal(0, await CreateService(context).ReclaimUnusedPointsAsync());
+
+        var rows = await context.CampaignRewards.Where(r => r.CampaignId == campaign.Id).ToListAsync();
+        Assert.DoesNotContain(rows, r => r.RewardType == RewardType.UnusedPointsClawback);
+    }
+
+    [Fact]
+    public async Task ReclaimUnusedPoints_SkipsBeforeTheWindowCloses()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        // Loaded today; the 30-day window has not closed yet.
+        var (campaign, _, _) = await SeedEndedCampaignWithRewardAsync(
+            context, unusedPointsClawbackDays: 30, earned: 200m, loadDate: DateTime.Now);
+
+        Assert.Equal(0, await CreateService(context).ReclaimUnusedPointsAsync());
+
+        // Left for a later run rather than marked processed — the window is still open.
+        var reloaded = await context.Campaigns.SingleAsync(c => c.Id == campaign.Id);
+        Assert.Null(reloaded.UnusedPointsClawbackProcessedAt);
+    }
+
+    [Fact]
+    public async Task ReclaimUnusedPoints_SkipsACardOnAnExemptProduct()
+    {
+        await using var context = fixture.CreateContext();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        var (campaign, _, _) = await SeedEndedCampaignWithRewardAsync(
+            context,
+            unusedPointsClawbackDays: 30,
+            earned: 200m,
+            loadDate: DateTime.Now.AddDays(-31),
+            exemptProductIds: [ScenarioBuilder.VisaGoldProductId]);
+
+        // Nothing redeemed at all, but the card's product is exempt, so no clawback is written.
+        Assert.Equal(0, await CreateService(context).ReclaimUnusedPointsAsync());
+
+        var rows = await context.CampaignRewards.Where(r => r.CampaignId == campaign.Id).ToListAsync();
+        Assert.DoesNotContain(rows, r => r.RewardType == RewardType.UnusedPointsClawback);
+    }
+
+    /// <summary>
+    /// An Ended campaign with unused-points clawback on, one Earn reward for one customer's
+    /// card, loaded on the given date.
+    /// </summary>
+    private static async Task<(Campaign Campaign, Customer Customer, Card Card)> SeedEndedCampaignWithRewardAsync(
+        CampaignDbContext context,
+        int unusedPointsClawbackDays,
+        decimal earned,
+        DateTime loadDate,
+        List<int>? exemptProductIds = null)
+    {
+        var suffix = DateTime.Now.Ticks.ToString()[^10..];
+
+        var campaign = new Campaign
+        {
+            Name = "Unused points scenario",
+            CampaignType = CampaignType.Mass,
+            EarningType = EarningType.CardBased,
+            StartDate = DateTime.Now.AddDays(-60),
+            EndDate = DateTime.Now.AddDays(-30),
+            RewardPoint = 50m,
+            UnusedPointsClawbackEnabled = true,
+            UnusedPointsClawbackDays = unusedPointsClawbackDays,
+            Status = CampaignStatus.Ended,
+            IsActive = true
+        };
+
+        var (customer, card) = await AddCustomerWithCardAsync(context, campaign, suffix);
+
+        context.CampaignRewards.Add(new CampaignReward
+        {
+            CampaignId = campaign.Id,
+            CustomerId = customer.Id,
+            CardId = card.Id,
+            RewardType = RewardType.Earn,
+            QualifyingCount = 1,
+            RewardPoint = earned,
+            RewardDate = loadDate
+        });
+
+        foreach (var productId in exemptProductIds ?? [])
+        {
+            context.CampaignClawbackExemptProducts.Add(new CampaignClawbackExemptProduct
+            {
+                CampaignId = campaign.Id,
+                ProductId = productId
+            });
+        }
+
+        await context.SaveChangesAsync();
+
+        return (campaign, customer, card);
+    }
+
     /// <summary>
     /// A card-based campaign paid at 100 (two 300 TL purchases), then one purchase refunded.
     /// The caller sets the clawback fields and, where it matters, shifts the load date before

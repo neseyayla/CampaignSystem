@@ -36,6 +36,7 @@ public class CampaignDbContext : DbContext
     public DbSet<CampaignProduct> CampaignProducts => Set<CampaignProduct>();
     public DbSet<CampaignMerchant> CampaignMerchants => Set<CampaignMerchant>();
     public DbSet<CampaignTransactionCode> CampaignTransactionCodes => Set<CampaignTransactionCode>();
+    public DbSet<CampaignClawbackExemptProduct> CampaignClawbackExemptProducts => Set<CampaignClawbackExemptProduct>();
     public DbSet<CampaignCondition> CampaignConditions => Set<CampaignCondition>();
     public DbSet<CampaignConditionTemplate> CampaignConditionTemplates => Set<CampaignConditionTemplate>();
 
@@ -43,6 +44,7 @@ public class CampaignDbContext : DbContext
     public DbSet<CampaignParticipation> CampaignParticipations => Set<CampaignParticipation>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<CampaignReward> CampaignRewards => Set<CampaignReward>();
+    public DbSet<PointRedemption> PointRedemptions => Set<PointRedemption>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -421,6 +421,129 @@ public class RewardService(
         return clawbacks;
     }
 
+    public async Task<int> ReclaimUnusedPointsAsync(CancellationToken cancellationToken = default)
+    {
+        var today = DateTime.Now.Date;
+        var now = DateTime.Now;
+
+        // Ended campaigns with the rule on that have not been swept yet. Once a campaign is
+        // processed here it is never looked at again — ProcessedAt is what makes this a
+        // one-time sweep rather than a recheck like ReconcileReversalsAsync above.
+        var campaigns = await context.Campaigns
+            .Include(c => c.ClawbackExemptProducts)
+            .Where(c => c.IsActive
+                        && c.Status == CampaignStatus.Ended
+                        && c.UnusedPointsClawbackEnabled
+                        && c.UnusedPointsClawbackProcessedAt == null)
+            .ToListAsync(cancellationToken);
+
+        var reclaimed = 0;
+
+        foreach (var campaign in campaigns)
+        {
+            var rewards = await context.CampaignRewards
+                .Where(r => r.CampaignId == campaign.Id)
+                .ToListAsync(cancellationToken);
+
+            var earnRows = rewards.Where(r => r.RewardType == RewardType.Earn).ToList();
+
+            if (earnRows.Count == 0)
+            {
+                // Nobody qualified when the batch ran — nothing to reclaim, and nothing will
+                // ever change that, so this campaign is done.
+                campaign.UnusedPointsClawbackProcessedAt = now;
+                continue;
+            }
+
+            // The window runs from the day the reward was loaded — every Earn row of a
+            // campaign shares that date, the same rule ReconcileReversalsAsync uses above.
+            var loadDate = earnRows.Max(r => r.RewardDate).Date;
+            var deadline = loadDate.AddDays(campaign.UnusedPointsClawbackDays!.Value);
+
+            if (today < deadline)
+            {
+                // Window still open — leave ProcessedAt null so a later run picks this up.
+                continue;
+            }
+
+            var exemptProductIds = campaign.ClawbackExemptProducts.Select(x => x.ProductId).ToHashSet();
+
+            // Net balance per group (customer, or customer+card for a card based campaign),
+            // the same rollup ReconcileReversalsAsync uses to find what a group currently holds.
+            var groups = rewards
+                .GroupBy(r => (r.CustomerId, r.CardId))
+                .Select(g => new { g.Key.CustomerId, g.Key.CardId, NetPoint = g.Sum(r => r.RewardPoint) })
+                .Where(g => g.NetPoint > 0)
+                .ToList();
+
+            // Card based rewards carry the specific card; exemption is checked against that
+            // card's product. Customer based rewards pool every card (CardId is null), so
+            // there is no single card to check — a customer is exempt there if any one of
+            // their cards is on an exempt product, which is the only reading that makes sense
+            // once the reward is no longer tied to one card.
+            var cardIds = groups.Where(g => g.CardId != null).Select(g => g.CardId!.Value).Distinct().ToList();
+
+            var cardProducts = await context.Cards
+                .Where(c => cardIds.Contains(c.Id))
+                .Select(c => new { c.Id, c.ProductId })
+                .ToDictionaryAsync(c => c.Id, c => c.ProductId, cancellationToken);
+
+            var customerIds = groups.Select(g => g.CustomerId).Distinct().ToList();
+
+            HashSet<int> customerHasExemptCard = exemptProductIds.Count == 0
+                ? []
+                : (await context.Cards
+                    .Where(c => customerIds.Contains(c.CustomerId) && exemptProductIds.Contains(c.ProductId))
+                    .Select(c => c.CustomerId)
+                    .Distinct()
+                    .ToListAsync(cancellationToken))
+                .ToHashSet();
+
+            var redeemedByGroup = (await context.PointRedemptions
+                    .Where(r => r.CampaignId == campaign.Id)
+                    .ToListAsync(cancellationToken))
+                .GroupBy(r => (r.CustomerId, r.CardId))
+                .ToDictionary(g => g.Key, g => g.Sum(r => r.Amount));
+
+            foreach (var g in groups)
+            {
+                var exempt = g.CardId is int cardId
+                    ? cardProducts.TryGetValue(cardId, out var productId) && exemptProductIds.Contains(productId)
+                    : customerHasExemptCard.Contains(g.CustomerId);
+
+                if (exempt)
+                {
+                    continue;
+                }
+
+                var redeemed = redeemedByGroup.GetValueOrDefault((g.CustomerId, g.CardId), 0m);
+                var unused = g.NetPoint - redeemed;
+
+                if (unused > 0)
+                {
+                    context.CampaignRewards.Add(new CampaignReward
+                    {
+                        CampaignId = campaign.Id,
+                        CustomerId = g.CustomerId,
+                        CardId = g.CardId,
+                        RewardType = RewardType.UnusedPointsClawback,
+                        QualifyingCount = 0,
+                        RewardPoint = -unused,
+                        RewardDate = now
+                    });
+
+                    reclaimed++;
+                }
+            }
+
+            campaign.UnusedPointsClawbackProcessedAt = now;
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        return reclaimed;
+    }
+
     /// <summary>
     /// The transactions that meet every one of the campaign's conditions.
     ///

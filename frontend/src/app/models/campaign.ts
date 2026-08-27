@@ -44,6 +44,12 @@ export interface Campaign {
   /** Days after the reward is loaded a refund can still claw points back; null = no limit. */
   refundClawbackDays: number | null;
 
+  /** Whether points never redeemed are clawed back once the window below has passed. */
+  unusedPointsClawbackEnabled: boolean;
+
+  /** Days after the reward is loaded a customer has to redeem it before the rest is clawed back. */
+  unusedPointsClawbackDays: number | null;
+
   earningType: EarningType;
 
   /** Null when the campaign is open to every gender. */
@@ -86,6 +92,8 @@ export interface CreateCampaign {
   maxRewardAmount: number | null;
   refundClawbackEnabled: boolean;
   refundClawbackDays: number | null;
+  unusedPointsClawbackEnabled: boolean;
+  unusedPointsClawbackDays: number | null;
 }
 
 /**
@@ -97,6 +105,12 @@ export interface CampaignCriteria {
   productIds: number[];
   merchantIds: number[];
   transactionCodeIds: number[];
+
+  /**
+   * Card products exempt from the campaign's unused-points clawback. Not a scope filter like
+   * the four lists above — a product listed here is unaffected by the clawback rule.
+   */
+  clawbackExemptProductIds: number[];
 }
 
 /**
@@ -135,5 +149,31 @@ export interface CampaignConditionsPreviewRequest {
   maximumAmount: number | null;
   rewardPoint: number | null;
   maxRewardAmount: number | null;
+  unusedPointsClawbackEnabled: boolean;
+  unusedPointsClawbackDays: number | null;
   criteria: CampaignCriteria;
+}
+
+/**
+ * A recorded point redemption — an operator's entry that a customer spent points earned from
+ * a campaign. Mirrors PointRedemptionDto on the server.
+ */
+export interface PointRedemption {
+  id: number;
+  campaignId: number;
+  customerId: number;
+  /** Null for a customer level redemption. */
+  cardId: number | null;
+  amount: number;
+  redemptionDate: string;
+  note: string | null;
+}
+
+/** What the create endpoint accepts. */
+export interface CreatePointRedemption {
+  customerId: number;
+  cardId: number | null;
+  amount: number;
+  redemptionDate: string;
+  note: string | null;
 }
