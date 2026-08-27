@@ -4,6 +4,7 @@ using CampaignSystem.Configuration;
 using CampaignSystem.Data;
 using CampaignSystem.Repositories;
 using CampaignSystem.Services;
+using CampaignSystem.Services.Caching;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -119,6 +120,12 @@ builder.Services.AddAuthorization();
 builder.Services.AddHostedService<DailyBatchHostedService>();
 
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+
+// Backs the lookup caches (products, segments, merchants, transaction codes). Reference data
+// is read on nearly every campaign screen and changes only through the admin write endpoints,
+// which evict their own key. LookupCache centralises the caching policy over IMemoryCache.
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<LookupCache>();
 
 builder.Services.AddScoped<ICampaignService, CampaignService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
