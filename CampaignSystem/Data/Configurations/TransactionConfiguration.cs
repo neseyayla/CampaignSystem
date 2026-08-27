@@ -17,6 +17,7 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
             .IsUnicode(false);
 
         builder.Property(x => x.TransactionDate).HasColumnType("datetime2");
+        builder.Property(x => x.ClawbackProcessedAt).HasColumnType("datetime2");
 
         builder.Property(x => x.Amount)
             .HasColumnType("decimal(18,2)")
@@ -36,6 +37,11 @@ public class TransactionConfiguration : IEntityTypeConfiguration<Transaction>
         // A purchase can be refunded more than once (partial refunds), so this is a plain
         // lookup index — not unique — over the refund rows that point back at an original.
         builder.HasIndex(x => x.OriginalTransactionId);
+
+        // The nightly clawback scans only unprocessed refunds; a filtered index keeps that set
+        // — normally tiny — cheap to find.
+        builder.HasIndex(x => x.ClawbackProcessedAt)
+            .HasFilter("[ClawbackProcessedAt] IS NULL AND [OriginalTransactionId] IS NOT NULL");
 
         builder.HasOne(x => x.Card)
             .WithMany(x => x.Transactions)
