@@ -2,6 +2,7 @@ using CampaignSystem.Data;
 using CampaignSystem.DTOs;
 using CampaignSystem.Entities;
 using CampaignSystem.Enums;
+using CampaignSystem.Services.Caching;
 using Microsoft.EntityFrameworkCore;
 
 namespace CampaignSystem.Services;
@@ -14,12 +15,16 @@ namespace CampaignSystem.Services;
 /// own screen and a branch signing them up over the counter go through identical checks.
 ///
 /// Works against the context directly: the criteria live in four junction tables and are
-/// read for every open campaign at once, which is not what a repository is for.
+/// read for every open campaign at once, which is not what a repository is for. That
+/// person-independent half — the open campaigns and their criteria and terms — is the same
+/// for every customer and rarely changes, so it is built once into a <see cref="CampaignCatalog"/>
+/// and cached; only the per-customer part (eligibility and enrolment) runs each request.
 /// </summary>
 public class CustomerCampaignService(
     CampaignDbContext context,
     IParticipationService participationService,
-    IRewardService rewardService) : ICustomerCampaignService
+    IRewardService rewardService,
+    CampaignCatalogCache catalogCache) : ICustomerCampaignService
 {
     public async Task<List<CustomerCampaignDto>?> GetEligibleAsync(
         int customerId,
@@ -98,6 +103,64 @@ public class CustomerCampaignService(
         Customer customer,
         CancellationToken cancellationToken)
     {
+        var catalog = await catalogCache.GetOrBuildAsync(() => BuildCatalogAsync(cancellationToken));
+
+        if (catalog.Candidates.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = catalog.Candidates.Select(c => c.Id).ToList();
+
+        // The one query that stays per customer: which of these campaigns this customer has
+        // already joined. Everything else the list shows is the same for everyone and comes
+        // from the cached catalog.
+        var enrolledIn = (await context.CampaignParticipations
+                .AsNoTracking()
+                .Where(p => p.CustomerId == customer.Id
+                            && p.Status == ParticipationStatus.Active
+                            && ids.Contains(p.CampaignId))
+                .Select(p => p.CampaignId)
+                .ToListAsync(cancellationToken))
+            .ToHashSet();
+
+        var now = DateTime.Now;
+
+        return catalog.Candidates
+            .Where(c => IsEligible(
+                c,
+                customer,
+                catalog.SegmentsByCampaign.GetValueOrDefault(c.Id, []),
+                catalog.ProductsByCampaign.GetValueOrDefault(c.Id, [])))
+            .Select(c => new CustomerCampaignDto
+            {
+                CampaignId = c.Id,
+                Name = c.Name,
+                Description = c.Description,
+                StartDate = c.StartDate,
+                EndDate = c.EndDate,
+                HasStarted = c.StartDate <= now,
+                EnrollmentRequired = c.CampaignType == CampaignType.EnrollmentRequired,
+                Enrolled = enrolledIn.Contains(c.Id),
+                EarningType = c.EarningType,
+                RewardPoint = c.RewardPoint,
+                MaxRewardAmount = c.MaxRewardAmount,
+                MinimumAmount = c.MinimumAmount,
+                MaximumAmount = c.MaximumAmount,
+                Merchants = catalog.MerchantsByCampaign.GetValueOrDefault(c.Id, []),
+                TransactionCodes = catalog.CodesByCampaign.GetValueOrDefault(c.Id, []),
+                Conditions = catalog.ConditionsByCampaign.GetValueOrDefault(c.Id, [])
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// The person-independent catalog: the open campaigns with their criteria and terms,
+    /// read once and cached. Nothing here depends on who is asking — the caller layers
+    /// eligibility and enrolment on top per request.
+    /// </summary>
+    private async Task<CampaignCatalog> BuildCatalogAsync(CancellationToken cancellationToken)
+    {
         // Pending campaigns are listed alongside running ones. One that has not begun is
         // still worth reading about, and an enrollment campaign can be joined before day
         // one — which is precisely when joining is worth the most. Loading and Ended are
@@ -113,7 +176,13 @@ public class CustomerCampaignService(
 
         if (candidates.Count == 0)
         {
-            return [];
+            return new CampaignCatalog(
+                candidates,
+                new Dictionary<int, HashSet<int>>(),
+                new Dictionary<int, HashSet<int>>(),
+                new Dictionary<int, List<string>>(),
+                new Dictionary<int, List<string>>(),
+                new Dictionary<int, List<string>>());
         }
 
         var ids = candidates.Select(c => c.Id).ToList();
@@ -157,15 +226,6 @@ public class CustomerCampaignService(
             .Select(x => new { x.CampaignId, x.Text })
             .ToListAsync(cancellationToken);
 
-        var enrolledIn = (await context.CampaignParticipations
-                .AsNoTracking()
-                .Where(p => p.CustomerId == customer.Id
-                            && p.Status == ParticipationStatus.Active
-                            && ids.Contains(p.CampaignId))
-                .Select(p => p.CampaignId)
-                .ToListAsync(cancellationToken))
-            .ToHashSet();
-
         var segmentsOf = segmentRows.GroupBy(x => x.CampaignId)
             .ToDictionary(g => g.Key, g => g.Select(x => x.SegmentId).ToHashSet());
 
@@ -181,34 +241,8 @@ public class CustomerCampaignService(
         var conditionsOf = conditionRows.GroupBy(x => x.CampaignId)
             .ToDictionary(g => g.Key, g => g.Select(x => x.Text).ToList());
 
-        var now = DateTime.Now;
-
-        return candidates
-            .Where(c => IsEligible(
-                c,
-                customer,
-                segmentsOf.GetValueOrDefault(c.Id, []),
-                productsOf.GetValueOrDefault(c.Id, [])))
-            .Select(c => new CustomerCampaignDto
-            {
-                CampaignId = c.Id,
-                Name = c.Name,
-                Description = c.Description,
-                StartDate = c.StartDate,
-                EndDate = c.EndDate,
-                HasStarted = c.StartDate <= now,
-                EnrollmentRequired = c.CampaignType == CampaignType.EnrollmentRequired,
-                Enrolled = enrolledIn.Contains(c.Id),
-                EarningType = c.EarningType,
-                RewardPoint = c.RewardPoint,
-                MaxRewardAmount = c.MaxRewardAmount,
-                MinimumAmount = c.MinimumAmount,
-                MaximumAmount = c.MaximumAmount,
-                Merchants = merchantsOf.GetValueOrDefault(c.Id, []),
-                TransactionCodes = codesOf.GetValueOrDefault(c.Id, []),
-                Conditions = conditionsOf.GetValueOrDefault(c.Id, [])
-            })
-            .ToList();
+        return new CampaignCatalog(
+            candidates, segmentsOf, productsOf, merchantsOf, codesOf, conditionsOf);
     }
 
     /// <summary>

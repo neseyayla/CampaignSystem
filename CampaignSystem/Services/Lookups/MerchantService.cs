@@ -1,20 +1,30 @@
 using CampaignSystem.DTOs;
 using CampaignSystem.Entities;
 using CampaignSystem.Repositories;
+using CampaignSystem.Services.Caching;
 
 namespace CampaignSystem.Services;
 
 /// <summary>
 /// Merchant business rules. No DbContext needed — every check is a single-table question,
 /// which the repository already answers.
+///
+/// The active-merchant list is read on every campaign screen and changes only through the
+/// writes here — including the soft delete, which drops a row from the cached list — so it
+/// is cached through <see cref="LookupCache"/> and each write evicts the key.
 /// </summary>
-public class MerchantService(IRepository<Merchant> merchants) : IMerchantService
+public class MerchantService(
+    IRepository<Merchant> merchants,
+    LookupCache cache) : IMerchantService
 {
-    public async Task<List<MerchantDto>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        var rows = await merchants.FindAsync(m => m.IsActive, cancellationToken);
-        return rows.Select(ToDto).ToList();
-    }
+    private const string ListCacheKey = "lookup:merchants";
+
+    public Task<List<MerchantDto>> GetAllAsync(CancellationToken cancellationToken = default)
+        => cache.GetOrCreateAsync(ListCacheKey, async () =>
+        {
+            var rows = await merchants.FindAsync(m => m.IsActive, cancellationToken);
+            return rows.Select(ToDto).ToList();
+        });
 
     public async Task<MerchantDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
@@ -43,6 +53,7 @@ public class MerchantService(IRepository<Merchant> merchants) : IMerchantService
 
         await merchants.AddAsync(merchant, cancellationToken);
         await merchants.SaveChangesAsync(cancellationToken);
+        cache.Remove(ListCacheKey);
 
         return ServiceResult<MerchantDto>.Success(ToDto(merchant));
     }
@@ -63,6 +74,7 @@ public class MerchantService(IRepository<Merchant> merchants) : IMerchantService
 
         merchants.Update(merchant);
         await merchants.SaveChangesAsync(cancellationToken);
+        cache.Remove(ListCacheKey);
 
         return ServiceResult.Success();
     }
@@ -81,6 +93,7 @@ public class MerchantService(IRepository<Merchant> merchants) : IMerchantService
 
         merchants.Update(merchant);
         await merchants.SaveChangesAsync(cancellationToken);
+        cache.Remove(ListCacheKey);
 
         return ServiceResult.Success();
     }

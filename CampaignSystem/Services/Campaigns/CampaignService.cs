@@ -4,6 +4,7 @@ using CampaignSystem.DTOs;
 using CampaignSystem.Entities;
 using CampaignSystem.Enums;
 using CampaignSystem.Repositories;
+using CampaignSystem.Services.Caching;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Text.RegularExpressions;
@@ -17,11 +18,18 @@ namespace CampaignSystem.Services;
 /// Takes both the repository and the context on purpose. Single-row work on CAMPAIGN goes
 /// through the repository; the criteria methods touch five tables in one transaction and
 /// need the context directly, which the repository deliberately does not expose.
+///
+/// Every write here can change what the customer campaign list shows, so each evicts the
+/// shared <see cref="CampaignCatalog"/> — the next customer request rebuilds it from the
+/// database.
 /// </summary>
 public class CampaignService(
     IRepository<Campaign> repository,
     CampaignDbContext context,
-    IOptions<RewardCalculationOptions> rewardOptions) : ICampaignService
+    IOptions<RewardCalculationOptions> rewardOptions,
+    CampaignCatalogCache catalogCache,
+    ILogger<CampaignService> logger)
+    : ICampaignService
 {
     public async Task<List<CampaignDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -92,6 +100,9 @@ public class CampaignService(
 
         await repository.AddAsync(campaign, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
+        catalogCache.Invalidate();
+
+        logger.LogInformation("Campaign {CampaignId} '{Name}' created.", campaign.Id, campaign.Name);
 
         // Id is filled in by the database during SaveChanges, so the returned DTO carries it.
         // Conditions do not exist yet — nothing has been generated for a campaign this new.
@@ -130,6 +141,9 @@ public class CampaignService(
 
         repository.Update(campaign);
         await repository.SaveChangesAsync(cancellationToken);
+        catalogCache.Invalidate();
+
+        logger.LogInformation("Campaign {CampaignId} updated.", id);
 
         return true;
     }
@@ -166,6 +180,10 @@ public class CampaignService(
         }
 
         await repository.SaveChangesAsync(cancellationToken);
+        catalogCache.Invalidate();
+
+        logger.LogInformation(
+            "Campaign {CampaignId} {Action}.", id, hasHistory ? "deactivated" : "deleted");
 
         return true;
     }
@@ -308,6 +326,9 @@ public class CampaignService(
         // One SaveChanges for all five tables, so the campaign never sits with half of its
         // new scope applied.
         await context.SaveChangesAsync(cancellationToken);
+        catalogCache.Invalidate();
+
+        logger.LogInformation("Campaign {CampaignId} criteria updated.", campaignId);
 
         return SetCriteriaOutcome.Success();
     }
@@ -445,6 +466,9 @@ public class CampaignService(
         }));
 
         await context.SaveChangesAsync(cancellationToken);
+        catalogCache.Invalidate();
+
+        logger.LogInformation("Campaign {CampaignId} conditions updated.", campaignId);
 
         return true;
     }
@@ -492,6 +516,7 @@ public class CampaignService(
         }
 
         await context.SaveChangesAsync(cancellationToken);
+        catalogCache.Invalidate();
 
         return await LoadConditionsAsync(campaignId, cancellationToken);
     }

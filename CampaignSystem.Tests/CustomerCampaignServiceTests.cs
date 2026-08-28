@@ -4,7 +4,10 @@ using CampaignSystem.Entities;
 using CampaignSystem.Enums;
 using CampaignSystem.Repositories;
 using CampaignSystem.Services;
+using CampaignSystem.Services.Caching;
 using CampaignSystem.Tests.Infrastructure;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace CampaignSystem.Tests;
@@ -35,6 +38,10 @@ public class CustomerCampaignServiceTests(TestDatabaseFixture fixture) : IClassF
 
     private static int _sequence;
 
+    // A fresh catalog cache per service so the tests stay isolated. The cache holds only the
+    // person-independent catalog; the per-customer eligibility and enrolment are recomputed on
+    // every call, which is what lets an enrolment made through the service show up on the very
+    // next read even though the catalog is cached.
     private static CustomerCampaignService CreateService(CampaignDbContext context) =>
         new(context,
             new ParticipationService(
@@ -42,7 +49,9 @@ public class CustomerCampaignServiceTests(TestDatabaseFixture fixture) : IClassF
                 new Repository<Campaign>(context),
                 new Repository<Customer>(context),
                 new Repository<Card>(context)),
-            new RewardService(context, Options.Create(new RewardCalculationOptions())));
+            new RewardService(
+                context, Options.Create(new RewardCalculationOptions()), NullLogger<RewardService>.Instance),
+            new CampaignCatalogCache(new MemoryCache(new MemoryCacheOptions())));
 
     [Fact]
     public async Task UnknownCustomerIsReported_RatherThanReturningAnEmptyList()

@@ -22,7 +22,8 @@ namespace CampaignSystem.Services;
 /// </summary>
 public class RewardService(
     CampaignDbContext context,
-    IOptions<RewardCalculationOptions> options) : IRewardService
+    IOptions<RewardCalculationOptions> options,
+    ILogger<RewardService> logger) : IRewardService
 {
     private int DaysAfterCampaignEnd => options.Value.DaysAfterCampaignEnd;
 
@@ -145,6 +146,11 @@ public class RewardService(
         // The rewards and the closing status are written together. A crash in between would
         // otherwise leave a campaign that looks unevaluated but already has rows.
         await context.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Campaign {CampaignId} evaluated: {Rewards} reward rows worth {Points} points " +
+            "from {Qualifying} qualifying transactions.",
+            campaignId, rewards.Count, rewards.Sum(r => r.RewardPoint), qualifyingCount);
 
         return ServiceResult<RewardCalculationResultDto>.Success(new RewardCalculationResultDto
         {
@@ -423,6 +429,14 @@ public class RewardService(
         }
 
         await context.SaveChangesAsync(cancellationToken);
+
+        if (clawbacks > 0)
+        {
+            logger.LogInformation(
+                "Refund clawback: wrote {Clawbacks} clawback rows across {Campaigns} campaigns " +
+                "from {Refunds} new refunds.",
+                clawbacks, campaigns.Count, pendingRefunds.Count);
+        }
 
         return clawbacks;
     }

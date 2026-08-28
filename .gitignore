@@ -489,3 +489,7 @@ HANDOFF.md
 # version the repository keeps, so this would only be a second copy that drifts.
 .postman/
 postman/
+
+# Serilog rolling log files written at runtime; never committed.
+logs/
+*.log
