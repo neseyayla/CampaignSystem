@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -6,7 +5,6 @@ import { EMPTY, Subject, catchError, debounceTime, forkJoin, of, switchMap } fro
 
 import { CampaignService } from '../services/campaign.service';
 import { LookupService } from '../services/lookup.service';
-import { PointRedemptionService } from '../services/point-redemption.service';
 import {
   Campaign,
   CampaignCondition,
@@ -15,11 +13,9 @@ import {
   CampaignType,
   CardType,
   CreateCampaign,
-  CreatePointRedemption,
   EarningType,
   EnrollmentBasis,
-  Gender,
-  PointRedemption
+  Gender
 } from '../models/campaign';
 import { LookupOption } from '../models/lookup';
 import { CriteriaPicker } from './criteria-picker';
@@ -33,7 +29,7 @@ import { CriteriaPicker } from './criteria-picker';
  */
 @Component({
   selector: 'app-campaign-form',
-  imports: [ReactiveFormsModule, CriteriaPicker, DatePipe],
+  imports: [ReactiveFormsModule, CriteriaPicker],
   templateUrl: './campaign-form.html',
   styleUrl: './campaign-form.css'
 })
@@ -41,7 +37,6 @@ export class CampaignForm {
   private readonly formBuilder = inject(FormBuilder);
   private readonly campaignService = inject(CampaignService);
   private readonly lookupService = inject(LookupService);
-  private readonly pointRedemptionService = inject(PointRedemptionService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -85,18 +80,6 @@ export class CampaignForm {
 
   // Same idea for the unused-points clawback checkbox.
   protected readonly unusedClawbackOn = signal(false);
-
-  protected readonly redemptions = signal<PointRedemption[]>([]);
-  protected readonly redemptionsSaving = signal(false);
-  protected readonly redemptionsError = signal<string | null>(null);
-
-  protected readonly redemptionForm = this.formBuilder.nonNullable.group({
-    customerId: [null as number | null, Validators.required],
-    cardId: [null as number | null],
-    amount: [null as number | null, [Validators.required, Validators.min(0.01)]],
-    redemptionDate: ['', Validators.required],
-    note: ['']
-  });
 
   /**
    * True once Sil has been pressed and before it is confirmed. Deleting takes two presses
@@ -378,10 +361,6 @@ export class CampaignForm {
 
     this.conditions.set([]);
     this.conditionsNotice.set(null);
-
-    this.redemptions.set([]);
-    this.redemptionsError.set(null);
-    this.redemptionForm.reset({ customerId: null, cardId: null, amount: null, redemptionDate: '', note: '' });
   }
 
   // Loading and saving -------------------------------------------------------
@@ -400,7 +379,6 @@ export class CampaignForm {
         this.status.set(result.campaign.status);
         this.fill(result.campaign, result.criteria);
         this.conditions.set(result.conditions);
-        this.loadRedemptions(result.campaign.id);
       },
       error: () => {
         this.campaignId.set(null);
@@ -642,57 +620,5 @@ export class CampaignForm {
 
   private loadConditions(id: number): void {
     this.campaignService.getConditions(id).subscribe({ next: list => this.conditions.set(list) });
-  }
-
-  // Point redemptions ----------------------------------------------------------
-
-  private loadRedemptions(id: number): void {
-    this.pointRedemptionService.getByCampaign(id).subscribe({ next: list => this.redemptions.set(list) });
-  }
-
-  /**
-   * Records that a customer redeemed points earned from this campaign — the offset the
-   * unused-points clawback subtracts from what the campaign paid. Only available once the
-   * campaign exists, since a redemption has to point at one.
-   */
-  protected addRedemption(): void {
-    const id = this.campaignId();
-
-    if (id === null || this.redemptionForm.invalid) {
-      this.redemptionForm.markAllAsTouched();
-      return;
-    }
-
-    const value = this.redemptionForm.getRawValue();
-
-    this.redemptionsSaving.set(true);
-    this.redemptionsError.set(null);
-
-    this.pointRedemptionService
-      .create(id, {
-        customerId: value.customerId!,
-        cardId: value.cardId,
-        amount: value.amount!,
-        redemptionDate: value.redemptionDate + 'T00:00:00',
-        note: value.note || null
-      })
-      .subscribe({
-        next: redemption => {
-          this.redemptionsSaving.set(false);
-          this.redemptions.update(list => [redemption, ...list]);
-          this.redemptionForm.reset({ customerId: null, cardId: null, amount: null, redemptionDate: '', note: '' });
-        },
-        error: response => {
-          this.redemptionsSaving.set(false);
-          this.redemptionsError.set(
-            typeof response.error === 'string' ? response.error : 'Puan kullanım kaydı eklenemedi.'
-          );
-        }
-      });
-  }
-
-  protected redemptionInvalid(field: string): boolean {
-    const control = this.redemptionForm.get(field);
-    return !!control && control.invalid && control.touched;
   }
 }

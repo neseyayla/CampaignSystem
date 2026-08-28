@@ -44,7 +44,6 @@ public class CampaignDbContext : DbContext
     public DbSet<CampaignParticipation> CampaignParticipations => Set<CampaignParticipation>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<CampaignReward> CampaignRewards => Set<CampaignReward>();
-    public DbSet<PointRedemption> PointRedemptions => Set<PointRedemption>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

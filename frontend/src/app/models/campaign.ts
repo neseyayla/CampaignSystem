@@ -153,27 +153,3 @@ export interface CampaignConditionsPreviewRequest {
   unusedPointsClawbackDays: number | null;
   criteria: CampaignCriteria;
 }
-
-/**
- * A recorded point redemption — an operator's entry that a customer spent points earned from
- * a campaign. Mirrors PointRedemptionDto on the server.
- */
-export interface PointRedemption {
-  id: number;
-  campaignId: number;
-  customerId: number;
-  /** Null for a customer level redemption. */
-  cardId: number | null;
-  amount: number;
-  redemptionDate: string;
-  note: string | null;
-}
-
-/** What the create endpoint accepts. */
-export interface CreatePointRedemption {
-  customerId: number;
-  cardId: number | null;
-  amount: number;
-  redemptionDate: string;
-  note: string | null;
-}

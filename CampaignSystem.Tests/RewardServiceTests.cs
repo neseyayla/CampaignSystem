@@ -775,14 +775,8 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         var (campaign, customer, card) = await SeedEndedCampaignWithRewardAsync(
             context, unusedPointsClawbackDays: 30, earned: 200m, loadDate: DateTime.Now.AddDays(-31));
 
-        context.PointRedemptions.Add(new PointRedemption
-        {
-            CampaignId = campaign.Id,
-            CustomerId = customer.Id,
-            CardId = card.Id,
-            Amount = 100m,
-            RedemptionDate = DateTime.Now
-        });
+        // Redemption is a "PS" transaction on the card, dated after the campaign ended.
+        context.Transactions.Add(NewRedemption(card, customer, 100m));
         await context.SaveChangesAsync();
 
         var service = CreateService(context);
@@ -806,14 +800,8 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         var (campaign, customer, card) = await SeedEndedCampaignWithRewardAsync(
             context, unusedPointsClawbackDays: 30, earned: 200m, loadDate: DateTime.Now.AddDays(-31));
 
-        context.PointRedemptions.Add(new PointRedemption
-        {
-            CampaignId = campaign.Id,
-            CustomerId = customer.Id,
-            CardId = card.Id,
-            Amount = 200m,
-            RedemptionDate = DateTime.Now
-        });
+        // The whole 200 spent back as "PS" transactions — nothing left to claw back.
+        context.Transactions.Add(NewRedemption(card, customer, 200m));
         await context.SaveChangesAsync();
 
         Assert.Equal(0, await CreateService(context).ReclaimUnusedPointsAsync());
@@ -1005,6 +993,21 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         MerchantId = ScenarioBuilder.OpetMerchantId,
         TransactionCodeId = ScenarioBuilder.SaleTransactionCodeId,
         TransactionDate = date,
+        Amount = amount
+    };
+
+    /// <summary>
+    /// A point-spend row: the "PS" transaction code and a positive amount, dated now — after
+    /// the seeded campaign's end date. The unused-points clawback reads these instead of a
+    /// separate redemption table.
+    /// </summary>
+    private static Transaction NewRedemption(Card card, Customer customer, decimal amount) => new()
+    {
+        Rrn = $"S{DateTime.Now.Ticks}",
+        CardId = card.Id,
+        CustomerId = customer.Id,
+        TransactionCodeId = ScenarioBuilder.RedemptionTransactionCodeId,
+        TransactionDate = DateTime.Now,
         Amount = amount
     };
 

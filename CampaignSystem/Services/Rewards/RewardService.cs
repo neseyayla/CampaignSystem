@@ -26,6 +26,12 @@ public class RewardService(
 {
     private int DaysAfterCampaignEnd => options.Value.DaysAfterCampaignEnd;
 
+    /// <summary>
+    /// Transaction code that marks a row as a spend of campaign points. The unused-points
+    /// clawback sums these to find what a card earned but never redeemed.
+    /// </summary>
+    private const string RedemptionTransactionCode = "PS";
+
     public async Task<ServiceResult<RewardPreviewDto>> PreviewAsync(
         int campaignId,
         int customerId,
@@ -499,11 +505,28 @@ public class RewardService(
                     .ToListAsync(cancellationToken))
                 .ToHashSet();
 
-            var redeemedByGroup = (await context.PointRedemptions
-                    .Where(r => r.CampaignId == campaign.Id)
-                    .ToListAsync(cancellationToken))
-                .GroupBy(r => (r.CustomerId, r.CardId))
-                .ToDictionary(g => g.Key, g => g.Sum(r => r.Amount));
+            // Points spent show up on TRANSACTION as rows with the "PS" code. A transaction
+            // carries no campaign link, so redemption is matched by card rather than by
+            // campaign: a card based group nets its own card's PS spend; a customer based
+            // group (CardId null, every card pooled) nets the PS spend of all the customer's
+            // cards — the same reading the exemption check above uses. Only spending dated
+            // from the campaign's end through now counts.
+            var psSpend = await context.Transactions
+                .AsNoTracking()
+                .Where(t => t.TransactionCode.Code == RedemptionTransactionCode
+                            && t.TransactionDate >= campaign.EndDate
+                            && t.TransactionDate <= now
+                            && customerIds.Contains(t.CustomerId))
+                .Select(t => new { t.CustomerId, t.CardId, t.Amount })
+                .ToListAsync(cancellationToken);
+
+            var redeemedByCard = psSpend
+                .GroupBy(t => t.CardId)
+                .ToDictionary(g => g.Key, g => g.Sum(t => t.Amount));
+
+            var redeemedByCustomer = psSpend
+                .GroupBy(t => t.CustomerId)
+                .ToDictionary(g => g.Key, g => g.Sum(t => t.Amount));
 
             foreach (var g in groups)
             {
@@ -516,7 +539,10 @@ public class RewardService(
                     continue;
                 }
 
-                var redeemed = redeemedByGroup.GetValueOrDefault((g.CustomerId, g.CardId), 0m);
+                var redeemed = g.CardId is int redeemedCardId
+                    ? redeemedByCard.GetValueOrDefault(redeemedCardId, 0m)
+                    : redeemedByCustomer.GetValueOrDefault(g.CustomerId, 0m);
+
                 var unused = g.NetPoint - redeemed;
 
                 if (unused > 0)

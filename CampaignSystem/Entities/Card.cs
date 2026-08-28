@@ -27,6 +27,4 @@ public class Card
     public ICollection<CampaignParticipation> Participations { get; set; } = [];
 
     public ICollection<CampaignReward> Rewards { get; set; } = [];
-
-    public ICollection<PointRedemption> PointRedemptions { get; set; } = [];
 }
