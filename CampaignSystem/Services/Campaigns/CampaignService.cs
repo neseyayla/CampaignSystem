@@ -24,7 +24,8 @@ namespace CampaignSystem.Services;
 public class CampaignService(
     IRepository<Campaign> repository,
     CampaignDbContext context,
-    CampaignCatalogCache catalogCache)
+    CampaignCatalogCache catalogCache,
+    ILogger<CampaignService> logger)
     : ICampaignService
 {
     public async Task<List<CampaignDto>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -96,6 +97,8 @@ public class CampaignService(
         await repository.SaveChangesAsync(cancellationToken);
         catalogCache.Invalidate();
 
+        logger.LogInformation("Campaign {CampaignId} '{Name}' created.", campaign.Id, campaign.Name);
+
         // Id is filled in by the database during SaveChanges, so the returned DTO carries it.
         // Conditions do not exist yet — nothing has been generated for a campaign this new.
         return ToDto(campaign, []);
@@ -133,6 +136,8 @@ public class CampaignService(
         await repository.SaveChangesAsync(cancellationToken);
         catalogCache.Invalidate();
 
+        logger.LogInformation("Campaign {CampaignId} updated.", id);
+
         return true;
     }
 
@@ -169,6 +174,9 @@ public class CampaignService(
 
         await repository.SaveChangesAsync(cancellationToken);
         catalogCache.Invalidate();
+
+        logger.LogInformation(
+            "Campaign {CampaignId} {Action}.", id, hasHistory ? "deactivated" : "deleted");
 
         return true;
     }
@@ -295,6 +303,8 @@ public class CampaignService(
         // new scope applied.
         await context.SaveChangesAsync(cancellationToken);
         catalogCache.Invalidate();
+
+        logger.LogInformation("Campaign {CampaignId} criteria updated.", campaignId);
 
         return SetCriteriaOutcome.Success();
     }
@@ -427,6 +437,8 @@ public class CampaignService(
 
         await context.SaveChangesAsync(cancellationToken);
         catalogCache.Invalidate();
+
+        logger.LogInformation("Campaign {CampaignId} conditions updated.", campaignId);
 
         return true;
     }

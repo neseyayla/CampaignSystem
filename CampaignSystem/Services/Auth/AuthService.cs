@@ -21,7 +21,8 @@ namespace CampaignSystem.Services;
 /// </summary>
 public class AuthService(
     CampaignDbContext context,
-    IOptions<JwtOptions> options) : IAuthService
+    IOptions<JwtOptions> options,
+    ILogger<AuthService> logger) : IAuthService
 {
     /// <summary>
     /// The same message for every kind of failure, so the endpoint cannot be used to find
@@ -50,6 +51,11 @@ public class AuthService(
         // here, and refused the same way as a wrong password.
         if (customer is null || !customer.IsActive || string.IsNullOrEmpty(customer.PasswordHash))
         {
+            // The customer number, never the password: enough to spot a run of attempts on one
+            // account without ever writing a secret to the log.
+            logger.LogWarning(
+                "Failed customer login for {CustomerNumber}.", dto.CustomerNumber);
+
             return ServiceResult<LoginResultDto>.Invalid(RejectionMessage);
         }
 
@@ -57,10 +63,15 @@ public class AuthService(
 
         if (verification == PasswordVerificationResult.Failed)
         {
+            logger.LogWarning(
+                "Failed customer login for {CustomerNumber}.", dto.CustomerNumber);
+
             return ServiceResult<LoginResultDto>.Invalid(RejectionMessage);
         }
 
         var expiresAt = DateTime.UtcNow.AddMinutes(options.Value.LifetimeMinutes);
+
+        logger.LogInformation("Customer {CustomerNumber} signed in.", customer.CustomerNumber);
 
         return ServiceResult<LoginResultDto>.Success(new LoginResultDto
         {
@@ -84,6 +95,11 @@ public class AuthService(
         if (customer is null || !customer.IsActive || !customer.IsAdmin ||
             string.IsNullOrEmpty(customer.PasswordHash))
         {
+            // Staff sign-in is higher value than a customer one, so a rejected attempt is worth
+            // noticing on its own — still only the id, never the password.
+            logger.LogWarning(
+                "Failed admin login for {CustomerNumber}.", dto.CustomerNumber);
+
             return ServiceResult<LoginResultDto>.Invalid(AdminRejectionMessage);
         }
 
@@ -91,10 +107,15 @@ public class AuthService(
 
         if (verification == PasswordVerificationResult.Failed)
         {
+            logger.LogWarning(
+                "Failed admin login for {CustomerNumber}.", dto.CustomerNumber);
+
             return ServiceResult<LoginResultDto>.Invalid(AdminRejectionMessage);
         }
 
         var expiresAt = DateTime.UtcNow.AddMinutes(options.Value.LifetimeMinutes);
+
+        logger.LogInformation("Admin {CustomerNumber} signed in.", customer.CustomerNumber);
 
         return ServiceResult<LoginResultDto>.Success(new LoginResultDto
         {
