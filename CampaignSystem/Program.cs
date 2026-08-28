@@ -2,14 +2,31 @@ using System.Text;
 using System.Text.Json.Serialization;
 using CampaignSystem.Configuration;
 using CampaignSystem.Data;
+using CampaignSystem.Middleware;
 using CampaignSystem.Repositories;
 using CampaignSystem.Services;
 using CampaignSystem.Services.Caching;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Logging goes through Serilog. The pipeline is described in code so the console and the
+// rolling daily file are always present; only the levels are read from the "Serilog" section
+// of appsettings, so they can be tuned without a rebuild. Writing through the standard
+// ILogger<T> everywhere means a future central sink (Logz.io, Elasticsearch, …) is one line
+// here and no change in the services.
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.File(
+        "logs/campaignsystem-.log",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 14));
 
 // Add services to the container.
 
@@ -117,6 +134,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+// Any exception a controller or service does not handle ends up here: logged once and
+// returned as a ProblemDetails 500 instead of leaking a stack trace to the caller.
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
+
 builder.Services.AddHostedService<DailyBatchHostedService>();
 
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
@@ -176,6 +198,15 @@ if (app.Configuration.GetValue<bool>("RunMigrationsAtStartup"))
 }
 
 
+
+// One tidy line per HTTP request — method, path, status code and how long it took — instead
+// of the framework's several. Placed first so it wraps everything below and times the whole
+// request.
+app.UseSerilogRequestLogging();
+
+// Below the request logging so a handled exception is one Error log plus a single request
+// summary line, not the same failure recorded twice.
+app.UseExceptionHandler();
 
 app.UseRouting();
 
