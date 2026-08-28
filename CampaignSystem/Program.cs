@@ -126,6 +126,7 @@ builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 // which evict their own key. LookupCache centralises the caching policy over IMemoryCache.
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<LookupCache>();
+builder.Services.AddSingleton<CampaignCatalogCache>();
 
 builder.Services.AddScoped<ICampaignService, CampaignService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
