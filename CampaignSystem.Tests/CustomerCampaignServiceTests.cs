@@ -7,6 +7,7 @@ using CampaignSystem.Services;
 using CampaignSystem.Services.Caching;
 using CampaignSystem.Tests.Infrastructure;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace CampaignSystem.Tests;
@@ -48,7 +49,8 @@ public class CustomerCampaignServiceTests(TestDatabaseFixture fixture) : IClassF
                 new Repository<Campaign>(context),
                 new Repository<Customer>(context),
                 new Repository<Card>(context)),
-            new RewardService(context, Options.Create(new RewardCalculationOptions())),
+            new RewardService(
+                context, Options.Create(new RewardCalculationOptions()), NullLogger<RewardService>.Instance),
             new CampaignCatalogCache(new MemoryCache(new MemoryCacheOptions())));
 
     [Fact]

@@ -5,6 +5,7 @@ using CampaignSystem.Enums;
 using CampaignSystem.Services;
 using CampaignSystem.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace CampaignSystem.Tests;
@@ -23,7 +24,7 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         new(context, Options.Create(new RewardCalculationOptions
         {
             DaysAfterCampaignEnd = daysAfterCampaignEnd
-        }));
+        }), NullLogger<RewardService>.Instance);
 
     [Fact]
     public async Task CardBasedCampaign_WritesOneRewardPerCard()
