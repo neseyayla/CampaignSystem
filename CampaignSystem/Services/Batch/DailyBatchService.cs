@@ -2,6 +2,7 @@ using CampaignSystem.Configuration;
 using CampaignSystem.Data;
 using CampaignSystem.DTOs;
 using CampaignSystem.Enums;
+using CampaignSystem.Services.Caching;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -17,6 +18,7 @@ public class DailyBatchService(
     CampaignDbContext context,
     IRewardService rewardService,
     IOptions<RewardCalculationOptions> options,
+    CampaignCatalogCache catalogCache,
     ILogger<DailyBatchService> logger) : IDailyBatchService
 {
     public async Task<DailyBatchResultDto> RunAsync(CancellationToken cancellationToken = default)
@@ -27,6 +29,13 @@ public class DailyBatchService(
 
         result.Started = await StartDueCampaignsAsync(now, cancellationToken);
         result.Closed = await CloseFinishedCampaignsAsync(now, cancellationToken);
+
+        // A closed campaign has left the open statuses the customer catalog is built from, and
+        // a started one may now read differently — either way the cached catalog is stale.
+        if (result.Started > 0 || result.Closed > 0)
+        {
+            catalogCache.Invalidate();
+        }
 
         await LoadDueRewardsAsync(now, result, cancellationToken);
 
