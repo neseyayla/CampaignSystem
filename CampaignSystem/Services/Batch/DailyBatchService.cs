@@ -30,19 +30,20 @@ public class DailyBatchService(
         result.Started = await StartDueCampaignsAsync(now, cancellationToken);
         result.Closed = await CloseFinishedCampaignsAsync(now, cancellationToken);
 
-        // A closed campaign has left the open statuses the customer catalog is built from, and
-        // a started one may now read differently — either way the cached catalog is stale.
-        if (result.Started > 0 || result.Closed > 0)
-        {
-            catalogCache.Invalidate();
-        }
-
         await LoadDueRewardsAsync(now, result, cancellationToken);
 
         // After loading, reconcile refunds: a purchase counted at loading time may have been
         // reversed since, and while the campaign is still inside its refund window those points
         // are clawed back.
         result.RewardsReduced = await rewardService.ReconcileReversalsAsync(cancellationToken);
+
+        // Any of these moved a campaign between the statuses the customer catalog is built from:
+        // a started one appears, a closed one turns reward-pending, a loaded one ends and leaves.
+        // Evict the cached catalog so the next customer request rebuilds it rather than lingering.
+        if (result.Started > 0 || result.Closed > 0 || result.Loaded > 0)
+        {
+            catalogCache.Invalidate();
+        }
 
         logger.LogInformation(
             "Daily batch finished. Started {Started}, closed {Closed}, loaded {Loaded} campaigns, " +
