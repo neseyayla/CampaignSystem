@@ -23,6 +23,9 @@ export interface CustomerCampaign {
   /** True when only the transactions of customers who signed up are counted. */
   enrollmentRequired: boolean;
 
+  /** True while the campaign has ended but its rewards have not been loaded yet (Loading). */
+  rewardPending: boolean;
+
   /** Always false for a campaign that needs no enrolment. */
   enrolled: boolean;
 
@@ -73,7 +76,9 @@ export interface RewardCampaignLine {
   campaignId: number;
   campaignName: string;
   rewardRows: number;
+  /** The customer's purchases this campaign evaluated — the breakdown line count. */
   qualifyingCount: number;
+  /** Net points kept, after any refund clawback. */
   totalRewardPoint: number;
   rewardDate: string;
 }
@@ -85,6 +90,12 @@ export interface RewardSummary {
   campaigns: RewardCampaignLine[];
 }
 
+/** One İade against a purchase. Amount is negative, as stored. */
+export interface RefundLine {
+  date: string;
+  amount: number;
+}
+
 /** One purchase behind a campaign's reward, for the drill-down under "Kazandıklarım". */
 export interface RewardBreakdownLine {
   transactionId: number;
@@ -93,13 +104,19 @@ export interface RewardBreakdownLine {
   merchantName: string | null;
   /** The campaign's per-transaction points; shown green when earned, red when reversed. */
   rewardPoint: number;
+  /** The amount net of refunds; below the minimum is what costs the purchase its points. */
+  effectiveAmount: number;
   isReversed: boolean;
+  /** The refunds against this purchase, oldest first; empty when none. */
+  refunds: RefundLine[];
 }
 
 export interface RewardBreakdown {
   campaignId: number;
   campaignName: string;
   rewardPointPerTransaction: number;
+  /** The campaign's minimum spend, or null; used to explain a dropped purchase. */
+  minimumAmount: number | null;
   lines: RewardBreakdownLine[];
 }
 
