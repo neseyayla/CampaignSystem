@@ -23,8 +23,13 @@ public class CustomerRewardCampaignLineDto
 
     public int RewardRows { get; set; }
 
+    /// <summary>
+    /// The customer's purchases this campaign evaluated — the same rows the breakdown lists,
+    /// refunded ones included — not only those that left a reward row.
+    /// </summary>
     public int QualifyingCount { get; set; }
 
+    /// <summary>The net points kept: everything earned, less anything clawed back by a refund.</summary>
     public decimal TotalRewardPoint { get; set; }
 
     /// <summary>The most recent RewardDate among the rows, i.e. when the points were granted.</summary>

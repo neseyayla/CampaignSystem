@@ -65,7 +65,7 @@ public class CustomerCampaignServiceTests(TestDatabaseFixture fixture) : IClassF
     }
 
     [Fact]
-    public async Task OnlyRunningAndUpcomingCampaignsAreListed()
+    public async Task RunningUpcomingAndLoadingAreListed_ButNotEnded()
     {
         await using var context = fixture.CreateContext();
         await using var transaction = await context.Database.BeginTransactionAsync();
@@ -88,9 +88,13 @@ public class CustomerCampaignServiceTests(TestDatabaseFixture fixture) : IClassF
         Assert.True(Lists(result, pending));
         Assert.False(result!.Single(c => c.CampaignId == pending.Id).HasStarted);
 
-        // Nothing is left for the customer to do in these two, and what they earned is on
-        // the rewards endpoint instead.
-        Assert.False(Lists(result, loading));
+        // A Loading campaign — ended, but its rewards not loaded yet — is kept and flagged
+        // reward-pending, so a customer who took part does not see it vanish for the days
+        // until the batch pays it. An Ended one is gone from here; its points are on the
+        // rewards endpoint by then.
+        Assert.True(Lists(result, loading));
+        Assert.True(result!.Single(c => c.CampaignId == loading.Id).RewardPending);
+        Assert.False(result.Single(c => c.CampaignId == ongoing.Id).RewardPending);
         Assert.False(Lists(result, ended));
     }
 

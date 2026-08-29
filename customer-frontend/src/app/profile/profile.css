@@ -98,8 +98,9 @@
 }
 
 .pw-chevron {
-  font-size: 1rem;
-  line-height: 1;
+  flex: none;
+  width: 18px;
+  height: 18px;
   transition: transform 0.2s ease;
 }
 
@@ -223,9 +224,10 @@
 
 .card-chevron {
   margin-left: auto;
+  flex: none;
+  width: 18px;
+  height: 18px;
   color: var(--faint);
-  font-size: 1.05rem;
-  line-height: 1;
   transition: transform 0.2s ease;
 }
 

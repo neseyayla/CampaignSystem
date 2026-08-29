@@ -49,9 +49,12 @@ export class MyCampaigns {
     this.details().filter(d => !d.campaign.enrollmentRequired || d.campaign.enrolled)
   );
 
-  /** Open to the customer but not joined yet — the only ones with anything to press. */
+  /** Open to the customer but not joined yet — the only ones with anything to press. A campaign
+   *  already in its reward-pending (Loading) state has closed, so it is not among them. */
   readonly joinable = computed(() =>
-    this.details().filter(d => d.campaign.enrollmentRequired && !d.campaign.enrolled)
+    this.details().filter(
+      d => d.campaign.enrollmentRequired && !d.campaign.enrolled && !d.campaign.rewardPending
+    )
   );
 
   /** How the grid is ordered, and whether the sort menu is open. */
@@ -85,6 +88,14 @@ export class MyCampaigns {
       }
     });
   });
+
+  /**
+   * How many campaigns the customer actually kept points from — net of any refund clawback.
+   * A campaign whose points were fully taken back does not count as "earned from".
+   */
+  readonly earnedCampaignCount = computed(
+    () => this.rewards()?.campaigns.filter(c => c.totalRewardPoint > 0).length ?? 0
+  );
 
   /** The campaign whose spending breakdown panel is open, by id, if any. */
   readonly breakdownFor = signal<number | null>(null);
@@ -369,7 +380,14 @@ export class MyCampaigns {
   private messageOf(err: HttpErrorResponse): string {
     const body: unknown = err.error;
 
-    if (typeof body === 'string' && body.trim().length > 0) {
+    // Trust the server's text only for a real rejection (a 4xx, plain text) — not a gateway
+    // HTML error page when the API is down, which is a string too.
+    if (
+      typeof body === 'string' &&
+      body.trim().length > 0 &&
+      err.status >= 400 && err.status < 500 &&
+      !body.includes('<')
+    ) {
       return body;
     }
 

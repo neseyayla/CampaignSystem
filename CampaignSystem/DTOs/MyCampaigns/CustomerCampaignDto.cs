@@ -33,6 +33,14 @@ public class CustomerCampaignDto
     public bool EnrollmentRequired { get; set; }
 
     /// <summary>
+    /// True while the campaign is over but its rewards have not been loaded yet (the Loading
+    /// state, which can last up to a few days). The screen keeps such a campaign under
+    /// "Katıldıklarım" with a "reward being calculated" note instead of letting it vanish
+    /// between ending and paying out.
+    /// </summary>
+    public bool RewardPending { get; set; }
+
+    /// <summary>
     /// Whether this customer holds an active enrollment. Always false for a mass campaign,
     /// where there is nothing to enroll in and everyone eligible already takes part.
     /// </summary>

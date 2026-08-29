@@ -34,10 +34,10 @@
             <span class="points-label">Toplam puanınız</span>
             <span class="points-number">{{ points(summary.totalRewardPoint) }} <span>puan</span></span>
             <span class="points-earned">
-              @if (summary.campaigns.length === 0) {
+              @if (earnedCampaignCount() === 0) {
                 henüz kazanılmadı
               } @else {
-                {{ summary.campaigns.length }} kampanyadan kazanıldı
+                {{ earnedCampaignCount() }} kampanyadan kazanıldı
               }
             </span>
           </div>
@@ -176,7 +176,9 @@
                     <span class="cover-unit">Kampanya</span>
                   }
 
-                  @if (detail.campaign.enrolled) {
+                  @if (detail.campaign.rewardPending) {
+                    <span class="flag pending">Sona erdi</span>
+                  } @else if (detail.campaign.enrolled) {
                     <span class="flag ok">Katıldınız</span>
                   } @else if (detail.campaign.enrollmentRequired) {
                     <span class="flag">Katılım gerekir</span>
@@ -193,7 +195,7 @@
                   <!-- Progress and dates travel together, pinned to the bottom of the card, so
                        the meter sits directly above the "Son gün" line rather than floating up. -->
                   <div class="lower">
-                  @if (isEarning(detail) && detail.campaign.hasStarted) {
+                  @if (!detail.campaign.rewardPending && isEarning(detail) && detail.campaign.hasStarted) {
                     <div class="earned">
                       <span class="amount">{{ points(detail.progress.totalRewardPoint) }}</span>
                       <span class="unit">puan kazandınız</span>
@@ -218,7 +220,9 @@
                   }
 
                   <div class="dates">
-                    @if (isEarning(detail) && !detail.campaign.hasStarted) {
+                    @if (detail.campaign.rewardPending) {
+                      <p class="upcoming"><span class="pending-icon" aria-hidden="true">⏳</span> Ödülünüz hesaplanıyor</p>
+                    } @else if (isEarning(detail) && !detail.campaign.hasStarted) {
                       <p class="upcoming">{{ dayShort(detail.campaign.startDate) }} tarihinde başlıyor</p>
                     }
 
@@ -240,8 +244,10 @@
               </a>
 
               <!-- Join lives on the card itself for a campaign the customer could sign up for
-                   but has not. It sits outside the link so pressing it never navigates away. -->
-              @if (detail.campaign.enrollmentRequired && !detail.campaign.enrolled) {
+                   but has not. It sits outside the link so pressing it never navigates away.
+                   A reward-pending campaign has closed, so there is nothing left to join. -->
+              @if (detail.campaign.enrollmentRequired && !detail.campaign.enrolled
+                   && !detail.campaign.rewardPending) {
                 <div class="join-area">
                   @if (choosingCardFor() === detail.campaign.campaignId) {
                     <div class="picker">
@@ -304,16 +310,29 @@
       <ul class="bd-list">
         @for (l of bd.lines; track l.transactionId) {
           <li [class.reversed]="l.isReversed">
-            <div class="bd-text">
-              <span class="bd-merchant">{{ l.merchantName ?? 'Harcama' }}</span>
-              <span class="bd-date">
-                {{ day(l.transactionDate) }} · {{ points(l.amount) }} TL
-                @if (l.isReversed) { · iade edildi }
+            <div class="bd-head">
+              <div class="bd-text">
+                <span class="bd-merchant">{{ l.merchantName ?? 'Harcama' }}</span>
+                <span class="bd-date">
+                  {{ day(l.transactionDate) }} · {{ points(l.amount) }} TL
+                </span>
+              </div>
+              <span class="bd-points">
+                {{ l.isReversed ? '−' : '+' }}{{ points(l.rewardPoint) }}
               </span>
             </div>
-            <span class="bd-points">
-              {{ l.isReversed ? '−' : '+' }}{{ points(l.rewardPoint) }}
-            </span>
+
+            <!-- The refunds against this purchase, oldest first. -->
+            @if (l.refunds.length > 0) {
+              <ul class="bd-refunds">
+                @for (r of l.refunds; track $index) {
+                  <li>
+                    <span>İade · {{ dayShort(r.date) }}</span>
+                    <span class="bd-refund-amount">{{ points(r.amount) }} TL</span>
+                  </li>
+                }
+              </ul>
+            }
           </li>
         }
       </ul>

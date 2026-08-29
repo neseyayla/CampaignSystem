@@ -141,6 +141,7 @@ public class CustomerCampaignService(
                 EndDate = c.EndDate,
                 HasStarted = c.StartDate <= now,
                 EnrollmentRequired = c.CampaignType == CampaignType.EnrollmentRequired,
+                RewardPending = c.Status == CampaignStatus.Loading,
                 Enrolled = enrolledIn.Contains(c.Id),
                 EarningType = c.EarningType,
                 RewardPoint = c.RewardPoint,
@@ -163,13 +164,17 @@ public class CustomerCampaignService(
     {
         // Pending campaigns are listed alongside running ones. One that has not begun is
         // still worth reading about, and an enrollment campaign can be joined before day
-        // one — which is precisely when joining is worth the most. Loading and Ended are
-        // left out: there is nothing left for the customer to do, and what they earned is
-        // already on the rewards endpoint.
+        // one — which is precisely when joining is worth the most. Loading ones are kept too:
+        // a campaign that has ended but not yet paid out (the batch loads rewards up to a few
+        // days later) would otherwise vanish from a customer who took part, so it stays on with
+        // a "reward being calculated" note. Only Ended is left out — its points are on the
+        // rewards endpoint by then.
         var candidates = await context.Campaigns
             .AsNoTracking()
             .Where(c => c.IsActive &&
-                        (c.Status == CampaignStatus.Ongoing || c.Status == CampaignStatus.Pending))
+                        (c.Status == CampaignStatus.Ongoing
+                         || c.Status == CampaignStatus.Pending
+                         || c.Status == CampaignStatus.Loading))
             .OrderBy(c => c.StartDate)
             .ThenBy(c => c.Id)
             .ToListAsync(cancellationToken);

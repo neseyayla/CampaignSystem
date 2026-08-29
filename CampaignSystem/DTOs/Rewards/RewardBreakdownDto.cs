@@ -17,6 +17,12 @@ public class RewardBreakdownDto
     /// <summary>Points one qualifying purchase earns, before any campaign cap.</summary>
     public decimal RewardPointPerTransaction { get; set; }
 
+    /// <summary>
+    /// The campaign's minimum spend, or null when it has none. Sent so the screen can explain
+    /// why a partially-refunded purchase dropped out: its amount net of refunds fell below this.
+    /// </summary>
+    public decimal? MinimumAmount { get; set; }
+
     public List<RewardBreakdownLineDto> Lines { get; set; } = [];
 }
 
@@ -36,6 +42,27 @@ public class RewardBreakdownLineDto
     /// </summary>
     public decimal RewardPoint { get; set; }
 
-    /// <summary>True when this purchase was refunded, so its points were (or will be) taken back.</summary>
+    /// <summary>
+    /// The purchase amount net of every refund against it. Equal to <see cref="Amount"/> when
+    /// nothing was refunded; lower after a partial refund; near zero after a full one.
+    /// </summary>
+    public decimal EffectiveAmount { get; set; }
+
+    /// <summary>
+    /// True only when refunds actually cost this purchase its points — i.e. the effective
+    /// amount no longer qualifies. A partial refund that leaves it above the minimum keeps its
+    /// points, so this stays false and the screen shows it green.
+    /// </summary>
     public bool IsReversed { get; set; }
+
+    /// <summary>The refunds against this purchase, oldest first. Empty when it was not refunded.</summary>
+    public List<RefundLineDto> Refunds { get; set; } = [];
+}
+
+/// <summary>One İade transaction against a purchase. Amount is negative, as it is stored.</summary>
+public class RefundLineDto
+{
+    public DateTime Date { get; set; }
+
+    public decimal Amount { get; set; }
 }
