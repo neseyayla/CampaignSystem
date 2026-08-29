@@ -33,8 +33,13 @@ services:
     depends_on:
       db:
         condition: service_healthy      # wait for the healthcheck above to pass
+      elasticsearch:
+        condition: service_started      # logging must not block the API; the sink retries
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
+      # Turns the Elasticsearch sink on (empty in appsettings.json, so a plain local run stays
+      # off). "elasticsearch" is the service name below, resolved by Docker's internal DNS.
+      Elasticsearch__Uri: "http://elasticsearch:9200"
       # The batch schedules on the container's local clock. Without this the container is UTC,
       # so "00:30" would fire at 03:30 in Türkiye. Pin the zone so RunAt means local time.
       TZ: "Europe/Istanbul"
@@ -72,5 +77,41 @@ services:
     ports:
       - "4300:80"                        # reach the customer app on http://localhost:4300
 
+  # ── Elasticsearch (central log store) ───────────────────────
+  # Where the API's logs are collected so both developers search the same place. This is a
+  # DEVELOPMENT node: security is turned off so Kibana and the API reach it over plain HTTP
+  # with no password. Never run a production node this way.
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    environment:
+      discovery.type: "single-node"
+      xpack.security.enabled: "false"
+      # Cap the JVM heap so Elasticsearch does not eat all of the host's memory.
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"                      # http://localhost:9200
+    volumes:
+      # Keeps the indexed logs across container recreation.
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  # ── Kibana (log search UI) ──────────────────────────────────
+  # The web interface for reading and searching the logs at http://localhost:5601.
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
+    ports:
+      - "5601:5601"                      # reach Kibana on http://localhost:5601
+
 volumes:
   mssql-data:
+  es-data:
