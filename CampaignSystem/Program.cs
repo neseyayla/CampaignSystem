@@ -10,23 +10,37 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using Elastic.Serilog.Sinks;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Logging goes through Serilog. The pipeline is described in code so the console and the
-// rolling daily file are always present; only the levels are read from the "Serilog" section
-// of appsettings, so they can be tuned without a rebuild. Writing through the standard
-// ILogger<T> everywhere means a future central sink (Logz.io, Elasticsearch, …) is one line
-// here and no change in the services.
-builder.Host.UseSerilog((context, services, configuration) => configuration
-    .ReadFrom.Configuration(context.Configuration)
-    .ReadFrom.Services(services)
-    .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .WriteTo.File(
-        "logs/campaignsystem-.log",
-        rollingInterval: RollingInterval.Day,
-        retainedFileCountLimit: 14));
+// Logging goes through Serilog. The console and the rolling daily file are always present;
+// only the levels are read from the "Serilog" section of appsettings, so they can be tuned
+// without a rebuild. Writing through the standard ILogger<T> everywhere means a central sink
+// is added only here, with no change in the services.
+builder.Host.UseSerilog((context, services, configuration) =>
+{
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext()
+        .WriteTo.Console()
+        .WriteTo.File(
+            "logs/campaignsystem-.log",
+            rollingInterval: RollingInterval.Day,
+            retainedFileCountLimit: 14);
+
+    // The central sink is opt-in through configuration: set Elasticsearch:Uri (the compose file
+    // does, pointing at the elasticsearch service) and logs also stream there, to be searched in
+    // Kibana. Left empty — as when running locally without Elasticsearch — the sink is simply not
+    // added, so nothing depends on a server that is not there.
+    var elasticsearchUri = context.Configuration["Elasticsearch:Uri"];
+
+    if (!string.IsNullOrWhiteSpace(elasticsearchUri))
+    {
+        configuration.WriteTo.Elasticsearch([new Uri(elasticsearchUri)]);
+    }
+});
 
 // Add services to the container.
 
