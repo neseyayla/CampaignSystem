@@ -78,16 +78,26 @@ export class Login {
     });
   }
 
-  /** The API answers a refused sign-in with plain text, which HttpClient hands back raw. */
+  /**
+   * The API answers a refused sign-in with a short plain-text message, which HttpClient hands
+   * back raw. That is trusted only for a genuine rejection — a 4xx whose body is plain text.
+   * A gateway error page (nginx's HTML 502 when the API is down) is a string too, so without
+   * this guard it would be dumped verbatim onto the screen; those get a friendly line instead.
+   */
   private messageOf(err: HttpErrorResponse): string {
     const body: unknown = err.error;
 
-    if (typeof body === 'string' && body.trim().length > 0) {
+    if (
+      typeof body === 'string' &&
+      body.trim().length > 0 &&
+      err.status >= 400 && err.status < 500 &&
+      !body.includes('<')
+    ) {
       return body;
     }
 
-    return err.status === 0
-      ? 'Sunucuya ulaşılamadı. API çalışıyor mu?'
+    return err.status === 0 || err.status >= 500
+      ? 'Sunucuya şu an ulaşılamıyor. Lütfen daha sonra tekrar deneyin.'
       : 'Giriş yapılamadı.';
   }
 
