@@ -247,12 +247,29 @@ public class RewardService(
                 CampaignId = g.Key.CampaignId,
                 CampaignName = g.Key.Name,
                 RewardRows = g.Count(),
-                QualifyingCount = g.Sum(r => r.QualifyingCount),
                 TotalRewardPoint = g.Sum(r => r.RewardPoint),
                 RewardDate = g.Max(r => r.RewardDate)
             })
             .OrderByDescending(l => l.RewardDate)
             .ToListAsync(cancellationToken);
+
+        // "N işlem" is the count of the customer's purchases the campaign evaluated — the same
+        // rows the breakdown lists, refunded ones included — not just those that left a reward
+        // row (a purchase dropped at loading time leaves none). So it is derived per campaign the
+        // way the breakdown is, scoped to this customer so it does not read everyone's spending.
+        var campaignsById = await context.Campaigns
+            .AsNoTracking()
+            .Where(c => lines.Select(l => l.CampaignId).Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, cancellationToken);
+
+        foreach (var line in lines)
+        {
+            if (campaignsById.TryGetValue(line.CampaignId, out var campaign))
+            {
+                line.QualifyingCount = (await QualifyingTransactions(
+                    campaign, cancellationToken, includeReversed: true, customerId: customerId)).Count;
+            }
+        }
 
         return new CustomerRewardSummaryDto
         {
@@ -277,8 +294,8 @@ public class RewardService(
         }
 
         // Reversed purchases are kept so refunds can be shown in red alongside the earners.
-        var lines = (await QualifyingTransactions(campaign, cancellationToken, includeReversed: true))
-            .Where(t => t.CustomerId == customerId)
+        var lines = (await QualifyingTransactions(
+                campaign, cancellationToken, includeReversed: true, customerId: customerId))
             .OrderBy(t => t.TransactionDate)
             .ToList();
 
@@ -292,13 +309,16 @@ public class RewardService(
             .Where(m => merchantIds.Contains(m.Id))
             .ToDictionaryAsync(m => m.Id, m => m.MerchantName, cancellationToken);
 
-        // A purchase shows red when a refund row points at it — derived here, not a stored flag.
+        // The refund rows themselves — amount and date — not just the fact that one exists, so
+        // the screen can list each İade and show the running effect it had. Grouped per purchase,
+        // oldest first.
         var lineIds = lines.Select(t => t.Id).ToList();
-        var refundedIds = (await context.Transactions
+        var refundsByPurchase = (await context.Transactions
                 .Where(r => r.OriginalTransactionId != null && lineIds.Contains(r.OriginalTransactionId.Value))
-                .Select(r => r.OriginalTransactionId!.Value)
+                .Select(r => new { OriginalId = r.OriginalTransactionId!.Value, r.Amount, r.TransactionDate, r.ClawbackProcessedAt })
                 .ToListAsync(cancellationToken))
-            .ToHashSet();
+            .GroupBy(r => r.OriginalId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(r => r.TransactionDate).ToList());
 
         var point = campaign.RewardPoint ?? 0m;
 
@@ -307,16 +327,41 @@ public class RewardService(
             CampaignId = campaign.Id,
             CampaignName = campaign.Name,
             RewardPointPerTransaction = point,
-            Lines = lines.Select(t => new RewardBreakdownLineDto
+            MinimumAmount = campaign.MinimumAmount,
+            Lines = lines.Select(t =>
             {
-                TransactionId = t.Id,
-                TransactionDate = t.TransactionDate,
-                Amount = t.Amount,
-                MerchantName = t.MerchantId is not null
-                    ? merchantNames.GetValueOrDefault(t.MerchantId.Value)
-                    : null,
-                RewardPoint = point,
-                IsReversed = refundedIds.Contains(t.Id)
+                var refunds = refundsByPurchase.GetValueOrDefault(t.Id, []);
+                var effective = t.Amount + refunds.Sum(r => r.Amount);
+
+                // The same rule the reward engine applies: a purchase keeps its points while its
+                // amount net of refunds stays positive and at or above the minimum. So a partial
+                // refund that leaves it qualifying is not "reversed" — only one that drops it is.
+                var stillQualifies = effective > 0m
+                    && (campaign.MinimumAmount is null || effective >= campaign.MinimumAmount);
+
+                // Shown red only once the points are actually gone, so the breakdown never
+                // disagrees with the balance. While the campaign runs that is the moment a refund
+                // drops the purchase (the live preview). Once it has ended and paid out, the
+                // points leave only when the nightly batch reconciles the refund — until then the
+                // purchase still counts, even though the İade is already visible beneath it.
+                var settled = campaign.Status != CampaignStatus.Ended
+                    || refunds.All(r => r.ClawbackProcessedAt is not null);
+
+                return new RewardBreakdownLineDto
+                {
+                    TransactionId = t.Id,
+                    TransactionDate = t.TransactionDate,
+                    Amount = t.Amount,
+                    MerchantName = t.MerchantId is not null
+                        ? merchantNames.GetValueOrDefault(t.MerchantId.Value)
+                        : null,
+                    RewardPoint = point,
+                    EffectiveAmount = effective,
+                    IsReversed = refunds.Count > 0 && !stillQualifies && settled,
+                    Refunds = refunds
+                        .Select(r => new RefundLineDto { Date = r.TransactionDate, Amount = r.Amount })
+                        .ToList()
+                };
             }).ToList()
         };
     }
@@ -445,7 +490,8 @@ public class RewardService(
     private async Task<List<Transaction>> QualifyingTransactions(
         Campaign campaign,
         CancellationToken cancellationToken,
-        bool includeReversed = false)
+        bool includeReversed = false,
+        int? customerId = null)
     {
         var segmentIds = await context.CampaignSegments
             .Where(x => x.CampaignId == campaign.Id).Select(x => x.SegmentId).ToListAsync(cancellationToken);
@@ -473,6 +519,13 @@ public class RewardService(
                      // A refund row (the negative İade transaction) is never a purchase and
                      // never earns; only the original it reverses is ever in scope.
                      && t.OriginalTransactionId == null);
+
+        // Scoped to one customer when the caller only needs theirs — the customer breakdown and
+        // the "N işlem" figure on the summary — so those do not load every customer's spending.
+        if (customerId is not null)
+        {
+            query = query.Where(t => t.CustomerId == customerId.Value);
+        }
 
         if (includeReversed)
         {
