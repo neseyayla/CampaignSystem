@@ -56,46 +56,7 @@ public class RewardCalculator(CampaignDbContext context) : IRewardCalculator
             query = query.Where(t => t.CustomerId == customerId.Value);
         }
 
-        if (includeReversed)
-        {
-            // The breakdown keeps every criteria-matching purchase (refunded ones are shown
-            // apart), so it tests the original amount and never drops a refunded row here.
-            if (campaign.MinimumAmount is not null)
-            {
-                query = query.Where(t => t.Amount >= campaign.MinimumAmount);
-            }
-
-            if (campaign.MaximumAmount is not null)
-            {
-                query = query.Where(t => t.Amount <= campaign.MaximumAmount);
-            }
-        }
-        else
-        {
-            // Maximum is tested on the original amount: a purchase too large to qualify is not
-            // rescued by a partial refund.
-            if (campaign.MaximumAmount is not null)
-            {
-                query = query.Where(t => t.Amount <= campaign.MaximumAmount);
-            }
-
-            // Minimum, and being non-zero, are tested on the amount net of refunds. A partial
-            // refund drops the purchase only when the remainder falls below the minimum; a full
-            // refund takes it to zero and out. "Refunded" is derived from the refund rows here,
-            // not a stored flag.
-            query = query.Where(t =>
-                t.Amount + (context.Transactions
-                    .Where(r => r.OriginalTransactionId == t.Id)
-                    .Sum(r => (decimal?)r.Amount) ?? 0m) > 0m);
-
-            if (campaign.MinimumAmount is not null)
-            {
-                query = query.Where(t =>
-                    t.Amount + (context.Transactions
-                        .Where(r => r.OriginalTransactionId == t.Id)
-                        .Sum(r => (decimal?)r.Amount) ?? 0m) >= campaign.MinimumAmount);
-            }
-        }
+        query = ApplyAmountFilters(query, campaign, includeReversed);
 
         if (merchantIds.Count > 0)
         {
@@ -134,52 +95,106 @@ public class RewardCalculator(CampaignDbContext context) : IRewardCalculator
             query = query.Where(t => t.Card.CardType == campaign.CardType);
         }
 
-        // Enrollment campaigns reach only the customers who signed up, and only through the
-        // level they signed up at: a card level enrollment covers that one card, a customer
-        // level enrollment covers all of them.
         if (campaign.CampaignType == CampaignType.EnrollmentRequired)
         {
-            var enrolments = await context.CampaignParticipations
-                .Where(p => p.CampaignId == campaign.Id && p.Status == ParticipationStatus.Active)
-                .Select(p => new { p.CustomerId, p.CardId, p.ParticipationDate })
-                .ToListAsync(cancellationToken);
-
-            // Keyed by the level the customer signed up at — one card, or every card at
-            // customer level — and by the earliest active enrollment date, so re-joining
-            // never moves the start forward.
-            var customerLevelFrom = enrolments
-                .Where(e => e.CardId == null)
-                .GroupBy(e => e.CustomerId)
-                .ToDictionary(g => g.Key, g => g.Min(e => e.ParticipationDate));
-
-            var cardLevelFrom = enrolments
-                .Where(e => e.CardId != null)
-                .GroupBy(e => e.CardId!.Value)
-                .ToDictionary(g => g.Key, g => g.Min(e => e.ParticipationDate));
-
-            // Set on the campaign definition screen: whether a customer only earns from the
-            // day they joined, or — having joined at all — earns on everything in the
-            // campaign's window. The query above already bounds every candidate to the
-            // campaign's date range, so "from the campaign period" only has to stop treating
-            // the join date itself as a cutoff.
-            Func<DateTime, DateTime> cutoff = campaign.EnrollmentBasis == EnrollmentBasis.CampaignPeriod
-                ? joinedOn => campaign.StartDate
-                : joinedOn => joinedOn;
-
-            // The date cut is per enrollment, so the membership test moves in memory: EF cannot
-            // translate "is this transaction after this particular customer's join date".
-            var candidates = await query.ToListAsync(cancellationToken);
-
-            return candidates
-                .Where(t =>
-                    (customerLevelFrom.TryGetValue(t.CustomerId, out var customerFrom)
-                        && t.TransactionDate >= cutoff(customerFrom))
-                    || (cardLevelFrom.TryGetValue(t.CardId, out var cardFrom)
-                        && t.TransactionDate >= cutoff(cardFrom)))
-                .ToList();
+            return await FilterByEnrollmentAsync(query, campaign, cancellationToken);
         }
 
         return await query.ToListAsync(cancellationToken);
+    }
+
+    // Maximum always tests the original amount — a purchase too large to qualify is not
+    // rescued by a partial refund. Minimum, and being non-zero, test the amount net of
+    // refunds: a partial refund drops a purchase only when the remainder falls below the
+    // minimum, a full refund takes it to zero and out ("refunded" is derived from the refund
+    // rows, not a stored flag). The breakdown (includeReversed) instead keeps every
+    // criteria-matching purchase — refunded ones are shown apart — so there minimum tests the
+    // original amount too and no refunded row is dropped.
+    private IQueryable<Transaction> ApplyAmountFilters(
+        IQueryable<Transaction> query, Campaign campaign, bool includeReversed)
+    {
+        if (includeReversed)
+        {
+            if (campaign.MinimumAmount is not null)
+            {
+                query = query.Where(t => t.Amount >= campaign.MinimumAmount);
+            }
+
+            if (campaign.MaximumAmount is not null)
+            {
+                query = query.Where(t => t.Amount <= campaign.MaximumAmount);
+            }
+
+            return query;
+        }
+
+        if (campaign.MaximumAmount is not null)
+        {
+            query = query.Where(t => t.Amount <= campaign.MaximumAmount);
+        }
+
+        query = query.Where(t =>
+            t.Amount + (context.Transactions
+                .Where(r => r.OriginalTransactionId == t.Id)
+                .Sum(r => (decimal?)r.Amount) ?? 0m) > 0m);
+
+        if (campaign.MinimumAmount is not null)
+        {
+            query = query.Where(t =>
+                t.Amount + (context.Transactions
+                    .Where(r => r.OriginalTransactionId == t.Id)
+                    .Sum(r => (decimal?)r.Amount) ?? 0m) >= campaign.MinimumAmount);
+        }
+
+        return query;
+    }
+
+    // Enrollment campaigns reach only the customers who signed up, and only through the
+    // level they signed up at: a card level enrollment covers that one card, a customer
+    // level enrollment covers all of them.
+    private async Task<List<Transaction>> FilterByEnrollmentAsync(
+        IQueryable<Transaction> query,
+        Campaign campaign,
+        CancellationToken cancellationToken)
+    {
+        var enrolments = await context.CampaignParticipations
+            .Where(p => p.CampaignId == campaign.Id && p.Status == ParticipationStatus.Active)
+            .Select(p => new { p.CustomerId, p.CardId, p.ParticipationDate })
+            .ToListAsync(cancellationToken);
+
+        // Keyed by the level the customer signed up at — one card, or every card at
+        // customer level — and by the earliest active enrollment date, so re-joining
+        // never moves the start forward.
+        var customerLevelFrom = enrolments
+            .Where(e => e.CardId == null)
+            .GroupBy(e => e.CustomerId)
+            .ToDictionary(g => g.Key, g => g.Min(e => e.ParticipationDate));
+
+        var cardLevelFrom = enrolments
+            .Where(e => e.CardId != null)
+            .GroupBy(e => e.CardId!.Value)
+            .ToDictionary(g => g.Key, g => g.Min(e => e.ParticipationDate));
+
+        // Set on the campaign definition screen: whether a customer only earns from the
+        // day they joined, or — having joined at all — earns on everything in the
+        // campaign's window. The query above already bounds every candidate to the
+        // campaign's date range, so "from the campaign period" only has to stop treating
+        // the join date itself as a cutoff.
+        Func<DateTime, DateTime> cutoff = campaign.EnrollmentBasis == EnrollmentBasis.CampaignPeriod
+            ? joinedOn => campaign.StartDate
+            : joinedOn => joinedOn;
+
+        // The date cut is per enrollment, so the membership test moves in memory: EF cannot
+        // translate "is this transaction after this particular customer's join date".
+        var candidates = await query.ToListAsync(cancellationToken);
+
+        return candidates
+            .Where(t =>
+                (customerLevelFrom.TryGetValue(t.CustomerId, out var customerFrom)
+                    && t.TransactionDate >= cutoff(customerFrom))
+                || (cardLevelFrom.TryGetValue(t.CardId, out var cardFrom)
+                    && t.TransactionDate >= cutoff(cardFrom)))
+            .ToList();
     }
 
     public List<RewardGroup> Group(IEnumerable<Transaction> transactions, Campaign campaign)
