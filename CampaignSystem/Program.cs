@@ -165,6 +165,7 @@ builder.Services.AddSingleton<LookupCache>();
 builder.Services.AddSingleton<CampaignCatalogCache>();
 
 builder.Services.AddScoped<ICampaignService, CampaignService>();
+builder.Services.AddScoped<ICampaignConditionService, CampaignConditionService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IParticipationService, ParticipationService>();

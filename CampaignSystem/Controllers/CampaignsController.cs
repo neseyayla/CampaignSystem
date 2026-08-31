@@ -8,7 +8,9 @@ namespace CampaignSystem.Controllers;
 [ApiController]
 [Authorize(Roles = "Admin")]
 [Route("api/campaigns")]
-public class CampaignsController(ICampaignService campaignService) : ControllerBase
+public class CampaignsController(
+    ICampaignService campaignService,
+    ICampaignConditionService campaignConditionService) : ControllerBase
 {
     /// <summary>Lists the active campaigns.</summary>
     [HttpGet]
@@ -114,7 +116,7 @@ public class CampaignsController(ICampaignService campaignService) : ControllerB
         int id,
         CancellationToken cancellationToken)
     {
-        var conditions = await campaignService.GetConditionsAsync(id, cancellationToken);
+        var conditions = await campaignConditionService.GetConditionsAsync(id, cancellationToken);
 
         return conditions is null ? NotFound() : Ok(conditions);
     }
@@ -131,7 +133,7 @@ public class CampaignsController(ICampaignService campaignService) : ControllerB
         List<CampaignConditionDto> conditions,
         CancellationToken cancellationToken)
     {
-        var updated = await campaignService.SetConditionsAsync(id, conditions, cancellationToken);
+        var updated = await campaignConditionService.SetConditionsAsync(id, conditions, cancellationToken);
 
         return updated ? NoContent() : NotFound();
     }
@@ -148,7 +150,7 @@ public class CampaignsController(ICampaignService campaignService) : ControllerB
         int id,
         CancellationToken cancellationToken)
     {
-        var conditions = await campaignService.GenerateConditionsAsync(id, cancellationToken);
+        var conditions = await campaignConditionService.GenerateConditionsAsync(id, cancellationToken);
 
         return conditions is null ? NotFound() : Ok(conditions);
     }
@@ -164,6 +166,6 @@ public class CampaignsController(ICampaignService campaignService) : ControllerB
         CampaignConditionsPreviewDto dto,
         CancellationToken cancellationToken)
     {
-        return Ok(await campaignService.PreviewConditionsAsync(dto, cancellationToken));
+        return Ok(await campaignConditionService.PreviewConditionsAsync(dto, cancellationToken));
     }
 }
