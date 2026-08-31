@@ -318,7 +318,11 @@ public class RewardService(
                 .Select(r => new { OriginalId = r.OriginalTransactionId!.Value, r.Amount, r.TransactionDate, r.ClawbackProcessedAt })
                 .ToListAsync(cancellationToken))
             .GroupBy(r => r.OriginalId)
-            .ToDictionary(g => g.Key, g => g.OrderBy(r => r.TransactionDate).ToList());
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(r => r.TransactionDate)
+                    .Select(r => new RefundRow(r.Amount, r.TransactionDate, r.ClawbackProcessedAt))
+                    .ToList());
 
         var point = campaign.RewardPoint ?? 0m;
 
@@ -328,42 +332,58 @@ public class RewardService(
             CampaignName = campaign.Name,
             RewardPointPerTransaction = point,
             MinimumAmount = campaign.MinimumAmount,
-            Lines = lines.Select(t =>
-            {
-                var refunds = refundsByPurchase.GetValueOrDefault(t.Id, []);
-                var effective = t.Amount + refunds.Sum(r => r.Amount);
-
-                // The same rule the reward engine applies: a purchase keeps its points while its
-                // amount net of refunds stays positive and at or above the minimum. So a partial
-                // refund that leaves it qualifying is not "reversed" — only one that drops it is.
-                var stillQualifies = effective > 0m
-                    && (campaign.MinimumAmount is null || effective >= campaign.MinimumAmount);
-
-                // Shown red only once the points are actually gone, so the breakdown never
-                // disagrees with the balance. While the campaign runs that is the moment a refund
-                // drops the purchase (the live preview). Once it has ended and paid out, the
-                // points leave only when the nightly batch reconciles the refund — until then the
-                // purchase still counts, even though the İade is already visible beneath it.
-                var settled = campaign.Status != CampaignStatus.Ended
-                    || refunds.All(r => r.ClawbackProcessedAt is not null);
-
-                return new RewardBreakdownLineDto
-                {
-                    TransactionId = t.Id,
-                    TransactionDate = t.TransactionDate,
-                    Amount = t.Amount,
-                    MerchantName = t.MerchantId is not null
-                        ? merchantNames.GetValueOrDefault(t.MerchantId.Value)
-                        : null,
-                    RewardPoint = point,
-                    EffectiveAmount = effective,
-                    IsReversed = refunds.Count > 0 && !stillQualifies && settled,
-                    Refunds = refunds
-                        .Select(r => new RefundLineDto { Date = r.TransactionDate, Amount = r.Amount })
-                        .ToList()
-                };
-            }).ToList()
+            Lines = lines
+                .Select(t => BuildBreakdownLine(
+                    t, campaign, point, refundsByPurchase.GetValueOrDefault(t.Id, []), merchantNames))
+                .ToList()
         };
     }
 
+    // Turns one evaluated purchase into a breakdown line: its amount net of refunds, whether it
+    // still qualifies, and whether that loss has actually settled — so a refund is shown red
+    // only once the points are truly gone, never while the purchase still counts.
+    private static RewardBreakdownLineDto BuildBreakdownLine(
+        Transaction t,
+        Campaign campaign,
+        decimal point,
+        IReadOnlyList<RefundRow> refunds,
+        IReadOnlyDictionary<int, string> merchantNames)
+    {
+        var effective = t.Amount + refunds.Sum(r => r.Amount);
+
+        // The same rule the reward engine applies: a purchase keeps its points while its amount
+        // net of refunds stays positive and at or above the minimum. So a partial refund that
+        // leaves it qualifying is not "reversed" — only one that drops it is.
+        var stillQualifies = effective > 0m
+            && (campaign.MinimumAmount is null || effective >= campaign.MinimumAmount);
+
+        // Shown red only once the points are actually gone, so the breakdown never disagrees with
+        // the balance. While the campaign runs that is the moment a refund drops the purchase (the
+        // live preview). Once it has ended and paid out, the points leave only when the nightly
+        // batch reconciles the refund — until then the purchase still counts, even though the
+        // İade is already visible beneath it.
+        var settled = campaign.Status != CampaignStatus.Ended
+            || refunds.All(r => r.ClawbackProcessedAt is not null);
+
+        return new RewardBreakdownLineDto
+        {
+            TransactionId = t.Id,
+            TransactionDate = t.TransactionDate,
+            Amount = t.Amount,
+            MerchantName = t.MerchantId is not null
+                ? merchantNames.GetValueOrDefault(t.MerchantId.Value)
+                : null,
+            RewardPoint = point,
+            EffectiveAmount = effective,
+            IsReversed = refunds.Count > 0 && !stillQualifies && settled,
+            Refunds = refunds
+                .Select(r => new RefundLineDto { Date = r.TransactionDate, Amount = r.Amount })
+                .ToList()
+        };
+    }
+
+    // One refund against a purchase — amount, when it happened, and whether the batch has already
+    // reconciled it. The breakdown reads these to net each line and to decide when a reversal
+    // has settled.
+    private sealed record RefundRow(decimal Amount, DateTime TransactionDate, DateTime? ClawbackProcessedAt);
 }
