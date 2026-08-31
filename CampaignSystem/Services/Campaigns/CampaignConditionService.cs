@@ -209,8 +209,7 @@ public class CampaignConditionService(
             .Select(x => x.Product.ProductName)
             .ToListAsync(cancellationToken);
 
-        return BuildAutoConditionTexts(
-            templates,
+        return BuildAutoConditionTexts(templates, new ConditionInputs(
             campaign.CampaignType,
             campaign.StartDate,
             campaign.EndDate,
@@ -227,7 +226,7 @@ public class CampaignConditionService(
             productNames,
             merchantNames,
             transactionCodeNames,
-            clawbackExemptProductNames);
+            clawbackExemptProductNames));
     }
 
     public async Task<List<string>> PreviewConditionsAsync(
@@ -268,8 +267,7 @@ public class CampaignConditionService(
             .Select(x => x.ProductName)
             .ToListAsync(cancellationToken);
 
-        return BuildAutoConditionTexts(
-            templates,
+        return BuildAutoConditionTexts(templates, new ConditionInputs(
             dto.CampaignType,
             dto.StartDate,
             dto.EndDate,
@@ -286,35 +284,44 @@ public class CampaignConditionService(
             productNames,
             merchantNames,
             transactionCodeNames,
-            clawbackExemptProductNames);
+            clawbackExemptProductNames));
     }
+
+    /// <summary>
+    /// The campaign-shape values a set of condition sentences is built from. The same fields
+    /// whether they come from a saved <see cref="Campaign"/> or an unsaved draft, so both paths
+    /// produce identical wording. Bundled into one object so
+    /// <see cref="BuildAutoConditionTexts"/> does not carry a seventeen-parameter signature.
+    /// </summary>
+    private sealed record ConditionInputs(
+        CampaignType CampaignType,
+        DateTime? StartDate,
+        DateTime? EndDate,
+        decimal? MinimumAmount,
+        decimal? MaximumAmount,
+        decimal? RewardPoint,
+        decimal? MaxRewardAmount,
+        bool AccumulatesPerCard,
+        Gender? Gender,
+        CardType? CardType,
+        bool UnusedPointsClawbackEnabled,
+        int? UnusedPointsClawbackDays,
+        IReadOnlyList<string> SegmentNames,
+        IReadOnlyList<string> ProductNames,
+        IReadOnlyList<string> MerchantNames,
+        IReadOnlyList<string> TransactionCodeNames,
+        IReadOnlyList<string> ClawbackExemptProductNames);
 
     /// <summary>
     /// The template-rendering core both <see cref="BuildAutoConditionTextsAsync"/> (a saved
     /// campaign) and <see cref="PreviewConditionsAsync"/> (a draft that is not saved yet)
-    /// reduce to before calling this. Takes plain values rather than a <see cref="Campaign"/>
-    /// so a draft with no database row can produce exactly the same sentences a saved one
-    /// would.
+    /// reduce to before calling this. Takes a plain <see cref="ConditionInputs"/> rather than a
+    /// <see cref="Campaign"/> so a draft with no database row can produce exactly the same
+    /// sentences a saved one would.
     /// </summary>
     private List<string> BuildAutoConditionTexts(
         Dictionary<string, CampaignConditionTemplate> templates,
-        CampaignType campaignType,
-        DateTime? startDate,
-        DateTime? endDate,
-        decimal? minimumAmount,
-        decimal? maximumAmount,
-        decimal? rewardPoint,
-        decimal? maxRewardAmount,
-        bool accumulatesPerCard,
-        Gender? gender,
-        CardType? cardType,
-        bool unusedPointsClawbackEnabled,
-        int? unusedPointsClawbackDays,
-        List<string> segmentNames,
-        List<string> productNames,
-        List<string> merchantNames,
-        List<string> transactionCodeNames,
-        List<string> clawbackExemptProductNames)
+        ConditionInputs inputs)
     {
         var lines = new List<string>();
 
@@ -328,102 +335,102 @@ public class CampaignConditionService(
 
         // A draft with no dates yet has nothing to say here — this only happens on the
         // preview path, since a saved campaign always has both.
-        if (startDate is not null && endDate is not null)
+        if (inputs.StartDate is not null && inputs.EndDate is not null)
         {
             AddLine("DateRange", new Dictionary<string, string>
             {
-                ["StartDate"] = startDate.Value.ToString("dd.MM.yyyy"),
-                ["EndDate"] = endDate.Value.ToString("dd.MM.yyyy")
+                ["StartDate"] = inputs.StartDate.Value.ToString("dd.MM.yyyy"),
+                ["EndDate"] = inputs.EndDate.Value.ToString("dd.MM.yyyy")
             });
         }
 
-        if (campaignType == CampaignType.EnrollmentRequired)
+        if (inputs.CampaignType == CampaignType.EnrollmentRequired)
         {
             AddLine("EnrollmentRequired", []);
         }
 
-        if (minimumAmount is not null && maximumAmount is not null)
+        if (inputs.MinimumAmount is not null && inputs.MaximumAmount is not null)
         {
             AddLine("MinAndMaxAmount", new Dictionary<string, string>
             {
-                ["MinimumAmount"] = minimumAmount.Value.ToString("N0"),
-                ["MaximumAmount"] = maximumAmount.Value.ToString("N0")
+                ["MinimumAmount"] = inputs.MinimumAmount.Value.ToString("N0"),
+                ["MaximumAmount"] = inputs.MaximumAmount.Value.ToString("N0")
             });
         }
-        else if (minimumAmount is not null)
+        else if (inputs.MinimumAmount is not null)
         {
             AddLine("MinAmountOnly", new Dictionary<string, string>
             {
-                ["MinimumAmount"] = minimumAmount.Value.ToString("N0")
+                ["MinimumAmount"] = inputs.MinimumAmount.Value.ToString("N0")
             });
         }
-        else if (maximumAmount is not null)
+        else if (inputs.MaximumAmount is not null)
         {
             AddLine("MaxAmountOnly", new Dictionary<string, string>
             {
-                ["MaximumAmount"] = maximumAmount.Value.ToString("N0")
+                ["MaximumAmount"] = inputs.MaximumAmount.Value.ToString("N0")
             });
         }
 
-        if (rewardPoint is not null)
+        if (inputs.RewardPoint is not null)
         {
             AddLine("RewardPoint", new Dictionary<string, string>
             {
-                ["RewardPoint"] = rewardPoint.Value.ToString("N0")
+                ["RewardPoint"] = inputs.RewardPoint.Value.ToString("N0")
             });
         }
 
-        if (maxRewardAmount is not null)
+        if (inputs.MaxRewardAmount is not null)
         {
-            var perUnit = accumulatesPerCard ? "kart" : "müşteri";
+            var perUnit = inputs.AccumulatesPerCard ? "kart" : "müşteri";
             AddLine("MaxRewardAmount", new Dictionary<string, string>
             {
                 ["PerUnit"] = perUnit,
-                ["MaxRewardAmount"] = maxRewardAmount.Value.ToString("N0")
+                ["MaxRewardAmount"] = inputs.MaxRewardAmount.Value.ToString("N0")
             });
         }
 
-        if (gender is not null)
+        if (inputs.Gender is not null)
         {
-            var genderText = gender == Gender.Female ? "kadın" : "erkek";
+            var genderText = inputs.Gender == Gender.Female ? "kadın" : "erkek";
             AddLine("Gender", new Dictionary<string, string> { ["GenderText"] = genderText });
         }
 
-        if (cardType is not null)
+        if (inputs.CardType is not null)
         {
-            var cardTypeText = cardType == CardType.Primary ? "asıl" : "ek";
+            var cardTypeText = inputs.CardType == CardType.Primary ? "asıl" : "ek";
             AddLine("CardType", new Dictionary<string, string> { ["CardTypeText"] = cardTypeText });
         }
 
-        if (segmentNames.Count > 0)
+        if (inputs.SegmentNames.Count > 0)
         {
             AddLine("SegmentList", new Dictionary<string, string>
             {
-                ["Names"] = string.Join(", ", segmentNames.OrderBy(n => n))
+                ["Names"] = string.Join(", ", inputs.SegmentNames.OrderBy(n => n))
             });
         }
 
-        if (productNames.Count > 0)
+        if (inputs.ProductNames.Count > 0)
         {
             AddLine("ProductList", new Dictionary<string, string>
             {
-                ["Names"] = string.Join(", ", productNames.OrderBy(n => n))
+                ["Names"] = string.Join(", ", inputs.ProductNames.OrderBy(n => n))
             });
         }
 
-        if (merchantNames.Count > 0)
+        if (inputs.MerchantNames.Count > 0)
         {
             AddLine("MerchantList", new Dictionary<string, string>
             {
-                ["Names"] = string.Join(", ", merchantNames.OrderBy(n => n))
+                ["Names"] = string.Join(", ", inputs.MerchantNames.OrderBy(n => n))
             });
         }
 
-        if (transactionCodeNames.Count > 0)
+        if (inputs.TransactionCodeNames.Count > 0)
         {
             AddLine("TransactionCodeList", new Dictionary<string, string>
             {
-                ["Names"] = string.Join(", ", transactionCodeNames.OrderBy(n => n))
+                ["Names"] = string.Join(", ", inputs.TransactionCodeNames.OrderBy(n => n))
             });
         }
 
@@ -432,22 +439,22 @@ public class CampaignConditionService(
         // campaign's own redemption window — so the sentence promises exactly the date the
         // batch will act on, even while the campaign is still running and nothing has been
         // loaded yet.
-        if (unusedPointsClawbackEnabled && unusedPointsClawbackDays is not null && endDate is not null)
+        if (inputs.UnusedPointsClawbackEnabled && inputs.UnusedPointsClawbackDays is not null && inputs.EndDate is not null)
         {
-            var reclaimDate = endDate.Value.Date
+            var reclaimDate = inputs.EndDate.Value.Date
                 .AddDays(rewardOptions.Value.DaysAfterCampaignEnd)
-                .AddDays(unusedPointsClawbackDays.Value);
+                .AddDays(inputs.UnusedPointsClawbackDays.Value);
 
             AddLine("UnusedPointsClawback", new Dictionary<string, string>
             {
                 ["ReclaimDate"] = reclaimDate.ToString("dd.MM.yyyy")
             });
 
-            if (clawbackExemptProductNames.Count > 0)
+            if (inputs.ClawbackExemptProductNames.Count > 0)
             {
                 AddLine("UnusedPointsClawbackExempt", new Dictionary<string, string>
                 {
-                    ["Names"] = string.Join(", ", clawbackExemptProductNames.OrderBy(n => n))
+                    ["Names"] = string.Join(", ", inputs.ClawbackExemptProductNames.OrderBy(n => n))
                 });
             }
         }
