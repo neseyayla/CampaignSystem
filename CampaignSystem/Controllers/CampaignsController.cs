@@ -10,6 +10,7 @@ namespace CampaignSystem.Controllers;
 [Route("api/campaigns")]
 public class CampaignsController(
     ICampaignService campaignService,
+    ICampaignCriteriaService campaignCriteriaService,
     ICampaignConditionService campaignConditionService) : ControllerBase
 {
     /// <summary>Lists the active campaigns.</summary>
@@ -79,7 +80,7 @@ public class CampaignsController(
         int id,
         CancellationToken cancellationToken)
     {
-        var criteria = await campaignService.GetCriteriaAsync(id, cancellationToken);
+        var criteria = await campaignCriteriaService.GetCriteriaAsync(id, cancellationToken);
 
         return criteria is null ? NotFound() : Ok(criteria);
     }
@@ -97,7 +98,7 @@ public class CampaignsController(
         CampaignCriteriaDto dto,
         CancellationToken cancellationToken)
     {
-        var outcome = await campaignService.SetCriteriaAsync(id, dto, cancellationToken);
+        var outcome = await campaignCriteriaService.SetCriteriaAsync(id, dto, cancellationToken);
 
         return outcome.Status switch
         {
