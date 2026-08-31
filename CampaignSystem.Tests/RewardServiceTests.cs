@@ -21,7 +21,7 @@ namespace CampaignSystem.Tests;
 public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<TestDatabaseFixture>
 {
     private static RewardService CreateService(CampaignDbContext context, int daysAfterCampaignEnd = 0) =>
-        new(context, Options.Create(new RewardCalculationOptions
+        new(context, new RewardCalculator(context), Options.Create(new RewardCalculationOptions
         {
             DaysAfterCampaignEnd = daysAfterCampaignEnd
         }), NullLogger<RewardService>.Instance);

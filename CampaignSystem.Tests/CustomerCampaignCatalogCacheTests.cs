@@ -39,7 +39,7 @@ public class CustomerCampaignCatalogCacheTests(TestDatabaseFixture fixture)
                 new Repository<Customer>(context),
                 new Repository<Card>(context)),
             new RewardService(
-                context, Options.Create(new RewardCalculationOptions()), NullLogger<RewardService>.Instance),
+                context, new RewardCalculator(context), Options.Create(new RewardCalculationOptions()), NullLogger<RewardService>.Instance),
             cache);
 
     [Fact]

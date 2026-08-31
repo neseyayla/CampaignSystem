@@ -50,7 +50,7 @@ public class CustomerCampaignServiceTests(TestDatabaseFixture fixture) : IClassF
                 new Repository<Customer>(context),
                 new Repository<Card>(context)),
             new RewardService(
-                context, Options.Create(new RewardCalculationOptions()), NullLogger<RewardService>.Instance),
+                context, new RewardCalculator(context), Options.Create(new RewardCalculationOptions()), NullLogger<RewardService>.Instance),
             new CampaignCatalogCache(new MemoryCache(new MemoryCacheOptions())));
 
     [Fact]
