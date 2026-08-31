@@ -56,6 +56,27 @@ public class Campaign
     /// </summary>
     public int? RefundClawbackDays { get; set; }
 
+    /// <summary>
+    /// Whether points earned from this campaign and never redeemed are clawed back once
+    /// <see cref="UnusedPointsClawbackDays"/> has passed since they were loaded.
+    /// </summary>
+    public bool UnusedPointsClawbackEnabled { get; set; }
+
+    /// <summary>
+    /// How many days after the reward is loaded a customer has to redeem it before the unused
+    /// remainder is clawed back. Required when <see cref="UnusedPointsClawbackEnabled"/> is on;
+    /// ignored when it is off.
+    /// </summary>
+    public int? UnusedPointsClawbackDays { get; set; }
+
+    /// <summary>
+    /// When the one-time unused-points sweep ran for this campaign. Null means it has not run
+    /// yet — unlike refund clawback, which re-checks on every batch while its window is open,
+    /// this only ever needs to happen once per campaign, so this flag is what stops the batch
+    /// from re-scanning (and re-clawing) a campaign it has already swept.
+    /// </summary>
+    public DateTime? UnusedPointsClawbackProcessedAt { get; set; }
+
     public EarningType EarningType { get; set; }
 
     /// <summary>
@@ -96,6 +117,9 @@ public class Campaign
     public ICollection<CampaignMerchant> CampaignMerchants { get; set; } = [];
 
     public ICollection<CampaignTransactionCode> CampaignTransactionCodes { get; set; } = [];
+
+    /// <summary>Card products exempt from the unused-points clawback for this campaign.</summary>
+    public ICollection<CampaignClawbackExemptProduct> ClawbackExemptProducts { get; set; } = [];
 
     public ICollection<CampaignCondition> Conditions { get; set; } = [];
 

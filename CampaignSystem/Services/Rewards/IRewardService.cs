@@ -61,4 +61,13 @@ public interface IRewardService
     /// how many reward rows were adjusted.
     /// </summary>
     Task<int> ReconcileReversalsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sweeps every ended campaign whose unused-points window has closed and claws back
+    /// whatever each customer (or card) earned but never redeemed. Runs once per campaign —
+    /// unlike <see cref="ReconcileReversalsAsync"/> this is a one-time pass, not a recurring
+    /// recheck, guarded by <see cref="Entities.Campaign.UnusedPointsClawbackProcessedAt"/>.
+    /// Returns how many clawback rows were written.
+    /// </summary>
+    Task<int> ReclaimUnusedPointsAsync(CancellationToken cancellationToken = default);
 }

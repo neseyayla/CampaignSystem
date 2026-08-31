@@ -29,6 +29,12 @@ public class DailyBatchResultDto
     public int RewardsReduced { get; set; }
 
     /// <summary>
+    /// Clawback rows written because points a campaign paid were never redeemed within its
+    /// unused-points window.
+    /// </summary>
+    public int PointsReclaimed { get; set; }
+
+    /// <summary>
     /// Campaigns that were due but could not be loaded, with the reason. The run carries on
     /// past a failure so that one bad campaign cannot hold up the rest.
     /// </summary>

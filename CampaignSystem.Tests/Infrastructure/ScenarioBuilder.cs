@@ -21,6 +21,9 @@ public static class ScenarioBuilder
     public const int SaleTransactionCodeId = 1;
     public const int CashAdvanceTransactionCodeId = 2;
 
+    /// <summary>The "PS" code — a transaction that spends campaign points. Seed id.</summary>
+    public const int RedemptionTransactionCodeId = 5;
+
     /// <summary>
     /// A campaign that has already finished, so the reward batch will accept it.
     ///

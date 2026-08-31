@@ -49,6 +49,7 @@ export class CampaignForm {
   protected readonly selectedProducts = signal<number[]>([]);
   protected readonly selectedMerchants = signal<number[]>([]);
   protected readonly selectedTransactionCodes = signal<number[]>([]);
+  protected readonly selectedClawbackExemptProducts = signal<number[]>([]);
 
   /** The campaign being edited, or null while a new one is being entered. */
   protected readonly campaignId = signal<number | null>(null);
@@ -76,6 +77,9 @@ export class CampaignForm {
 
   // Mirrors the refund-clawback checkbox so the "days" input can appear the instant it is ticked.
   protected readonly clawbackOn = signal(false);
+
+  // Same idea for the unused-points clawback checkbox.
+  protected readonly unusedClawbackOn = signal(false);
 
   /**
    * True once Sil has been pressed and before it is confirmed. Deleting takes two presses
@@ -109,7 +113,12 @@ export class CampaignForm {
     // Refund clawback: whether a refund reclaims points after the campaign has paid, and for
     // how many days after the reward is loaded it still does (null = no limit).
     refundClawbackEnabled: [false],
-    refundClawbackDays: [null as number | null]
+    refundClawbackDays: [null as number | null],
+    // Unused-points clawback: whether points never redeemed are clawed back once the window
+    // below has passed, counted from the day the reward is loaded — same shape as refund
+    // clawback above.
+    unusedPointsClawbackEnabled: [false],
+    unusedPointsClawbackDays: [null as number | null]
   });
 
   constructor() {
@@ -161,6 +170,21 @@ export class CampaignForm {
       days.updateValueAndValidity();
     });
 
+    this.form.controls.unusedPointsClawbackEnabled.valueChanges.subscribe(on => {
+      this.unusedClawbackOn.set(on);
+
+      const days = this.form.controls.unusedPointsClawbackDays;
+
+      if (on) {
+        days.addValidators(Validators.required);
+      } else {
+        days.removeValidators(Validators.required);
+        days.setValue(null);
+      }
+
+      days.updateValueAndValidity();
+    });
+
     this.form.controls.campaignType.valueChanges.subscribe(value => {
       this.campaignType.set(value);
 
@@ -194,6 +218,7 @@ export class CampaignForm {
       this.selectedProducts();
       this.selectedMerchants();
       this.selectedTransactionCodes();
+      this.selectedClawbackExemptProducts();
 
       this.conditionsPreviewTrigger.next();
     });
@@ -218,11 +243,16 @@ export class CampaignForm {
             maximumAmount: value.maximumAmount,
             rewardPoint: value.rewardPoint,
             maxRewardAmount: value.maxRewardAmount,
+            unusedPointsClawbackEnabled: value.unusedPointsClawbackEnabled,
+            unusedPointsClawbackDays: value.unusedPointsClawbackEnabled
+              ? value.unusedPointsClawbackDays
+              : null,
             criteria: {
               segmentIds: this.selectedSegments(),
               productIds: this.selectedProducts(),
               merchantIds: this.selectedMerchants(),
-              transactionCodeIds: this.selectedTransactionCodes()
+              transactionCodeIds: this.selectedTransactionCodes(),
+              clawbackExemptProductIds: this.selectedClawbackExemptProducts()
             }
           };
 
@@ -318,13 +348,16 @@ export class CampaignForm {
       rewardPoint: null,
       maxRewardAmount: null,
       refundClawbackEnabled: false,
-      refundClawbackDays: null
+      refundClawbackDays: null,
+      unusedPointsClawbackEnabled: false,
+      unusedPointsClawbackDays: null
     });
 
     this.selectedSegments.set([]);
     this.selectedProducts.set([]);
     this.selectedMerchants.set([]);
     this.selectedTransactionCodes.set([]);
+    this.selectedClawbackExemptProducts.set([]);
 
     this.conditions.set([]);
     this.conditionsNotice.set(null);
@@ -375,13 +408,16 @@ export class CampaignForm {
       rewardPoint: campaign.rewardPoint,
       maxRewardAmount: campaign.maxRewardAmount,
       refundClawbackEnabled: campaign.refundClawbackEnabled,
-      refundClawbackDays: campaign.refundClawbackDays
+      refundClawbackDays: campaign.refundClawbackDays,
+      unusedPointsClawbackEnabled: campaign.unusedPointsClawbackEnabled,
+      unusedPointsClawbackDays: campaign.unusedPointsClawbackDays
     });
 
     this.selectedSegments.set(criteria.segmentIds);
     this.selectedProducts.set(criteria.productIds);
     this.selectedMerchants.set(criteria.merchantIds);
     this.selectedTransactionCodes.set(criteria.transactionCodeIds);
+    this.selectedClawbackExemptProducts.set(criteria.clawbackExemptProductIds);
   }
 
   /** Writes the form: creates a campaign when id is null, updates it otherwise. */
@@ -425,14 +461,19 @@ export class CampaignForm {
       maxRewardAmount: value.maxRewardAmount,
       refundClawbackEnabled: value.refundClawbackEnabled,
       // Only meaningful with clawback on; sent as null otherwise so it never lingers.
-      refundClawbackDays: value.refundClawbackEnabled ? value.refundClawbackDays : null
+      refundClawbackDays: value.refundClawbackEnabled ? value.refundClawbackDays : null,
+      unusedPointsClawbackEnabled: value.unusedPointsClawbackEnabled,
+      unusedPointsClawbackDays: value.unusedPointsClawbackEnabled
+        ? value.unusedPointsClawbackDays
+        : null
     };
 
     const criteria: CampaignCriteria = {
       segmentIds: this.selectedSegments(),
       productIds: this.selectedProducts(),
       merchantIds: this.selectedMerchants(),
-      transactionCodeIds: this.selectedTransactionCodes()
+      transactionCodeIds: this.selectedTransactionCodes(),
+      clawbackExemptProductIds: this.selectedClawbackExemptProducts()
     };
 
     // The campaign has to exist before its criteria can point at it, so the criteria call

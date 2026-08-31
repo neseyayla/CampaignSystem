@@ -4,6 +4,7 @@ using CampaignSystem.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CampaignSystem.Data.Migrations
 {
     [DbContext(typeof(CampaignDbContext))]
-    partial class CampaignDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260827131749_AddUnusedPointsClawbackToCampaign")]
+    partial class AddUnusedPointsClawbackToCampaign
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -810,6 +813,44 @@ namespace CampaignSystem.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CampaignSystem.Entities.PointRedemption", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CampaignId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CardId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("RedemptionDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CardId");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("CampaignId", "CustomerId", "CardId");
+
+                    b.ToTable("POINT_REDEMPTION", (string)null);
+                });
+
             modelBuilder.Entity("CampaignSystem.Entities.Product", b =>
                 {
                     b.Property<int>("Id")
@@ -1043,12 +1084,6 @@ namespace CampaignSystem.Data.Migrations
                             Id = 4,
                             Code = "IA",
                             Name = "İade"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Code = "PS",
-                            Name = "Puan Harcama"
                         });
                 });
 
@@ -1250,6 +1285,32 @@ namespace CampaignSystem.Data.Migrations
                     b.Navigation("MerchantCategory");
                 });
 
+            modelBuilder.Entity("CampaignSystem.Entities.PointRedemption", b =>
+                {
+                    b.HasOne("CampaignSystem.Entities.Campaign", "Campaign")
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CampaignSystem.Entities.Card", "Card")
+                        .WithMany("PointRedemptions")
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CampaignSystem.Entities.Customer", "Customer")
+                        .WithMany("PointRedemptions")
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Campaign");
+
+                    b.Navigation("Card");
+
+                    b.Navigation("Customer");
+                });
+
             modelBuilder.Entity("CampaignSystem.Entities.Transaction", b =>
                 {
                     b.HasOne("CampaignSystem.Entities.Card", "Card")
@@ -1314,6 +1375,8 @@ namespace CampaignSystem.Data.Migrations
                 {
                     b.Navigation("Participations");
 
+                    b.Navigation("PointRedemptions");
+
                     b.Navigation("Rewards");
 
                     b.Navigation("Transactions");
@@ -1324,6 +1387,8 @@ namespace CampaignSystem.Data.Migrations
                     b.Navigation("Cards");
 
                     b.Navigation("Participations");
+
+                    b.Navigation("PointRedemptions");
 
                     b.Navigation("Rewards");
 
