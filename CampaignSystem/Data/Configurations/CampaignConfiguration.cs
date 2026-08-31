@@ -67,6 +67,8 @@ public class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
             .IsUnicode(false)
             .IsRequired();
 
+        builder.Property(x => x.UnusedPointsClawbackProcessedAt).HasColumnType("datetime2");
+
         // Derived from EarningType rather than stored, so there is nothing to map.
         builder.Ignore(x => x.AccumulatesPerCard);
 

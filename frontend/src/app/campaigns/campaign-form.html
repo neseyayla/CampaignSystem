@@ -106,6 +106,25 @@
           }
         </label>
       }
+
+      <label class="check">
+        <input type="checkbox" formControlName="unusedPointsClawbackEnabled" />
+        <span>Kullanılmayan puan geri alımı</span>
+      </label>
+
+      @if (unusedClawbackOn()) {
+        <label>
+          <span>Geri Alım (gün)</span>
+          <input
+            type="number"
+            formControlName="unusedPointsClawbackDays"
+            min="0"
+            step="1" />
+          @if (invalid('unusedPointsClawbackDays')) {
+            <small class="error">Gün sayısı zorunludur.</small>
+          }
+        </label>
+      }
     </div>
   </section>
 
@@ -150,6 +169,15 @@
         [options]="products()"
         [(selected)]="selectedProducts" />
     </div>
+
+    @if (unusedClawbackOn()) {
+      <div class="pickers">
+        <app-criteria-picker
+          label="Premium Kartlar (Geri Alımdan Muaf)"
+          [options]="products()"
+          [(selected)]="selectedClawbackExemptProducts" />
+      </div>
+    }
   </section>
 
   <section>

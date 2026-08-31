@@ -36,6 +36,7 @@ public class CampaignDbContext : DbContext
     public DbSet<CampaignProduct> CampaignProducts => Set<CampaignProduct>();
     public DbSet<CampaignMerchant> CampaignMerchants => Set<CampaignMerchant>();
     public DbSet<CampaignTransactionCode> CampaignTransactionCodes => Set<CampaignTransactionCode>();
+    public DbSet<CampaignClawbackExemptProduct> CampaignClawbackExemptProducts => Set<CampaignClawbackExemptProduct>();
     public DbSet<CampaignCondition> CampaignConditions => Set<CampaignCondition>();
     public DbSet<CampaignConditionTemplate> CampaignConditionTemplates => Set<CampaignConditionTemplate>();
 

@@ -61,6 +61,13 @@ public class UpdateCampaignDto : IValidatableObject
     [Range(0, 3650)]
     public int? RefundClawbackDays { get; set; }
 
+    /// <summary>Whether points never redeemed are clawed back once the window below has passed.</summary>
+    public bool UnusedPointsClawbackEnabled { get; set; }
+
+    /// <summary>Days after the reward is loaded a customer has to redeem it before the unused remainder is clawed back.</summary>
+    [Range(0, 3650)]
+    public int? UnusedPointsClawbackDays { get; set; }
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (EndDate <= StartDate)
@@ -89,6 +96,13 @@ public class UpdateCampaignDto : IValidatableObject
             yield return new ValidationResult(
                 "RefundClawbackDays is required when refund clawback is enabled.",
                 [nameof(RefundClawbackDays)]);
+        }
+
+        if (UnusedPointsClawbackEnabled && UnusedPointsClawbackDays is null)
+        {
+            yield return new ValidationResult(
+                "UnusedPointsClawbackDays is required when unused-points clawback is enabled.",
+                [nameof(UnusedPointsClawbackDays)]);
         }
     }
 }

@@ -1,3 +1,4 @@
+using CampaignSystem.Configuration;
 using CampaignSystem.Data;
 using CampaignSystem.DTOs;
 using CampaignSystem.Entities;
@@ -5,6 +6,7 @@ using CampaignSystem.Enums;
 using CampaignSystem.Repositories;
 using CampaignSystem.Services.Caching;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Text.RegularExpressions;
 
 namespace CampaignSystem.Services;
@@ -24,6 +26,7 @@ namespace CampaignSystem.Services;
 public class CampaignService(
     IRepository<Campaign> repository,
     CampaignDbContext context,
+    IOptions<RewardCalculationOptions> rewardOptions,
     CampaignCatalogCache catalogCache,
     ILogger<CampaignService> logger)
     : ICampaignService
@@ -84,6 +87,8 @@ public class CampaignService(
             MaxRewardAmount = dto.MaxRewardAmount,
             RefundClawbackEnabled = dto.RefundClawbackEnabled,
             RefundClawbackDays = dto.RefundClawbackDays,
+            UnusedPointsClawbackEnabled = dto.UnusedPointsClawbackEnabled,
+            UnusedPointsClawbackDays = dto.UnusedPointsClawbackDays,
 
             // The starting status follows from the dates. From here on the daily batch keeps
             // it moving.
@@ -131,6 +136,8 @@ public class CampaignService(
         campaign.MaxRewardAmount = dto.MaxRewardAmount;
         campaign.RefundClawbackEnabled = dto.RefundClawbackEnabled;
         campaign.RefundClawbackDays = dto.RefundClawbackDays;
+        campaign.UnusedPointsClawbackEnabled = dto.UnusedPointsClawbackEnabled;
+        campaign.UnusedPointsClawbackDays = dto.UnusedPointsClawbackDays;
 
         repository.Update(campaign);
         await repository.SaveChangesAsync(cancellationToken);
@@ -196,6 +203,9 @@ public class CampaignService(
         context.CampaignTransactionCodes.RemoveRange(
             await context.CampaignTransactionCodes.Where(x => x.CampaignId == campaignId).ToListAsync(cancellationToken));
 
+        context.CampaignClawbackExemptProducts.RemoveRange(
+            await context.CampaignClawbackExemptProducts.Where(x => x.CampaignId == campaignId).ToListAsync(cancellationToken));
+
         context.CampaignConditions.RemoveRange(
             await context.CampaignConditions.Where(x => x.CampaignId == campaignId).ToListAsync(cancellationToken));
     }
@@ -232,6 +242,11 @@ public class CampaignService(
             TransactionCodeIds = await context.CampaignTransactionCodes
                 .Where(x => x.CampaignId == campaignId)
                 .Select(x => x.TransactionCodeId)
+                .ToListAsync(cancellationToken),
+
+            ClawbackExemptProductIds = await context.CampaignClawbackExemptProducts
+                .Where(x => x.CampaignId == campaignId)
+                .Select(x => x.ProductId)
                 .ToListAsync(cancellationToken)
         };
     }
@@ -254,9 +269,10 @@ public class CampaignService(
         var productIds = dto.ProductIds.Distinct().ToList();
         var merchantIds = dto.MerchantIds.Distinct().ToList();
         var transactionCodeIds = dto.TransactionCodeIds.Distinct().ToList();
+        var clawbackExemptProductIds = dto.ClawbackExemptProductIds.Distinct().ToList();
 
         var error = await FindUnknownReferencesAsync(
-            segmentIds, productIds, merchantIds, transactionCodeIds, cancellationToken);
+            segmentIds, productIds, merchantIds, transactionCodeIds, clawbackExemptProductIds, cancellationToken);
 
         if (error is not null)
         {
@@ -299,7 +315,15 @@ public class CampaignService(
             },
             cancellationToken);
 
-        // One SaveChanges for all four tables, so the campaign never sits with half of its
+        await SyncAsync(
+            context.CampaignClawbackExemptProducts,
+            campaignId,
+            clawbackExemptProductIds,
+            x => x.ProductId,
+            productId => new CampaignClawbackExemptProduct { CampaignId = campaignId, ProductId = productId },
+            cancellationToken);
+
+        // One SaveChanges for all five tables, so the campaign never sits with half of its
         // new scope applied.
         await context.SaveChangesAsync(cancellationToken);
         catalogCache.Invalidate();
@@ -344,6 +368,7 @@ public class CampaignService(
         List<int> productIds,
         List<int> merchantIds,
         List<int> transactionCodeIds,
+        List<int> clawbackExemptProductIds,
         CancellationToken cancellationToken)
     {
         var problems = new List<string>();
@@ -359,6 +384,9 @@ public class CampaignService(
 
         Collect(transactionCodeIds, await context.TransactionCodes
             .Where(x => transactionCodeIds.Contains(x.Id)).Select(x => x.Id).ToListAsync(cancellationToken), "transaction code");
+
+        Collect(clawbackExemptProductIds, await context.Products
+            .Where(x => clawbackExemptProductIds.Contains(x.Id)).Select(x => x.Id).ToListAsync(cancellationToken), "clawback-exempt product");
 
         return problems.Count == 0 ? null : string.Join(" ", problems);
 
@@ -388,6 +416,8 @@ public class CampaignService(
         MaxRewardAmount = campaign.MaxRewardAmount,
         RefundClawbackEnabled = campaign.RefundClawbackEnabled,
         RefundClawbackDays = campaign.RefundClawbackDays,
+        UnusedPointsClawbackEnabled = campaign.UnusedPointsClawbackEnabled,
+        UnusedPointsClawbackDays = campaign.UnusedPointsClawbackDays,
         EarningType = campaign.EarningType,
         Gender = campaign.Gender,
         CardType = campaign.CardType,
@@ -572,6 +602,11 @@ public class CampaignService(
             .Select(x => x.TransactionCode.Name)
             .ToListAsync(cancellationToken);
 
+        var clawbackExemptProductNames = await context.CampaignClawbackExemptProducts
+            .Where(x => x.CampaignId == campaign.Id)
+            .Select(x => x.Product.ProductName)
+            .ToListAsync(cancellationToken);
+
         return BuildAutoConditionTexts(
             templates,
             campaign.CampaignType,
@@ -584,10 +619,13 @@ public class CampaignService(
             campaign.AccumulatesPerCard,
             campaign.Gender,
             campaign.CardType,
+            campaign.UnusedPointsClawbackEnabled,
+            campaign.UnusedPointsClawbackDays,
             segmentNames,
             productNames,
             merchantNames,
-            transactionCodeNames);
+            transactionCodeNames,
+            clawbackExemptProductNames);
     }
 
     public async Task<List<string>> PreviewConditionsAsync(
@@ -623,6 +661,11 @@ public class CampaignService(
             .Select(x => x.Name)
             .ToListAsync(cancellationToken);
 
+        var clawbackExemptProductNames = await context.Products
+            .Where(x => dto.Criteria.ClawbackExemptProductIds.Contains(x.Id))
+            .Select(x => x.ProductName)
+            .ToListAsync(cancellationToken);
+
         return BuildAutoConditionTexts(
             templates,
             dto.CampaignType,
@@ -635,10 +678,13 @@ public class CampaignService(
             dto.EarningType == EarningType.CardBased,
             dto.Gender,
             dto.CardType,
+            dto.UnusedPointsClawbackEnabled,
+            dto.UnusedPointsClawbackDays,
             segmentNames,
             productNames,
             merchantNames,
-            transactionCodeNames);
+            transactionCodeNames,
+            clawbackExemptProductNames);
     }
 
     /// <summary>
@@ -648,7 +694,7 @@ public class CampaignService(
     /// so a draft with no database row can produce exactly the same sentences a saved one
     /// would.
     /// </summary>
-    private static List<string> BuildAutoConditionTexts(
+    private List<string> BuildAutoConditionTexts(
         Dictionary<string, CampaignConditionTemplate> templates,
         CampaignType campaignType,
         DateTime? startDate,
@@ -660,10 +706,13 @@ public class CampaignService(
         bool accumulatesPerCard,
         Gender? gender,
         CardType? cardType,
+        bool unusedPointsClawbackEnabled,
+        int? unusedPointsClawbackDays,
         List<string> segmentNames,
         List<string> productNames,
         List<string> merchantNames,
-        List<string> transactionCodeNames)
+        List<string> transactionCodeNames,
+        List<string> clawbackExemptProductNames)
     {
         var lines = new List<string>();
 
@@ -774,6 +823,31 @@ public class CampaignService(
             {
                 ["Names"] = string.Join(", ", transactionCodeNames.OrderBy(n => n))
             });
+        }
+
+        // The reclaim date is computed the same way RewardService works out when a campaign's
+        // rewards are actually loaded (end date plus the global loading delay), plus this
+        // campaign's own redemption window — so the sentence promises exactly the date the
+        // batch will act on, even while the campaign is still running and nothing has been
+        // loaded yet.
+        if (unusedPointsClawbackEnabled && unusedPointsClawbackDays is not null && endDate is not null)
+        {
+            var reclaimDate = endDate.Value.Date
+                .AddDays(rewardOptions.Value.DaysAfterCampaignEnd)
+                .AddDays(unusedPointsClawbackDays.Value);
+
+            AddLine("UnusedPointsClawback", new Dictionary<string, string>
+            {
+                ["ReclaimDate"] = reclaimDate.ToString("dd.MM.yyyy")
+            });
+
+            if (clawbackExemptProductNames.Count > 0)
+            {
+                AddLine("UnusedPointsClawbackExempt", new Dictionary<string, string>
+                {
+                    ["Names"] = string.Join(", ", clawbackExemptProductNames.OrderBy(n => n))
+                });
+            }
         }
 
         return lines;
