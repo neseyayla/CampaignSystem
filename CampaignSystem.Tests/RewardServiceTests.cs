@@ -26,6 +26,9 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
             DaysAfterCampaignEnd = daysAfterCampaignEnd
         }), NullLogger<RewardService>.Instance);
 
+    private static RewardReconciliationService CreateReconciliation(CampaignDbContext context) =>
+        new(context, new RewardCalculator(context), NullLogger<RewardReconciliationService>.Instance);
+
     [Fact]
     public async Task CardBasedCampaign_WritesOneRewardPerCard()
     {
@@ -528,7 +531,7 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         context.Transactions.Add(NewRefund(suffix, 2, second));
         await context.SaveChangesAsync();
 
-        var clawbacks = await service.ReconcileReversalsAsync();
+        var clawbacks = await CreateReconciliation(context).ReconcileReversalsAsync();
 
         Assert.Equal(1, clawbacks);
 
@@ -545,7 +548,7 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         Assert.Equal(-1, clawback.QualifyingCount);
 
         // A second run finds nothing more to do — reconciliation is idempotent.
-        Assert.Equal(0, await service.ReconcileReversalsAsync());
+        Assert.Equal(0, await CreateReconciliation(context).ReconcileReversalsAsync());
     }
 
     [Fact]
@@ -554,11 +557,11 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         await using var context = fixture.CreateContext();
         await using var transaction = await context.Database.BeginTransactionAsync();
 
-        var (campaign, service) = await PaidCampaignWithOneRefundAsync(
+        var (campaign, _) = await PaidCampaignWithOneRefundAsync(
             context, clawbackEnabled: false, clawbackDays: null);
 
         // Clawback is off, so the refund is ignored: no Clawback row, points unchanged.
-        Assert.Equal(0, await service.ReconcileReversalsAsync());
+        Assert.Equal(0, await CreateReconciliation(context).ReconcileReversalsAsync());
 
         var rows = await context.CampaignRewards.Where(r => r.CampaignId == campaign.Id).ToListAsync();
         Assert.DoesNotContain(rows, r => r.RewardType == RewardType.Clawback);
@@ -571,13 +574,13 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         await using var context = fixture.CreateContext();
         await using var transaction = await context.Database.BeginTransactionAsync();
 
-        var (campaign, service) = await PaidCampaignWithOneRefundAsync(
+        var (campaign, _) = await PaidCampaignWithOneRefundAsync(
             context, clawbackEnabled: true, clawbackDays: 10);
 
         // The reward was loaded 20 days ago — past the 10-day window, so nothing is clawed back.
         await ShiftRewardLoadDateAsync(context, campaign.Id, DateTime.Now.AddDays(-20));
 
-        Assert.Equal(0, await service.ReconcileReversalsAsync());
+        Assert.Equal(0, await CreateReconciliation(context).ReconcileReversalsAsync());
         Assert.DoesNotContain(
             await context.CampaignRewards.Where(r => r.CampaignId == campaign.Id).ToListAsync(),
             r => r.RewardType == RewardType.Clawback);
@@ -589,13 +592,13 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         await using var context = fixture.CreateContext();
         await using var transaction = await context.Database.BeginTransactionAsync();
 
-        var (campaign, service) = await PaidCampaignWithOneRefundAsync(
+        var (campaign, _) = await PaidCampaignWithOneRefundAsync(
             context, clawbackEnabled: true, clawbackDays: 30);
 
         // Loaded exactly 30 days ago: today is the last day of the window, so it still claws back.
         await ShiftRewardLoadDateAsync(context, campaign.Id, DateTime.Now.AddDays(-30));
 
-        Assert.Equal(1, await service.ReconcileReversalsAsync());
+        Assert.Equal(1, await CreateReconciliation(context).ReconcileReversalsAsync());
     }
 
     [Fact]
@@ -708,7 +711,7 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         context.Transactions.Add(NewPartialRefund(suffix, 2, second, 60m));
         await context.SaveChangesAsync();
 
-        Assert.Equal(1, await service.ReconcileReversalsAsync());
+        Assert.Equal(1, await CreateReconciliation(context).ReconcileReversalsAsync());
 
         var net = (await context.CampaignRewards.Where(r => r.CampaignId == campaign.Id).ToListAsync())
             .Sum(r => r.RewardPoint);
@@ -752,7 +755,7 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         context.Transactions.Add(NewPartialRefund(suffix, 1, purchase, 30m));
         await context.SaveChangesAsync();
 
-        Assert.Equal(0, await service.ReconcileReversalsAsync());
+        Assert.Equal(0, await CreateReconciliation(context).ReconcileReversalsAsync());
         Assert.Equal(50m, Net());
         // Nothing is left unprocessed: the batch will not re-scan that refund.
         Assert.False(await context.Transactions.AnyAsync(
@@ -762,7 +765,7 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         context.Transactions.Add(NewPartialRefund(suffix, 2, purchase, 60m));
         await context.SaveChangesAsync();
 
-        Assert.Equal(1, await service.ReconcileReversalsAsync());
+        Assert.Equal(1, await CreateReconciliation(context).ReconcileReversalsAsync());
         Assert.Equal(0m, Net());
     }
 
@@ -780,8 +783,7 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         context.Transactions.Add(NewRedemption(card, customer, 100m));
         await context.SaveChangesAsync();
 
-        var service = CreateService(context);
-        Assert.Equal(1, await service.ReclaimUnusedPointsAsync());
+        Assert.Equal(1, await CreateReconciliation(context).ReclaimUnusedPointsAsync());
 
         var rows = await context.CampaignRewards.Where(r => r.CampaignId == campaign.Id).ToListAsync();
         var clawback = rows.Single(r => r.RewardType == RewardType.UnusedPointsClawback);
@@ -789,7 +791,7 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         Assert.Equal(100m, rows.Sum(r => r.RewardPoint));
 
         // A second run finds nothing more to do — the campaign was marked processed.
-        Assert.Equal(0, await service.ReclaimUnusedPointsAsync());
+        Assert.Equal(0, await CreateReconciliation(context).ReclaimUnusedPointsAsync());
     }
 
     [Fact]
@@ -805,7 +807,7 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         context.Transactions.Add(NewRedemption(card, customer, 200m));
         await context.SaveChangesAsync();
 
-        Assert.Equal(0, await CreateService(context).ReclaimUnusedPointsAsync());
+        Assert.Equal(0, await CreateReconciliation(context).ReclaimUnusedPointsAsync());
 
         var rows = await context.CampaignRewards.Where(r => r.CampaignId == campaign.Id).ToListAsync();
         Assert.DoesNotContain(rows, r => r.RewardType == RewardType.UnusedPointsClawback);
@@ -821,7 +823,7 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
         var (campaign, _, _) = await SeedEndedCampaignWithRewardAsync(
             context, unusedPointsClawbackDays: 30, earned: 200m, loadDate: DateTime.Now);
 
-        Assert.Equal(0, await CreateService(context).ReclaimUnusedPointsAsync());
+        Assert.Equal(0, await CreateReconciliation(context).ReclaimUnusedPointsAsync());
 
         // Left for a later run rather than marked processed — the window is still open.
         var reloaded = await context.Campaigns.SingleAsync(c => c.Id == campaign.Id);
@@ -842,7 +844,7 @@ public class RewardServiceTests(TestDatabaseFixture fixture) : IClassFixture<Tes
             exemptProductIds: [ScenarioBuilder.VisaGoldProductId]);
 
         // Nothing redeemed at all, but the card's product is exempt, so no clawback is written.
-        Assert.Equal(0, await CreateService(context).ReclaimUnusedPointsAsync());
+        Assert.Equal(0, await CreateReconciliation(context).ReclaimUnusedPointsAsync());
 
         var rows = await context.CampaignRewards.Where(r => r.CampaignId == campaign.Id).ToListAsync();
         Assert.DoesNotContain(rows, r => r.RewardType == RewardType.UnusedPointsClawback);

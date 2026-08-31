@@ -17,6 +17,7 @@ namespace CampaignSystem.Services;
 public class DailyBatchService(
     CampaignDbContext context,
     IRewardService rewardService,
+    IRewardReconciliationService reconciliationService,
     IOptions<RewardCalculationOptions> options,
     CampaignCatalogCache catalogCache,
     ILogger<DailyBatchService> logger) : IDailyBatchService
@@ -35,12 +36,12 @@ public class DailyBatchService(
         // After loading, reconcile refunds: a purchase counted at loading time may have been
         // reversed since, and while the campaign is still inside its refund window those points
         // are clawed back.
-        result.RewardsReduced = await rewardService.ReconcileReversalsAsync(cancellationToken);
+        result.RewardsReduced = await reconciliationService.ReconcileReversalsAsync(cancellationToken);
 
         // Then sweep for unused points: a campaign whose redemption window has now closed has
         // whatever was never redeemed clawed back, once, regardless of the refund reconciliation
         // above.
-        result.PointsReclaimed = await rewardService.ReclaimUnusedPointsAsync(cancellationToken);
+        result.PointsReclaimed = await reconciliationService.ReclaimUnusedPointsAsync(cancellationToken);
 
         // Any of these moved a campaign between the statuses the customer catalog is built from:
         // a started one appears, a closed one turns reward-pending, a loaded one ends and leaves.

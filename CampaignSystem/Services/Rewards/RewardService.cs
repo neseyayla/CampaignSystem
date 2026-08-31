@@ -9,29 +9,23 @@ using Microsoft.Extensions.Options;
 namespace CampaignSystem.Services;
 
 /// <summary>
-/// Decides what each customer earned from a campaign.
+/// Decides what each customer earned from a campaign — the live preview, the end-of-campaign
+/// calculation, and the summaries and breakdown the screens read.
 ///
-/// Works against the context directly rather than the repository: the criteria live in
-/// four junction tables, the transactions have to be grouped and summed, and the whole
-/// result has to be written in one transaction. None of that fits behind IRepository.
+/// Works against the context directly rather than the repository: the results are grouped,
+/// summed and written in one transaction, none of which fits behind IRepository.
 ///
-/// The rule that decides which transactions count is written once, in
-/// <see cref="QualifyingTransactions"/>, and used by both the preview and the batch. If it
-/// were written twice, the figure shown to the customer during the campaign and the points
-/// actually granted at the end would eventually disagree.
+/// The rule that decides which transactions count lives once in
+/// <see cref="IRewardCalculator"/>, shared with the batch, so the figure shown to the customer
+/// during the campaign and the points actually granted at the end cannot drift apart.
 /// </summary>
 public class RewardService(
     CampaignDbContext context,
+    IRewardCalculator calculator,
     IOptions<RewardCalculationOptions> options,
     ILogger<RewardService> logger) : IRewardService
 {
     private int DaysAfterCampaignEnd => options.Value.DaysAfterCampaignEnd;
-
-    /// <summary>
-    /// Transaction code that marks a row as a spend of campaign points. The unused-points
-    /// clawback sums these to find what a card earned but never redeemed.
-    /// </summary>
-    private const string RedemptionTransactionCode = "PS";
 
     public async Task<ServiceResult<RewardPreviewDto>> PreviewAsync(
         int campaignId,
@@ -51,10 +45,10 @@ public class RewardService(
             return ServiceResult<RewardPreviewDto>.Invalid($"Unknown or inactive customer id: {customerId}.");
         }
 
-        var qualifying = (await QualifyingTransactions(campaign, cancellationToken))
+        var qualifying = (await calculator.QualifyingTransactions(campaign, cancellationToken))
             .Where(t => t.CustomerId == customerId);
 
-        var groups = Group(qualifying, campaign);
+        var groups = calculator.Group(qualifying, campaign);
 
         var preview = new RewardPreviewDto
         {
@@ -63,7 +57,7 @@ public class RewardService(
             Lines = groups.Select(g =>
             {
                 var earned = g.Count * (campaign.RewardPoint ?? 0m);
-                var granted = ApplyCap(earned, campaign.MaxRewardAmount);
+                var granted = calculator.ApplyCap(earned, campaign.MaxRewardAmount);
 
                 return new RewardPreviewLineDto
                 {
@@ -119,10 +113,10 @@ public class RewardService(
                 "This campaign has already been evaluated. Recalculating would rewrite rewards that customers have been given.");
         }
 
-        var qualifying = await QualifyingTransactions(campaign, cancellationToken);
+        var qualifying = await calculator.QualifyingTransactions(campaign, cancellationToken);
         var qualifyingCount = qualifying.Count;
 
-        var groups = Group(qualifying, campaign);
+        var groups = calculator.Group(qualifying, campaign);
 
         var now = DateTime.Now;
 
@@ -132,7 +126,7 @@ public class RewardService(
             CustomerId = g.CustomerId,
             CardId = g.CardId,
             QualifyingCount = g.Count,
-            RewardPoint = ApplyCap(g.Count * (campaign.RewardPoint ?? 0m), campaign.MaxRewardAmount),
+            RewardPoint = calculator.ApplyCap(g.Count * (campaign.RewardPoint ?? 0m), campaign.MaxRewardAmount),
             RewardDate = now
         }).ToList();
 
@@ -272,7 +266,7 @@ public class RewardService(
         {
             if (campaignsById.TryGetValue(line.CampaignId, out var campaign))
             {
-                line.QualifyingCount = (await QualifyingTransactions(
+                line.QualifyingCount = (await calculator.QualifyingTransactions(
                     campaign, cancellationToken, includeReversed: true, customerId: customerId)).Count;
             }
         }
@@ -300,7 +294,7 @@ public class RewardService(
         }
 
         // Reversed purchases are kept so refunds can be shown in red alongside the earners.
-        var lines = (await QualifyingTransactions(
+        var lines = (await calculator.QualifyingTransactions(
                 campaign, cancellationToken, includeReversed: true, customerId: customerId))
             .OrderBy(t => t.TransactionDate)
             .ToList();
@@ -372,454 +366,4 @@ public class RewardService(
         };
     }
 
-    public async Task<int> ReconcileReversalsAsync(CancellationToken cancellationToken = default)
-    {
-        // Only refunds the batch has not yet accounted for drive any work. Already-processed
-        // refunds are never re-scanned; a later partial refund arrives as a fresh unprocessed row
-        // and is handled then. The processed flag gates the work, never the maths: the effective
-        // amount below still sums every refund, processed or not.
-        var pendingRefunds = await context.Transactions
-            .Where(r => r.OriginalTransactionId != null && r.ClawbackProcessedAt == null)
-            .ToListAsync(cancellationToken);
-
-        if (pendingRefunds.Count == 0)
-        {
-            return 0;
-        }
-
-        var pendingCustomers = pendingRefunds.Select(r => r.CustomerId).Distinct().ToList();
-
-        var today = DateTime.Now.Date;
-        var now = DateTime.Now;
-
-        // Campaigns that reclaim points, have paid, and paid one of the customers with a new
-        // refund — every other campaign is skipped entirely.
-        var campaigns = await context.Campaigns
-            .Where(c => c.IsActive
-                        && c.Status == CampaignStatus.Ended
-                        && c.RefundClawbackEnabled
-                        && c.Rewards.Any(r => r.RewardType == RewardType.Earn
-                                              && pendingCustomers.Contains(r.CustomerId)))
-            .ToListAsync(cancellationToken);
-
-        var clawbacks = 0;
-
-        foreach (var campaign in campaigns)
-        {
-            var rewards = await context.CampaignRewards
-                .Where(r => r.CampaignId == campaign.Id)
-                .ToListAsync(cancellationToken);
-
-            // The window runs from the day the reward was loaded — every Earn row of a campaign
-            // shares that date. Once it has passed, a refund is settled and the campaign is left
-            // alone. Null days means no limit.
-            var loadDate = rewards
-                .Where(r => r.RewardType == RewardType.Earn)
-                .Max(r => r.RewardDate)
-                .Date;
-
-            if (campaign.RefundClawbackDays is int days && today > loadDate.AddDays(days))
-            {
-                continue;
-            }
-
-            // What each group should be now, with refunded purchases left out.
-            var correct = Group(await QualifyingTransactions(campaign, cancellationToken), campaign)
-                .ToDictionary(
-                    g => (g.CustomerId, g.CardId),
-                    g => (Count: g.Count,
-                          Point: ApplyCap(g.Count * (campaign.RewardPoint ?? 0m), campaign.MaxRewardAmount)));
-
-            // The net of every row so far — the Earn row plus any earlier Clawback rows — per group.
-            var groups = rewards
-                .GroupBy(r => (r.CustomerId, r.CardId))
-                .Select(g => new
-                {
-                    g.Key.CustomerId,
-                    g.Key.CardId,
-                    NetPoint = g.Sum(r => r.RewardPoint),
-                    NetCount = g.Sum(r => r.QualifyingCount)
-                });
-
-            foreach (var g in groups)
-            {
-                var c = correct.GetValueOrDefault((g.CustomerId, g.CardId), (Count: 0, Point: 0m));
-
-                // A reversal can only lower the net. When it has dropped, record the shortfall as
-                // a negative Clawback row rather than editing the Earn row. When it has not, do
-                // nothing — which also makes a second run over the same refunds a no-op.
-                if (g.NetPoint > c.Point)
-                {
-                    context.CampaignRewards.Add(new CampaignReward
-                    {
-                        CampaignId = campaign.Id,
-                        CustomerId = g.CustomerId,
-                        CardId = g.CardId,
-                        RewardType = RewardType.Clawback,
-                        QualifyingCount = c.Count - g.NetCount,   // negative
-                        RewardPoint = c.Point - g.NetPoint,       // negative
-                        RewardDate = now
-                    });
-
-                    clawbacks++;
-                }
-            }
-        }
-
-        // Every refund seen this run is now accounted for. Marking them keeps the next run from
-        // re-scanning them; a purchase's later refunds arrive as new unprocessed rows.
-        foreach (var refund in pendingRefunds)
-        {
-            refund.ClawbackProcessedAt = now;
-        }
-
-        await context.SaveChangesAsync(cancellationToken);
-
-        if (clawbacks > 0)
-        {
-            logger.LogInformation(
-                "Refund clawback: wrote {Clawbacks} clawback rows across {Campaigns} campaigns " +
-                "from {Refunds} new refunds.",
-                clawbacks, campaigns.Count, pendingRefunds.Count);
-        }
-
-        return clawbacks;
-    }
-
-    public async Task<int> ReclaimUnusedPointsAsync(CancellationToken cancellationToken = default)
-    {
-        var today = DateTime.Now.Date;
-        var now = DateTime.Now;
-
-        // Ended campaigns with the rule on that have not been swept yet. Once a campaign is
-        // processed here it is never looked at again — ProcessedAt is what makes this a
-        // one-time sweep rather than a recheck like ReconcileReversalsAsync above.
-        var campaigns = await context.Campaigns
-            .Include(c => c.ClawbackExemptProducts)
-            .Where(c => c.IsActive
-                        && c.Status == CampaignStatus.Ended
-                        && c.UnusedPointsClawbackEnabled
-                        && c.UnusedPointsClawbackProcessedAt == null)
-            .ToListAsync(cancellationToken);
-
-        var reclaimed = 0;
-
-        foreach (var campaign in campaigns)
-        {
-            var rewards = await context.CampaignRewards
-                .Where(r => r.CampaignId == campaign.Id)
-                .ToListAsync(cancellationToken);
-
-            var earnRows = rewards.Where(r => r.RewardType == RewardType.Earn).ToList();
-
-            if (earnRows.Count == 0)
-            {
-                // Nobody qualified when the batch ran — nothing to reclaim, and nothing will
-                // ever change that, so this campaign is done.
-                campaign.UnusedPointsClawbackProcessedAt = now;
-                continue;
-            }
-
-            // The window runs from the day the reward was loaded — every Earn row of a
-            // campaign shares that date, the same rule ReconcileReversalsAsync uses above.
-            var loadDate = earnRows.Max(r => r.RewardDate).Date;
-            var deadline = loadDate.AddDays(campaign.UnusedPointsClawbackDays!.Value);
-
-            if (today < deadline)
-            {
-                // Window still open — leave ProcessedAt null so a later run picks this up.
-                continue;
-            }
-
-            var exemptProductIds = campaign.ClawbackExemptProducts.Select(x => x.ProductId).ToHashSet();
-
-            // Net balance per group (customer, or customer+card for a card based campaign),
-            // the same rollup ReconcileReversalsAsync uses to find what a group currently holds.
-            var groups = rewards
-                .GroupBy(r => (r.CustomerId, r.CardId))
-                .Select(g => new { g.Key.CustomerId, g.Key.CardId, NetPoint = g.Sum(r => r.RewardPoint) })
-                .Where(g => g.NetPoint > 0)
-                .ToList();
-
-            // Card based rewards carry the specific card; exemption is checked against that
-            // card's product. Customer based rewards pool every card (CardId is null), so
-            // there is no single card to check — a customer is exempt there if any one of
-            // their cards is on an exempt product, which is the only reading that makes sense
-            // once the reward is no longer tied to one card.
-            var cardIds = groups.Where(g => g.CardId != null).Select(g => g.CardId!.Value).Distinct().ToList();
-
-            var cardProducts = await context.Cards
-                .Where(c => cardIds.Contains(c.Id))
-                .Select(c => new { c.Id, c.ProductId })
-                .ToDictionaryAsync(c => c.Id, c => c.ProductId, cancellationToken);
-
-            var customerIds = groups.Select(g => g.CustomerId).Distinct().ToList();
-
-            HashSet<int> customerHasExemptCard = exemptProductIds.Count == 0
-                ? []
-                : (await context.Cards
-                    .Where(c => customerIds.Contains(c.CustomerId) && exemptProductIds.Contains(c.ProductId))
-                    .Select(c => c.CustomerId)
-                    .Distinct()
-                    .ToListAsync(cancellationToken))
-                .ToHashSet();
-
-            // Points spent show up on TRANSACTION as rows with the "PS" code. A transaction
-            // carries no campaign link, so redemption is matched by card rather than by
-            // campaign: a card based group nets its own card's PS spend; a customer based
-            // group (CardId null, every card pooled) nets the PS spend of all the customer's
-            // cards — the same reading the exemption check above uses. Only spending dated
-            // from the campaign's end through now counts.
-            var psSpend = await context.Transactions
-                .AsNoTracking()
-                .Where(t => t.TransactionCode.Code == RedemptionTransactionCode
-                            && t.TransactionDate >= campaign.EndDate
-                            && t.TransactionDate <= now
-                            && customerIds.Contains(t.CustomerId))
-                .Select(t => new { t.CustomerId, t.CardId, t.Amount })
-                .ToListAsync(cancellationToken);
-
-            var redeemedByCard = psSpend
-                .GroupBy(t => t.CardId)
-                .ToDictionary(g => g.Key, g => g.Sum(t => t.Amount));
-
-            var redeemedByCustomer = psSpend
-                .GroupBy(t => t.CustomerId)
-                .ToDictionary(g => g.Key, g => g.Sum(t => t.Amount));
-
-            foreach (var g in groups)
-            {
-                var exempt = g.CardId is int cardId
-                    ? cardProducts.TryGetValue(cardId, out var productId) && exemptProductIds.Contains(productId)
-                    : customerHasExemptCard.Contains(g.CustomerId);
-
-                if (exempt)
-                {
-                    continue;
-                }
-
-                var redeemed = g.CardId is int redeemedCardId
-                    ? redeemedByCard.GetValueOrDefault(redeemedCardId, 0m)
-                    : redeemedByCustomer.GetValueOrDefault(g.CustomerId, 0m);
-
-                var unused = g.NetPoint - redeemed;
-
-                if (unused > 0)
-                {
-                    context.CampaignRewards.Add(new CampaignReward
-                    {
-                        CampaignId = campaign.Id,
-                        CustomerId = g.CustomerId,
-                        CardId = g.CardId,
-                        RewardType = RewardType.UnusedPointsClawback,
-                        QualifyingCount = 0,
-                        RewardPoint = -unused,
-                        RewardDate = now
-                    });
-
-                    reclaimed++;
-                }
-            }
-
-            campaign.UnusedPointsClawbackProcessedAt = now;
-        }
-
-        await context.SaveChangesAsync(cancellationToken);
-
-        return reclaimed;
-    }
-
-    /// <summary>
-    /// The transactions that meet every one of the campaign's conditions.
-    ///
-    /// A criteria table with no rows for the campaign is not a filter that matches nothing —
-    /// it means the campaign places no restriction on that dimension. Each criterion is
-    /// therefore only applied when the campaign actually names something.
-    /// </summary>
-    private async Task<List<Transaction>> QualifyingTransactions(
-        Campaign campaign,
-        CancellationToken cancellationToken,
-        bool includeReversed = false,
-        int? customerId = null)
-    {
-        var segmentIds = await context.CampaignSegments
-            .Where(x => x.CampaignId == campaign.Id).Select(x => x.SegmentId).ToListAsync(cancellationToken);
-
-        var productIds = await context.CampaignProducts
-            .Where(x => x.CampaignId == campaign.Id).Select(x => x.ProductId).ToListAsync(cancellationToken);
-
-        var merchantIds = await context.CampaignMerchants
-            .Where(x => x.CampaignId == campaign.Id).Select(x => x.MerchantId).ToListAsync(cancellationToken);
-
-        var transactionCodeIds = await context.CampaignTransactionCodes
-            .Where(x => x.CampaignId == campaign.Id).Select(x => x.TransactionCodeId).ToListAsync(cancellationToken);
-
-        // Capped at now as well as at the campaign's end: a transaction dated in the future
-        // has not happened yet, so the live preview must not pay on it. The batch runs after a
-        // campaign closes, when every transaction in the window is already in the past, so this
-        // cap only ever trims the preview — never the settled figure.
-        var now = DateTime.Now;
-
-        var query = context.Transactions
-            .AsNoTracking()
-            .Where(t => t.TransactionDate >= campaign.StartDate
-                     && t.TransactionDate <= campaign.EndDate
-                     && t.TransactionDate <= now
-                     // A refund row (the negative İade transaction) is never a purchase and
-                     // never earns; only the original it reverses is ever in scope.
-                     && t.OriginalTransactionId == null);
-
-        // Scoped to one customer when the caller only needs theirs — the customer breakdown and
-        // the "N işlem" figure on the summary — so those do not load every customer's spending.
-        if (customerId is not null)
-        {
-            query = query.Where(t => t.CustomerId == customerId.Value);
-        }
-
-        if (includeReversed)
-        {
-            // The breakdown keeps every criteria-matching purchase (refunded ones are shown
-            // apart), so it tests the original amount and never drops a refunded row here.
-            if (campaign.MinimumAmount is not null)
-            {
-                query = query.Where(t => t.Amount >= campaign.MinimumAmount);
-            }
-
-            if (campaign.MaximumAmount is not null)
-            {
-                query = query.Where(t => t.Amount <= campaign.MaximumAmount);
-            }
-        }
-        else
-        {
-            // Maximum is tested on the original amount: a purchase too large to qualify is not
-            // rescued by a partial refund.
-            if (campaign.MaximumAmount is not null)
-            {
-                query = query.Where(t => t.Amount <= campaign.MaximumAmount);
-            }
-
-            // Minimum, and being non-zero, are tested on the amount net of refunds. A partial
-            // refund drops the purchase only when the remainder falls below the minimum; a full
-            // refund takes it to zero and out. "Refunded" is derived from the refund rows here,
-            // not a stored flag.
-            query = query.Where(t =>
-                t.Amount + (context.Transactions
-                    .Where(r => r.OriginalTransactionId == t.Id)
-                    .Sum(r => (decimal?)r.Amount) ?? 0m) > 0m);
-
-            if (campaign.MinimumAmount is not null)
-            {
-                query = query.Where(t =>
-                    t.Amount + (context.Transactions
-                        .Where(r => r.OriginalTransactionId == t.Id)
-                        .Sum(r => (decimal?)r.Amount) ?? 0m) >= campaign.MinimumAmount);
-            }
-        }
-
-        if (merchantIds.Count > 0)
-        {
-            query = query.Where(t => t.MerchantId != null && merchantIds.Contains(t.MerchantId.Value));
-        }
-
-        if (transactionCodeIds.Count > 0)
-        {
-            query = query.Where(t => transactionCodeIds.Contains(t.TransactionCodeId));
-        }
-
-        if (productIds.Count > 0)
-        {
-            query = query.Where(t => productIds.Contains(t.Card.ProductId));
-        }
-
-        if (segmentIds.Count > 0)
-        {
-            query = query.Where(t =>
-                t.Customer.SegmentId != null && segmentIds.Contains(t.Customer.SegmentId.Value));
-        }
-
-        // The demographic filters follow the same rule as the criteria tables: a campaign
-        // that says nothing about gender or card type places no restriction on it.
-        //
-        // A customer whose gender was never recorded, or a card with no type, is excluded
-        // once the campaign narrows on that field — an unknown value cannot be shown to
-        // match, and paying on a guess is worse than not paying.
-        if (campaign.Gender is not null)
-        {
-            query = query.Where(t => t.Customer.Gender == campaign.Gender);
-        }
-
-        if (campaign.CardType is not null)
-        {
-            query = query.Where(t => t.Card.CardType == campaign.CardType);
-        }
-
-        // Enrollment campaigns reach only the customers who signed up, and only through the
-        // level they signed up at: a card level enrollment covers that one card, a customer
-        // level enrollment covers all of them.
-        if (campaign.CampaignType == CampaignType.EnrollmentRequired)
-        {
-            var enrolments = await context.CampaignParticipations
-                .Where(p => p.CampaignId == campaign.Id && p.Status == ParticipationStatus.Active)
-                .Select(p => new { p.CustomerId, p.CardId, p.ParticipationDate })
-                .ToListAsync(cancellationToken);
-
-            // Keyed by the level the customer signed up at — one card, or every card at
-            // customer level — and by the earliest active enrollment date, so re-joining
-            // never moves the start forward.
-            var customerLevelFrom = enrolments
-                .Where(e => e.CardId == null)
-                .GroupBy(e => e.CustomerId)
-                .ToDictionary(g => g.Key, g => g.Min(e => e.ParticipationDate));
-
-            var cardLevelFrom = enrolments
-                .Where(e => e.CardId != null)
-                .GroupBy(e => e.CardId!.Value)
-                .ToDictionary(g => g.Key, g => g.Min(e => e.ParticipationDate));
-
-            // Set on the campaign definition screen: whether a customer only earns from the
-            // day they joined, or — having joined at all — earns on everything in the
-            // campaign's window. The query above already bounds every candidate to the
-            // campaign's date range, so "from the campaign period" only has to stop treating
-            // the join date itself as a cutoff.
-            Func<DateTime, DateTime> cutoff = campaign.EnrollmentBasis == EnrollmentBasis.CampaignPeriod
-                ? joinedOn => campaign.StartDate
-                : joinedOn => joinedOn;
-
-            // The date cut is per enrollment, so the membership test moves in memory: EF cannot
-            // translate "is this transaction after this particular customer's join date".
-            var candidates = await query.ToListAsync(cancellationToken);
-
-            return candidates
-                .Where(t =>
-                    (customerLevelFrom.TryGetValue(t.CustomerId, out var customerFrom)
-                        && t.TransactionDate >= cutoff(customerFrom))
-                    || (cardLevelFrom.TryGetValue(t.CardId, out var cardFrom)
-                        && t.TransactionDate >= cutoff(cardFrom)))
-                .ToList();
-        }
-
-        return await query.ToListAsync(cancellationToken);
-    }
-
-    /// <summary>
-    /// Groups the qualifying transactions at the level the campaign accumulates: one group
-    /// per card, or one per customer with every card pooled.
-    /// </summary>
-    private static List<RewardGroup> Group(IEnumerable<Transaction> transactions, Campaign campaign)
-        => campaign.AccumulatesPerCard
-            ? transactions
-                .GroupBy(t => new { t.CustomerId, t.CardId })
-                .Select(g => new RewardGroup(g.Key.CustomerId, g.Key.CardId, g.Count()))
-                .ToList()
-            : transactions
-                .GroupBy(t => t.CustomerId)
-                .Select(g => new RewardGroup(g.Key, null, g.Count()))
-                .ToList();
-
-    private static decimal ApplyCap(decimal earned, decimal? cap)
-        => cap is null ? earned : Math.Min(earned, cap.Value);
-
-    /// <summary>One reward's worth of transactions. CardId is null at customer level.</summary>
-    private record RewardGroup(int CustomerId, int? CardId, int Count);
 }
