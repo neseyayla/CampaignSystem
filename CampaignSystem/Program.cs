@@ -165,11 +165,15 @@ builder.Services.AddSingleton<LookupCache>();
 builder.Services.AddSingleton<CampaignCatalogCache>();
 
 builder.Services.AddScoped<ICampaignService, CampaignService>();
+builder.Services.AddScoped<ICampaignCriteriaService, CampaignCriteriaService>();
+builder.Services.AddScoped<ICampaignConditionService, CampaignConditionService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IParticipationService, ParticipationService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<IRewardCalculator, RewardCalculator>();
 builder.Services.AddScoped<IRewardService, RewardService>();
+builder.Services.AddScoped<IRewardReconciliationService, RewardReconciliationService>();
 builder.Services.AddScoped<IDailyBatchService, DailyBatchService>();
 builder.Services.AddScoped<ISegmentService, SegmentService>();
 builder.Services.AddScoped<IProductService, ProductService>();
