@@ -1,9 +1,10 @@
 """
-Bağımsız istatistiksel analiz (independent_ranking.json) ile uygulamanın öneri motoru
-çıktısını (app_ranking_all.json) karşılaştırır ve karsilastirma-raporu.md yazar.
+DS1 için (seed 20260901): bağımsız istatistiksel analiz (independent_ranking_20260901.json)
+ile uygulamanın öneri motoru çıktısını (app_ranking_20260901.json) karşılaştırır ve
+karsilastirma-raporu.md yazar.
 
-Önce generate_and_analyze.py çalıştırılmış, veri seti taze bir DB'ye yüklenmiş ve
-uygulama o DB'ye karşı çağrılıp app_ranking_all.json kaydedilmiş olmalı.
+Önce `generate_and_analyze.py 20260901` çalıştırılmış, veri seti taze bir DB'ye yüklenmiş ve
+uygulama o DB'ye karşı çağrılıp app_ranking_20260901.json kaydedilmiş olmalı.
 """
 
 from __future__ import annotations
@@ -24,8 +25,9 @@ except Exception:
 OUT = os.path.join(os.path.dirname(__file__), "_out")
 REPORT = os.path.join(os.path.dirname(__file__), "karsilastirma-raporu.md")
 
-ind = pd.DataFrame(json.load(open(os.path.join(OUT, "independent_ranking.json"), encoding="utf-8")))
-app_raw = json.load(open(os.path.join(OUT, "app_ranking_all.json"), encoding="utf-8"))
+SEED = "20260901"
+ind = pd.DataFrame(json.load(open(os.path.join(OUT, f"independent_ranking_{SEED}.json"), encoding="utf-8")))
+app_raw = json.load(open(os.path.join(OUT, f"app_ranking_{SEED}.json"), encoding="utf-8"))
 
 app = pd.DataFrame([{
     "name": x["merchantCategoryName"],
