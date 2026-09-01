@@ -183,6 +183,7 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IMerchantService, MerchantService>();
 builder.Services.AddScoped<ITransactionCodeService, TransactionCodeService>();
 builder.Services.AddScoped<ICustomerCampaignService, CustomerCampaignService>();
+builder.Services.AddScoped<ICampaignRecommendationService, CampaignRecommendationService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
 
