@@ -360,3 +360,81 @@ label.check {
 label.check input {
   width: auto;
 }
+
+/* Inline campaign-idea panel, shown on a new campaign only. */
+.suggestions {
+  border: 1px solid #e6e8ec;
+  border-radius: 3px;
+  margin-bottom: 1.5rem;
+  background: #fffdf5;
+}
+.suggestions-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  background: #fffbe8;
+  border: none;
+  border-bottom: 1px solid #e6e8ec;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: #14181f;
+  cursor: pointer;
+}
+.suggestions.collapsed .suggestions-head {
+  border-bottom: none;
+}
+.suggestions-head small {
+  font-weight: 400;
+  color: #7a5200;
+}
+.suggestions-head .chevron {
+  margin-left: auto;
+  color: #7a5200;
+}
+.suggestions ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.suggestions li {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid #eef0f3;
+}
+.suggestions li:last-child {
+  border-bottom: none;
+}
+.suggestions .s-main {
+  display: flex;
+  gap: 0.7rem;
+  flex: 1;
+}
+.suggestions .s-rank {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffcc00;
+  color: #14181f;
+  font-weight: 700;
+  font-size: 0.78rem;
+  border-radius: 3px;
+}
+.suggestions .s-main p {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: #5b616b;
+}
+.suggestions-empty {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.82rem;
+  color: #5b616b;
+}

@@ -5,6 +5,7 @@ import { EMPTY, Subject, catchError, debounceTime, forkJoin, of, switchMap } fro
 
 import { CampaignService } from '../services/campaign.service';
 import { LookupService } from '../services/lookup.service';
+import { RecommendationService } from '../services/recommendation.service';
 import {
   Campaign,
   CampaignCondition,
@@ -18,7 +19,7 @@ import {
   Gender
 } from '../models/campaign';
 import { LookupOption } from '../models/lookup';
-import { CampaignSuggestionDraft } from '../models/recommendation';
+import { CampaignSuggestion, CampaignSuggestionDraft } from '../models/recommendation';
 import { CriteriaPicker } from './criteria-picker';
 
 /**
@@ -38,6 +39,7 @@ export class CampaignForm {
   private readonly formBuilder = inject(FormBuilder);
   private readonly campaignService = inject(CampaignService);
   private readonly lookupService = inject(LookupService);
+  private readonly recommendationService = inject(RecommendationService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -63,6 +65,13 @@ export class CampaignForm {
   protected readonly conditions = signal<CampaignCondition[]>([]);
   protected readonly conditionsSaving = signal(false);
   protected readonly conditionsNotice = signal<string | null>(null);
+
+  // Campaign ideas from the recommendation engine, loaded every time this screen opens for a
+  // NEW campaign. The engine computes them live per request, so what shows here is always the
+  // current picture — it is not a batch job or a manual trigger.
+  protected readonly suggestions = signal<CampaignSuggestion[]>([]);
+  protected readonly suggestionsLoading = signal(false);
+  protected readonly suggestionsOpen = signal(true);
 
   /** Fires whenever something that feeds the "new campaign" preview changes. See ctor. */
   private readonly conditionsPreviewTrigger = new Subject<void>();
@@ -147,8 +156,10 @@ export class CampaignForm {
 
       if (id) {
         this.load(Number(id));
+        this.suggestions.set([]);
       } else {
         this.clear();
+        this.loadSuggestions();
       }
     });
 
@@ -367,18 +378,53 @@ export class CampaignForm {
   }
 
   /**
-   * When the screen was opened from Kampanya Önerileri, its "create" button passes the
-   * suggestion's draft as router state. Fill in the fields the engine had an opinion on and
-   * leave the rest for the operator. Reading history.state means a plain visit to
-   * /campaigns/new is untouched.
+   * When the screen was opened from the Kampanya Önerileri screen, its "create" button
+   * passes the suggestion's draft as router state. Reading history.state means a plain visit
+   * to /campaigns/new is untouched.
    */
   private applySuggestionDraft(): void {
     const draft = (history.state as { campaignDraft?: CampaignSuggestionDraft } | null)?.campaignDraft;
 
-    if (!draft) {
-      return;
+    if (draft) {
+      this.applyDraft(draft);
     }
+  }
 
+  /**
+   * Loads the current campaign ideas for the inline panel. Runs every time the screen opens
+   * for a new campaign — the engine is a live per-request calculation, so this is cheap and
+   * always current. A failure just hides the panel; it must never block defining a campaign.
+   */
+  private loadSuggestions(): void {
+    this.suggestionsLoading.set(true);
+    this.suggestionsOpen.set(true);
+
+    this.recommendationService.getSuggestions({ maxSuggestions: 6 }).subscribe({
+      next: list => {
+        this.suggestions.set(list);
+        this.suggestionsLoading.set(false);
+      },
+      error: () => {
+        this.suggestions.set([]);
+        this.suggestionsLoading.set(false);
+      }
+    });
+  }
+
+  /** "Uygula" on an inline suggestion — same prefill as arriving from the other screen. */
+  protected applySuggestion(suggestion: CampaignSuggestion): void {
+    this.applyDraft(suggestion.draft);
+  }
+
+  protected toggleSuggestions(): void {
+    this.suggestionsOpen.update(open => !open);
+  }
+
+  /**
+   * Fills in the fields the engine has an opinion on and leaves the rest for the operator.
+   * Shared by the router-state path and the inline "Uygula" button.
+   */
+  private applyDraft(draft: CampaignSuggestionDraft): void {
     this.form.patchValue({
       name: draft.name ?? '',
       startDate: draft.startDate ? draft.startDate.slice(0, 10) : '',
