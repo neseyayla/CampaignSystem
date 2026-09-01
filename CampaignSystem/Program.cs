@@ -111,6 +111,9 @@ builder.Services.Configure<RewardCalculationOptions>(
 builder.Services.Configure<DailyBatchOptions>(
     builder.Configuration.GetSection(DailyBatchOptions.SectionName));
 
+builder.Services.Configure<RecommendationOptions>(
+    builder.Configuration.GetSection(RecommendationOptions.SectionName));
+
 builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection(JwtOptions.SectionName));
 
