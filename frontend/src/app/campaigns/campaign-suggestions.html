@@ -1,0 +1,73 @@
+<header>
+  <h1>Kampanya Önerileri</h1>
+  <div class="actions">
+    <button type="button" class="secondary" (click)="toggleCovered()" [disabled]="loading()">
+      {{ includeCovered() ? 'Kapsananları gizle' : 'Kapsananları da göster' }}
+    </button>
+    <button type="button" class="secondary" (click)="load()" [disabled]="loading()">Yenile</button>
+  </div>
+</header>
+
+<p class="lead">
+  Son dönem kart harcamasına, harcama trendine ve önümüzdeki sezona göre kampanya
+  tanımlanmaya değer merchant kategorileri. Sıralama bir öneridir; kararı operatör verir.
+</p>
+
+@if (loading()) {
+  <p class="state">Yükleniyor…</p>
+} @else if (error()) {
+  <p class="state error">{{ error() }}</p>
+} @else if (suggestions().length === 0) {
+  <p class="state">Şu an öne çıkan bir kategori yok.</p>
+} @else {
+  <ul class="suggestions">
+    @for (s of suggestions(); track s.merchantCategoryId) {
+      <li class="card">
+        <div class="rank">{{ s.rank }}</div>
+
+        <div class="body">
+          <div class="title-row">
+            <h2>{{ s.merchantCategoryName }}</h2>
+            @if (s.reason.isCoverageGap) {
+              <span class="tag gap">Kampanya yok</span>
+            } @else {
+              <span class="tag covered">{{ s.reason.coveringCampaignIds.length }} kampanya kapsıyor</span>
+            }
+          </div>
+
+          <p class="headline">{{ s.headline }}</p>
+
+          <dl class="facts">
+            <div>
+              <dt>Harcama</dt>
+              <dd class="numeric">{{ s.reason.totalSpend | number: '1.0-0' }} ₺</dd>
+            </div>
+            <div>
+              <dt>İşlem</dt>
+              <dd class="numeric">{{ s.reason.transactionCount | number }}</dd>
+            </div>
+            <div>
+              <dt>Trend</dt>
+              <dd class="numeric">{{ trendPercent(s.reason.trendRatio) }}</dd>
+            </div>
+            <div>
+              <dt>Sezon</dt>
+              <dd class="numeric">{{ s.reason.seasonalWeight | number: '1.2-2' }}×</dd>
+            </div>
+            <div>
+              <dt>Skor</dt>
+              <dd class="numeric">{{ s.score | number: '1.2-2' }}</dd>
+            </div>
+          </dl>
+
+          <p class="season-months">Sezon ayları: {{ months(s.reason.seasonalMonths) }}</p>
+        </div>
+
+        <div class="action">
+          <button type="button" (click)="createFrom(s)">Bu öneriyle kampanya oluştur</button>
+          <span class="hint">Önerilen puan: {{ s.draft.suggestedRewardPoint | number }}</span>
+        </div>
+      </li>
+    }
+  </ul>
+}

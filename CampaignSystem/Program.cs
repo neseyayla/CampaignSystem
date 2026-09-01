@@ -111,6 +111,9 @@ builder.Services.Configure<RewardCalculationOptions>(
 builder.Services.Configure<DailyBatchOptions>(
     builder.Configuration.GetSection(DailyBatchOptions.SectionName));
 
+builder.Services.Configure<RecommendationOptions>(
+    builder.Configuration.GetSection(RecommendationOptions.SectionName));
+
 builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection(JwtOptions.SectionName));
 
@@ -180,6 +183,7 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IMerchantService, MerchantService>();
 builder.Services.AddScoped<ITransactionCodeService, TransactionCodeService>();
 builder.Services.AddScoped<ICustomerCampaignService, CustomerCampaignService>();
+builder.Services.AddScoped<ICampaignRecommendationService, CampaignRecommendationService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
 

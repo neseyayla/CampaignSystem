@@ -22,6 +22,7 @@ public class CampaignDbContext : DbContext
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Merchant> Merchants => Set<Merchant>();
     public DbSet<MerchantCategory> MerchantCategories => Set<MerchantCategory>();
+    public DbSet<SeasonalPattern> SeasonalPatterns => Set<SeasonalPattern>();
     public DbSet<TransactionCode> TransactionCodes => Set<TransactionCode>();
 
     // Customer and card

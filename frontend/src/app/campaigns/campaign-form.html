@@ -8,6 +8,41 @@
   }
 </header>
 
+@if (!editing()) {
+  <section class="suggestions" [class.collapsed]="!suggestionsOpen()">
+    <button type="button" class="suggestions-head" (click)="toggleSuggestions()">
+      <span>Kampanya önerileri</span>
+      @if (suggestionsLoading()) {
+        <small>yükleniyor…</small>
+      } @else {
+        <small>{{ suggestions().length }} öneri · son harcamalara göre</small>
+      }
+      <span class="chevron">{{ suggestionsOpen() ? '▾' : '▸' }}</span>
+    </button>
+
+    @if (suggestionsOpen() && !suggestionsLoading()) {
+      @if (suggestions().length === 0) {
+        <p class="suggestions-empty">Şu an öne çıkan bir kategori yok.</p>
+      } @else {
+        <ul>
+          @for (s of suggestions(); track s.merchantCategoryId) {
+            <li>
+              <div class="s-main">
+                <span class="s-rank">{{ s.rank }}</span>
+                <div>
+                  <strong>{{ s.merchantCategoryName }}</strong>
+                  <p>{{ s.headline }}</p>
+                </div>
+              </div>
+              <button type="button" class="secondary" (click)="applySuggestion(s)">Uygula</button>
+            </li>
+          }
+        </ul>
+      }
+    }
+  </section>
+}
+
 <form [formGroup]="form" (ngSubmit)="save()">
   <section>
     <h2>Genel</h2>

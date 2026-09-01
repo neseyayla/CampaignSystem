@@ -1,0 +1,2 @@
+# Üretilen çıktılar — reproducible: `python generate_and_analyze.py` ile yeniden oluşur.
+_out/
