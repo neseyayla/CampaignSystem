@@ -48,21 +48,26 @@ uygulama bu veriye karşı çalıştırılıp motorun sırasıyla karşılaştı
    kategoriye göre normalize edildiği için, Elektronik ve Turizm gibi cirosu büyük ama
    trendi düşen kategoriler "önerilir" bölgesinde kalıyor.
 
-**Ayar önerileri (kod değiştirmeden, sadece `appsettings.json` → `Recommendation`).**
-Bu öneriler **üç ayrı veri setinde** (biri elle kurgulanmış, ikisi tamamen rastgele
-yapılandırılmış) ağırlık taramasıyla doğrulandı — bkz. §B.6.
+**Ağırlıklar güncellendi.** Aşağıdaki değerler **üç ayrı veri setinde** (biri elle
+kurgulanmış, ikisi tamamen rastgele yapılandırılmış) ağırlık taramasından çıktı ve
+`appsettings.json` → `Recommendation` ile `RecommendationOptions.cs` varsayılanlarına
+**uygulandı** (bkz. §B.6; gerekçe koddaki yorumlarda da var). Kod (skorlama mantığı)
+değişmedi — yalnız katsayılar.
 
-| Ayar | Şu an | Öneri | Ne kadar sağlam? |
+| Ayar | Eski | **Yeni** | Ne kadar sağlam? |
 |---|--:|--:|---|
 | `TrendWeight` (trend ağırlığı) | 1,5 | **2,0** | **Güçlü.** Her üç veri setinde de her iki ölçütü birden iyileştiriyor — asıl kaldıraç bu. |
 | `SeasonWeight` (sezon önceli ağırlığı) | 1,25 | **1,0** | Orta. Statik öncül tablo cari yıl kırılımını göremediği için ağırlığını düşürmek tutarlı biçimde yardımcı oluyor. |
 | `SpendWeight` (hacim ağırlığı) | 1,0 | **0,85** | Zayıf. Tek veri setinde büyük bir kesinti (→0,65) iyi görünüyordu ama 3 veri setinde bu desteklenmedi; küçük bir düşüş nötr-olumlu. |
-| `MinimumSpend` (alt eşik) | 1.000 | **5.000–10.000** | Skordan bağımsız; küçük/gürültülü kategorileri baştan eler. |
+| `MinimumSpend` (alt eşik) | 1.000 | **7.500** | Skordan bağımsız; küçük/gürültülü kategorileri baştan eler. |
 
 Bu ayarlarla, motorun **enjekte edilen gerçek trendle** uyumu (kırılımlı kategorilerde
 Spearman ρ) 3 veri seti ortalamasında **0,29 → 0,49**'a çıkıyor; elle kurgulanmış veri
 setinde ise **−0,20 → +0,40** — yani motor artık gerçekten büyüyen kategorileri gerçekten
 düşenlerin üstüne koyuyor.
+
+**Uyarı:** bu değerler sentetik veriyle kalibre edildi. Yön sağlam ama kesin sayılar
+canlıda gerçek işlem geçmişiyle tekrar gözden geçirilmeli.
 
 **Durum.** Backend + frontend + testler tamam (65/65 test geçiyor), Docker'da uçtan uca
 çalışıyor. "Gerçek eğitme" (istatistiksel yöntemleri motora taşımak / ML) Faz 2 olarak
@@ -138,13 +143,18 @@ sayılmaz.
 |---|--:|---|
 | `LookbackDays` | 90 | Harcama ve trendin okunduğu geçmiş penceresi. Ortadan ikiye bölünüp trend okunur. |
 | `HorizonDays` | 45 | Önerilen kampanyanın varsayılan süresi. Hangi ayların sezon ağırlığının ortalanacağını belirler. |
-| `MinimumSpend` | 1000 | Bu tutarın altında net harcaması olan kategori elenir. |
+| `MinimumSpend` | 7500 | Bu tutarın altında net harcaması olan kategori elenir. *(1000 → 7500, bkz. §B.6)* |
 | `MaxSuggestions` | 10 | Uç noktanın döndüğü en fazla öneri sayısı. |
-| `SpendWeight` | 1.0 | Normalize edilmiş harcama hacminin skordaki ağırlığı. |
-| `TrendWeight` | 1.5 | Trendin skordaki ağırlığı. |
-| `SeasonWeight` | 1.25 | Sezonsal artışın skordaki ağırlığı. |
+| `SpendWeight` | 0.85 | Normalize edilmiş harcama hacminin skordaki ağırlığı. *(1,0 → 0,85, bkz. §B.6)* |
+| `TrendWeight` | 2.0 | Trendin skordaki ağırlığı. *(1,5 → 2,0, bkz. §B.6)* |
+| `SeasonWeight` | 1.0 | Sezonsal artışın skordaki ağırlığı. *(1,25 → 1,0, bkz. §B.6)* |
 | `CoverageGapBoost` | 1.75 | Hiçbir açık/yaklaşan kampanyanın kapsamadığı kategoriye uygulanan çarpan. |
 | `SuggestedRewardRate` | 0.02 | Kategorinin ortalama işlem tutarının, forma önerilen ödül puanı olarak yansıyan oranı. |
+
+> **Not:** §A.5 (Adım 7e) ve §A.6'daki sayısal örnekler ile §B.4–§B.5'teki karşılaştırma
+> tabloları, ağırlık güncellemesinden **önceki** değerlerle (`SpendWeight 1,0`,
+> `TrendWeight 1,5`, `SeasonWeight 1,25`) ölçülmüştür — çünkü analiz o taban davranışı
+> inceleyip yeni değerlere yol açtı. Değişikliğin etkisi §B.6'da.
 
 ## A.5 Algoritma — koddan adım adım
 
@@ -270,9 +280,9 @@ var score = Math.Max(rawScore, 0.01)
 
 | Terim | Açılım | Anlamı |
 |---|---|---|
-| Harcama | `1,0 × normalisedSpend` | En yoğun kategori 1,0 puan; yarısı kadar harcayan 0,5 |
-| Trend | `1,5 × clamp(trend, −1, 3)` | +%100 büyüyen +1,5; %50 küçülen −0,75 |
-| Sezon | `1,25 × (sezonAğırlığı − 1)` | Ağırlık 1,4 → +0,5; 0,8 → −0,25; 1,0 → 0 |
+| Harcama | `Ws × normalisedSpend` (Ws = 0,85) | En yoğun kategori 0,85 puan; yarısı kadar harcayan 0,43 |
+| Trend | `Wt × clamp(trend, −1, 3)` (Wt = 2,0) | +%100 büyüyen +2,0; %50 küçülen −1,0 |
+| Sezon | `Wse × (sezonAğırlığı − 1)` (Wse = 1,0) | Ağırlık 1,4 → +0,4; 0,8 → −0,2; 1,0 → 0 |
 
 `Math.Max(raw, 0,01)`: üç terim de negatife giderse skoru küçük pozitifte tutar (zayıf
 kategoriler dipte toplanır). `CoverageGapBoost` (1,75): kapsanmayan kategori, aynı ham
@@ -300,8 +310,10 @@ dalgalanmalar metne girmez. Örnek çıktı:
 
 ## A.6 Sayısal örnek
 
-Bölüm B'nin veri setiyle (bugün 1 Eylül, varsayılan ayarlar). Bu veri setinde en yüksek
-net harcama **Turizm**'de (1.542.283 ₺) → `maxNetSpend` bu.
+Bölüm B'nin DS1 veri setiyle (bugün 1 Eylül). **Ağırlık güncellemesinden önceki**
+değerlerle (`SpendWeight 1,0`, `TrendWeight 1,5`, `SeasonWeight 1,25`) — bu sayılar
+uygulamanın o sırada döndürdüğü gerçek çıktı; yeni ağırlıkların etkisi §B.6'da. Bu veri
+setinde en yüksek net harcama **Turizm**'de (1.542.283 ₺) → `maxNetSpend` bu.
 
 ### Kırtasiye — skor 4,32, sıra #1
 
@@ -423,6 +435,9 @@ ağırlıklar 0,9·harcama + 1,7·trend + 1,1·sezon; kapsam boşluğu → ×1,7
 endekse dayandırır.
 
 ## B.4 Sonuç — sıralama uyumu
+
+*(Bu bölümdeki motor çıktısı ve tablolar, ağırlık güncellemesinden önceki değerlerle —
+`1,0 / 1,5 / 1,25` — alındı. Analiz bu taban davranıştan yeni ağırlıklara götürdü; §B.6.)*
 
 Karşılaştırma **kapsam boşluğu olan 19 kategori** üzerinden (kapsanan 3'ü ikisi de eler).
 
@@ -550,9 +565,13 @@ veriyor (Spearman ρ 0,995–0,999) — yani tarama gerçek motoru temsil ediyor
 
 | Ağırlıklar (Ws, Wt, Wse) | rho_comp (DS1/DS2/DS3, ort.) | rho_truth (DS1/DS2/DS3, ort.) |
 |---|--:|--:|
-| **MEVCUT** (1,0 · 1,5 · 1,25) | 0,87 / 0,69 / 0,82 (**0,79**) | −0,20 / 0,37 / 0,70 (**0,29**) |
-| **ÖNERİLEN** (0,85 · 2,0 · 1,0) | 0,90 / 0,78 / 0,76 (**0,81**) | 0,40 / 0,37 / 0,70 (**0,49**) |
+| ESKİ (1,0 · 1,5 · 1,25) | 0,87 / 0,69 / 0,82 (**0,79**) | −0,20 / 0,37 / 0,70 (**0,29**) |
+| **YENİ — uygulandı** (0,85 · 2,0 · 1,0) | 0,90 / 0,78 / 0,76 (**0,81**) | 0,40 / 0,37 / 0,70 (**0,49**) |
 | Izgaradaki en iyi (1,0 · 2,2 · 1,0) | 0,90 / 0,79 / 0,81 (**0,84**) | 0,40 / 0,43 / 0,70 (**0,51**) |
+
+"Izgaradaki en iyi" `SpendWeight`'i 1,0'da tutuyor; birleşik skoru çok az daha yüksek ama
+`SpendWeight`'i düşürmenin §B.5.3'teki hacim-terimi sorununa da dokunması nedeniyle
+uygulanan değer 0,85 seçildi (fark ihmal edilebilir).
 
 Izgara tablosu (`Ws × Wt`, Wse = 1,0; hücre = 3 veri seti ortalama birleşik skor):
 
@@ -573,9 +592,18 @@ Izgara tablosu (`Ws × Wt`, Wse = 1,0; hücre = 3 veri seti ortalama birleşik s
 3. **Sezon önceli terimi (`SeasonWeight`) fayda-zarar dengesinde hafif zararlı.**
    `Wse = 1,0` hücreleri `Wse = 1,25`'ten biraz daha iyi. Sebep §B.5.4: statik öncül cari
    yıl kırılımını göremiyor (DS3 Eğitim buna canlı örnek).
-4. **Kazanç en çok objektif ölçütte.** Mevcut ağırlıklarla `rho_truth` ortalaması 0,29 —
+4. **Kazanç en çok objektif ölçütte.** Eski ağırlıklarla `rho_truth` ortalaması 0,29 —
    ve DS1'de **−0,20** (motor gerçekten büyüyeni gerçekten düşenin *altına* koyuyor).
-   Önerilen ağırlıklarla ortalama 0,49, DS1'de +0,40.
+   Yeni ağırlıklarla ortalama 0,49, DS1'de +0,40.
+
+### Uygulandı
+
+Bu değerler `CampaignSystem/appsettings.json` → `Recommendation` ile
+`CampaignSystem/Configuration/RecommendationOptions.cs` varsayılanlarına yazıldı; her
+katsayının gerekçesi ilgili dosyalardaki yorumlarda da var. Skorlama mantığı
+(`CampaignRecommendationService.cs`) değişmedi — yalnız katsayılar. `dotnet build` temiz;
+mevcut 6 recommendation testi yeni varsayılanlarla da geçer (skorun mutlak değerine değil,
+sıra/bayrak/alan doğruluğuna bakıyorlar).
 
 **Uyarı:** hâlâ sentetik veri. *Yön* (trend > hacim, statik sezon önceline az güven) üç
 bağımsız rastgele veri setinde sağlam çıktı; kesin değerler canlıda gerçek veriyle
