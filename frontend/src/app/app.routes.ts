@@ -4,6 +4,7 @@ import { authGuard } from './auth-guard';
 import { guestGuard } from './guest-guard';
 import { CampaignForm } from './campaigns/campaign-form';
 import { CampaignList } from './campaigns/campaign-list';
+import { CampaignSuggestions } from './campaigns/campaign-suggestions';
 import { Login } from './login/login';
 
 export const routes: Routes = [
@@ -15,6 +16,14 @@ export const routes: Routes = [
     path: 'campaigns/new',
     component: CampaignForm,
     title: 'Batch Kampanya Tanım',
+    canActivate: [authGuard]
+  },
+
+  // Before campaigns/:id so "suggestions" is not read as an id.
+  {
+    path: 'campaigns/suggestions',
+    component: CampaignSuggestions,
+    title: 'Kampanya Önerileri',
     canActivate: [authGuard]
   },
 
