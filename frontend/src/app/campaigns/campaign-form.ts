@@ -18,6 +18,7 @@ import {
   Gender
 } from '../models/campaign';
 import { LookupOption } from '../models/lookup';
+import { CampaignSuggestionDraft } from '../models/recommendation';
 import { CriteriaPicker } from './criteria-picker';
 
 /**
@@ -361,6 +362,35 @@ export class CampaignForm {
 
     this.conditions.set([]);
     this.conditionsNotice.set(null);
+
+    this.applySuggestionDraft();
+  }
+
+  /**
+   * When the screen was opened from Kampanya Önerileri, its "create" button passes the
+   * suggestion's draft as router state. Fill in the fields the engine had an opinion on and
+   * leave the rest for the operator. Reading history.state means a plain visit to
+   * /campaigns/new is untouched.
+   */
+  private applySuggestionDraft(): void {
+    const draft = (history.state as { campaignDraft?: CampaignSuggestionDraft } | null)?.campaignDraft;
+
+    if (!draft) {
+      return;
+    }
+
+    this.form.patchValue({
+      name: draft.name ?? '',
+      startDate: draft.startDate ? draft.startDate.slice(0, 10) : '',
+      endDate: draft.endDate ? draft.endDate.slice(0, 10) : '',
+      rewardPoint: draft.suggestedRewardPoint ?? null
+    });
+
+    if (draft.merchantIds?.length) {
+      this.selectedMerchants.set([...draft.merchantIds]);
+    }
+
+    this.notice.set('Öneriden dolduruldu — kaydetmeden önce gözden geçirin.');
   }
 
   // Loading and saving -------------------------------------------------------
