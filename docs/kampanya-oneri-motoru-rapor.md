@@ -48,16 +48,21 @@ uygulama bu veriye karşı çalıştırılıp motorun sırasıyla karşılaştı
    kategoriye göre normalize edildiği için, Elektronik ve Turizm gibi cirosu büyük ama
    trendi düşen kategoriler "önerilir" bölgesinde kalıyor.
 
-**En önemli üç öneri (kod değiştirmeden, sadece `appsettings.json`):**
+**Ayar önerileri (kod değiştirmeden, sadece `appsettings.json` → `Recommendation`).**
+Bu öneriler **üç ayrı veri setinde** (biri elle kurgulanmış, ikisi tamamen rastgele
+yapılandırılmış) ağırlık taramasıyla doğrulandı — bkz. §B.6.
 
-| Ayar | Şu an | Öneri |
-|---|--:|--:|
-| `SpendWeight` (hacim ağırlığı) | 1,0 | **0,65** |
-| `TrendWeight` (trend ağırlığı) | 1,5 | **1,9** |
-| `MinimumSpend` (alt eşik) | 1.000 | **5.000–10.000** |
+| Ayar | Şu an | Öneri | Ne kadar sağlam? |
+|---|--:|--:|---|
+| `TrendWeight` (trend ağırlığı) | 1,5 | **2,0** | **Güçlü.** Her üç veri setinde de her iki ölçütü birden iyileştiriyor — asıl kaldıraç bu. |
+| `SeasonWeight` (sezon önceli ağırlığı) | 1,25 | **1,0** | Orta. Statik öncül tablo cari yıl kırılımını göremediği için ağırlığını düşürmek tutarlı biçimde yardımcı oluyor. |
+| `SpendWeight` (hacim ağırlığı) | 1,0 | **0,85** | Zayıf. Tek veri setinde büyük bir kesinti (→0,65) iyi görünüyordu ama 3 veri setinde bu desteklenmedi; küçük bir düşüş nötr-olumlu. |
+| `MinimumSpend` (alt eşik) | 1.000 | **5.000–10.000** | Skordan bağımsız; küçük/gürültülü kategorileri baştan eler. |
 
-Bu ayarlarla motor, bu veri setinde bağımsız istatistiksel sıralamaya belirgin biçimde
-yaklaşıyor.
+Bu ayarlarla, motorun **enjekte edilen gerçek trendle** uyumu (kırılımlı kategorilerde
+Spearman ρ) 3 veri seti ortalamasında **0,29 → 0,49**'a çıkıyor; elle kurgulanmış veri
+setinde ise **−0,20 → +0,40** — yani motor artık gerçekten büyüyen kategorileri gerçekten
+düşenlerin üstüne koyuyor.
 
 **Durum.** Backend + frontend + testler tamam (65/65 test geçiyor), Docker'da uçtan uca
 çalışıyor. "Gerçek eğitme" (istatistiksel yöntemleri motora taşımak / ML) Faz 2 olarak
@@ -357,10 +362,12 @@ bilinen bir veriye ihtiyaç var. Bu yüzden:
    "hangi kategoride kampanya açılmalı" sıralaması çıkardık.
 3. **Uygulamayı bu veriye karşı çalıştırıp** motorun sırasıyla bizim sıramızı karşılaştırdık.
 
-Tüm bunlar `docs/analysis/generate_and_analyze.py` ve `compare.py` içinde, seed `20260901`
-ile **deterministik** ve yeniden üretilebilir (§B.8).
+Tüm bunlar `docs/analysis/generate_and_analyze.py` ve `compare.py` içinde, seed'e bağlı
+**deterministik** ve yeniden üretilebilir (§B.8). Aşağıda §B.2–§B.5 **DS1**'i (elle
+kurgulanmış referans veri seti) anlatır; §B.6 aynı üreteçle `--randomize` bayrağıyla
+üretilen **DS2 ve DS3** ile testi tekrarlar.
 
-## B.2 Sentetik veri seti — "mümkün olduğunca gerçek"
+## B.2 Sentetik veri seti — "mümkün olduğunca gerçek" (DS1)
 
 | Boyut | Değer |
 |---|---|
@@ -510,19 +517,69 @@ trendi tek bir orana indirger, istatistiksel anlamlılık kullanmaz.
   bağımsız kompozit `ln(harcama)` ile hacim avantajını sıkıştırıyor.
 - **Anlamı:** Hızlı büyüyen bir niş bir kampanyayı hak edebilir; motor bunu geç fark ediyor.
 
-## B.6 Ayar önerileri — kod değiştirmeden
+## B.6 Ağırlık önerileri — üç veri setiyle test edildi
 
-`appsettings.json` → `Recommendation`:
+Tek veri setine güvenmemek için **iki veri seti daha** üretildi (DS2, DS3), bu kez kategori
+payları, aylık sezon eğrileri ve yapısal kırılımlar da **rastgele**. Üçünde de aynı boru
+hattı çalıştırıldı; ayrıca motorun skor formülü Python'da birebir taklit edilip
+(`docs/analysis/weight_sweep.py`) ağırlık ızgarası tarandı.
 
-| Ayar | Şu an | Öneri | Gerekçe |
-|---|--:|--:|---|
-| `SpendWeight` | 1,0 | **0,6–0,7** | §B.5.3: hacim terimi büyük düz/düşen kategorileri taşıyor |
-| `TrendWeight` | 1,5 | **1,8–2,0** | Trend, kampanya zamanlaması için hacimden daha bilgilendirici |
-| `SeasonWeight` | 1,25 | 1,1–1,25 | Öncül statik ve bazen yanıltıcı (§B.5.4) — ağırlığını çok artırma |
-| `MinimumSpend` | 1000 | 5.000–10.000 | Çok küçük kategorileri baştan eler, gürültüyü azaltır |
+### Kurulum
 
-`SpendWeight` 1,0 → 0,65 ve `TrendWeight` 1,5 → 1,9 yapmak bu veri setinde Elektronik'i
-#5 → ~#8'e, Turizm'i #9 → ~#12'ye çeker — bağımsız sıraya yaklaşır.
+| Veri seti | Tür | Enjekte edilen gerçek kırılımlar |
+|---|---|---|
+| DS1 (`20260901`) | elle kurgulanmış | Kırtasiye ×1,70 · Eğitim ×1,60 · Kozmetik ×1,90 · Turizm ×0,55 |
+| DS2 (`40271`) | rastgele | Eğitim ×1,28 · Gıda ×1,46 · Mobilya ×1,11 · Turizm ×0,75 · Araç Kiralama ×0,52 · Sigorta ×0,47 · Kozmetik ×1,22 |
+| DS3 (`778213`) | rastgele | Kozmetik ×1,43 · Elektronik ×0,61 · Telekom ×0,61 · Eğitim ×**0,68** · Spor ×0,68 |
+
+DS3 özellikle önemli: orada **Eğitim düşüşte** (×0,68) — oysa Eğitim'in sezon önceli 1,35
+(çok yüksek). "Okula dönüş her yıl artış" varsayımını kıran bir test.
+
+### İki ölçüt
+
+- **rho_comp** — motor sırası ↔ bağımsız kompozit sıra (Spearman ρ). Bağımsız yöntem OLS
+  eğim + Mann-Kendall + momentum + ampirik sezon kullanır.
+- **rho_truth** — motor skoru ↔ **enjekte edilen gerçek trend** (`ln(kırılım çarpanı)`),
+  yalnız gerçek kırılımı olan kategoriler. Bu ölçüt objektif: motor gerçekten büyüyen
+  kategorileri gerçekten düşenlerin üstüne koyabiliyor mu?
+
+**Python replikası** gerçek uç noktayla üç veri setinde de neredeyse birebir aynı sonucu
+veriyor (Spearman ρ 0,995–0,999) — yani tarama gerçek motoru temsil ediyor.
+
+### Sonuç
+
+| Ağırlıklar (Ws, Wt, Wse) | rho_comp (DS1/DS2/DS3, ort.) | rho_truth (DS1/DS2/DS3, ort.) |
+|---|--:|--:|
+| **MEVCUT** (1,0 · 1,5 · 1,25) | 0,87 / 0,69 / 0,82 (**0,79**) | −0,20 / 0,37 / 0,70 (**0,29**) |
+| **ÖNERİLEN** (0,85 · 2,0 · 1,0) | 0,90 / 0,78 / 0,76 (**0,81**) | 0,40 / 0,37 / 0,70 (**0,49**) |
+| Izgaradaki en iyi (1,0 · 2,2 · 1,0) | 0,90 / 0,79 / 0,81 (**0,84**) | 0,40 / 0,43 / 0,70 (**0,51**) |
+
+Izgara tablosu (`Ws × Wt`, Wse = 1,0; hücre = 3 veri seti ortalama birleşik skor):
+
+| Ws \ Wt | 1,3 | 1,6 | 1,9 | 2,2 | 2,5 |
+|---|--:|--:|--:|--:|--:|
+| 0,55 | 0,66 | 0,66 | 0,65 | 0,61 | 0,61 |
+| 0,70 | 0,65 | 0,67 | 0,66 | 0,65 | 0,62 |
+| 0,85 | 0,54 | 0,65 | **0,67** | **0,67** | 0,62 |
+| 1,00 | 0,54 | 0,65 | **0,67** | **0,67** | 0,67 |
+
+### Ne öğrendik
+
+1. **Asıl kaldıraç `TrendWeight`.** 1,5 → ~1,9–2,2 aralığına çıkarmak üç veri setinde de her
+   iki ölçütü birden iyileştiriyor. 2,2'nin üstünde kazanç düzleşiyor.
+2. **`SpendWeight`'te büyük kesinti desteklenmedi.** Tek veri setinde (DS1) 0,65 iyi
+   görünüyordu; üç veri seti birlikte, yüksek `TrendWeight`'te `SpendWeight`'i 0,85–1,0'da
+   tutmanın en iyi olduğunu söylüyor. Küçük bir düşüş (→0,85) nötr-olumlu.
+3. **Sezon önceli terimi (`SeasonWeight`) fayda-zarar dengesinde hafif zararlı.**
+   `Wse = 1,0` hücreleri `Wse = 1,25`'ten biraz daha iyi. Sebep §B.5.4: statik öncül cari
+   yıl kırılımını göremiyor (DS3 Eğitim buna canlı örnek).
+4. **Kazanç en çok objektif ölçütte.** Mevcut ağırlıklarla `rho_truth` ortalaması 0,29 —
+   ve DS1'de **−0,20** (motor gerçekten büyüyeni gerçekten düşenin *altına* koyuyor).
+   Önerilen ağırlıklarla ortalama 0,49, DS1'de +0,40.
+
+**Uyarı:** hâlâ sentetik veri. *Yön* (trend > hacim, statik sezon önceline az güven) üç
+bağımsız rastgele veri setinde sağlam çıktı; kesin değerler canlıda gerçek veriyle
+doğrulanmalı.
 
 ## B.7 Faz 2 — "gerçek eğitme"
 
@@ -546,20 +603,26 @@ katmanı değişmez.
 ## B.8 Yeniden üretme
 
 ```bash
-# 1) Veri seti + bağımsız analiz  ->  docs/analysis/_out/*.json, dataset.sql
-python docs/analysis/generate_and_analyze.py
+# 1) Üç veri seti + bağımsız analiz  ->  docs/analysis/_out/*.json, dataset_<seed>.sql
+python docs/analysis/generate_and_analyze.py 20260901              # DS1 (elle kurgulanmış)
+python docs/analysis/generate_and_analyze.py 40271  --randomize    # DS2 (rastgele)
+python docs/analysis/generate_and_analyze.py 778213 --randomize    # DS3 (rastgele)
 
-# 2) Taze DB: şema + seed + veri
-$env:ConnectionStrings__DefaultConnection = "Server=localhost\SQLEXPRESS;Database=CampaignSystem_AnalysisTest;Trusted_Connection=True;TrustServerCertificate=True"
+# 2) Her biri için taze DB (CampaignSystem_DS<seed>): şema + seed + veri
 $env:Jwt__SigningKey = "0123456789012345678901234567890123456789"
+#   her seed için:
+$env:ConnectionStrings__DefaultConnection = "Server=localhost\SQLEXPRESS;Database=CampaignSystem_DS<seed>;Trusted_Connection=True;TrustServerCertificate=True"
 dotnet ef database update --project CampaignSystem --startup-project CampaignSystem
-#    dataset.sql'de USE CampaignSystem -> USE CampaignSystem_AnalysisTest yapıp sqlcmd ile yükle
+#   dataset_<seed>.sql zaten "USE CampaignSystem_DS<seed>" içerir; sqlcmd ile yükle
 
-# 3) Uygulamayı o DB'ye karşı çalıştır, GET /api/campaign-recommendations
-#    -> docs/analysis/_out/app_ranking_all.json
+# 3) Uygulamayı her DB'ye karşı çalıştır, GET /api/campaign-recommendations
+#    -> docs/analysis/_out/app_ranking_<seed>.json
 
-# 4) Karşılaştır  ->  docs/analysis/karsilastirma-raporu.md
+# 4) DS1 için ayrıntılı karşılaştırma  ->  docs/analysis/karsilastirma-raporu.md
 python docs/analysis/compare.py
+
+# 5) Üç veri setinde ağırlık taraması  ->  docs/analysis/weight_sweep_sonuc.md
+python docs/analysis/weight_sweep.py
 ```
 
 ---
