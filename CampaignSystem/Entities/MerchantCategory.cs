@@ -12,4 +12,7 @@ public class MerchantCategory
     public string CategoryName { get; set; } = null!;
 
     public ICollection<Merchant> Merchants { get; set; } = [];
+
+    /// <summary>Per-month seasonal weights for this category. Empty means every month is average.</summary>
+    public ICollection<SeasonalPattern> SeasonalPatterns { get; set; } = [];
 }
