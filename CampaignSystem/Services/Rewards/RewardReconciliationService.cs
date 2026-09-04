@@ -6,15 +6,22 @@ using Microsoft.EntityFrameworkCore;
 namespace CampaignSystem.Services;
 
 /// <summary>
-/// The nightly reward-maintenance passes that run after a campaign has paid: refund
-/// reconciliation — a recurring recheck while the refund window is open — and the unused-points
-/// sweep — a one-time pass once the redemption window closes. Both adjust already-granted
-/// CAMPAIGN_REWARD rows rather than recomputing a campaign from scratch.
+/// Point clawback after a campaign has paid. One option on the campaign ("Puan geri alımı"
+/// + N days), settled in two steps:
+///
+///  1. <b>Refund reconciliation</b> — runs on every batch while the campaign is still inside
+///     its N-day window. A refund (full or partial) that drops a counted purchase lowers what
+///     the customer was entitled to, and the difference is clawed back straight away.
+///
+///  2. <b>Unspent sweep</b> — runs once, on the day the reward turns N days old. Of whatever
+///     the customer still holds after step 1, only the part they actually redeemed is theirs;
+///     the rest is clawed back. A customer can never have spent more than step 1 left them, so
+///     this never drives a balance below zero.
 ///
 /// Split out of <see cref="RewardService"/> so the read/calculate path and this batch
-/// settlement path each change for their own reasons. Reconciliation reuses the shared
-/// <see cref="IRewardCalculator"/>, so "what should this group hold now" is decided by the very
-/// same rule the original calculation used.
+/// settlement path each change for their own reasons. Step 1 reuses the shared
+/// <see cref="IRewardCalculator"/>, so "what should this group hold now" is decided by the
+/// very same rule the original calculation used.
 /// </summary>
 public class RewardReconciliationService(
     CampaignDbContext context,
@@ -22,17 +29,29 @@ public class RewardReconciliationService(
     ILogger<RewardReconciliationService> logger) : IRewardReconciliationService
 {
     /// <summary>
-    /// Transaction code that marks a row as a spend of campaign points. The unused-points
-    /// clawback sums these to find what a card earned but never redeemed.
+    /// Transaction code that marks a row as a spend of campaign points. The unspent sweep sums
+    /// these to find what a customer redeemed and keeps.
     /// </summary>
     private const string RedemptionTransactionCode = "PS";
 
-    public async Task<int> ReconcileReversalsAsync(CancellationToken cancellationToken = default)
+    public async Task<int> SettlePointClawbackAsync(CancellationToken cancellationToken = default)
+    {
+        var clawbacks = 0;
+
+        clawbacks += await ReconcileRefundsAsync(cancellationToken);
+        clawbacks += await SweepUnspentAsync(cancellationToken);
+
+        return clawbacks;
+    }
+
+    // ── Step 1: refund reconciliation (every batch, inside the N-day window) ──────────────
+
+    private async Task<int> ReconcileRefundsAsync(CancellationToken cancellationToken)
     {
         // Only refunds the batch has not yet accounted for drive any work. Already-processed
-        // refunds are never re-scanned; a later partial refund arrives as a fresh unprocessed row
-        // and is handled then. The processed flag gates the work, never the maths: the effective
-        // amount below still sums every refund, processed or not.
+        // refunds are never re-scanned; a later partial refund arrives as a fresh unprocessed
+        // row and is handled then. The processed flag gates the work, never the maths: the
+        // effective amount below still sums every refund, processed or not.
         var pendingRefunds = await context.Transactions
             .Where(r => r.OriginalTransactionId != null && r.ClawbackProcessedAt == null)
             .ToListAsync(cancellationToken);
@@ -47,7 +66,7 @@ public class RewardReconciliationService(
         var today = DateTime.Now.Date;
         var now = DateTime.Now;
 
-        // Campaigns that reclaim points, have paid, and paid one of the customers with a new
+        // Campaigns with the clawback option on that have paid one of the customers with a new
         // refund — every other campaign is skipped entirely.
         var campaigns = await context.Campaigns
             .Where(c => c.IsActive
@@ -76,8 +95,7 @@ public class RewardReconciliationService(
         if (clawbacks > 0)
         {
             logger.LogInformation(
-                "Refund clawback: wrote {Clawbacks} clawback rows across {Campaigns} campaigns " +
-                "from {Refunds} new refunds.",
+                "Refund clawback: wrote {Clawbacks} rows across {Campaigns} campaigns from {Refunds} new refunds.",
                 clawbacks, campaigns.Count, pendingRefunds.Count);
         }
 
@@ -86,7 +104,6 @@ public class RewardReconciliationService(
 
     // Reconcile one already-paid campaign against the refunds seen this run: write a negative
     // Clawback row for every group whose net now sits above what the campaign should pay.
-    // Returns how many clawback rows it staged (saved by the caller).
     private async Task<int> ReconcileCampaignAsync(
         Campaign campaign, DateTime today, DateTime now, CancellationToken cancellationToken)
     {
@@ -94,9 +111,8 @@ public class RewardReconciliationService(
             .Where(r => r.CampaignId == campaign.Id)
             .ToListAsync(cancellationToken);
 
-        // The window runs from the day the reward was loaded — every Earn row of a campaign
-        // shares that date. Once it has passed, a refund is settled and the campaign is left
-        // alone. Null days means no limit.
+        // The window runs from the day the reward was loaded — every Earn row shares that date.
+        // Once N days have passed a refund is settled and the campaign is left to the sweep.
         var loadDate = rewards
             .Where(r => r.RewardType == RewardType.Earn)
             .Max(r => r.RewardDate)
@@ -131,8 +147,8 @@ public class RewardReconciliationService(
         {
             var c = correct.GetValueOrDefault((g.CustomerId, g.CardId), (Count: 0, Point: 0m));
 
-            // A reversal can only lower the net. When it has dropped, record the shortfall as
-            // a negative Clawback row rather than editing the Earn row. When it has not, do
+            // A reversal can only lower the net. When it has dropped, record the shortfall as a
+            // negative Clawback row rather than editing the Earn row. When it has not, do
             // nothing — which also makes a second run over the same refunds a no-op.
             if (g.NetPoint > c.Point)
             {
@@ -154,39 +170,44 @@ public class RewardReconciliationService(
         return clawbacks;
     }
 
-    public async Task<int> ReclaimUnusedPointsAsync(CancellationToken cancellationToken = default)
+    // ── Step 2: unspent sweep (once, on the day the reward is N days old) ─────────────────
+
+    private async Task<int> SweepUnspentAsync(CancellationToken cancellationToken)
     {
         var today = DateTime.Now.Date;
         var now = DateTime.Now;
 
-        // Ended campaigns with the rule on that have not been swept yet. Once a campaign is
-        // processed here it is never looked at again — ProcessedAt is what makes this a
-        // one-time sweep rather than a recheck like ReconcileReversalsAsync above.
+        // Ended campaigns with the option on that have not been swept yet. ProcessedAt is what
+        // makes this a one-time settlement rather than a recurring recheck.
         var campaigns = await context.Campaigns
-            .Include(c => c.ClawbackExemptProducts)
             .Where(c => c.IsActive
                         && c.Status == CampaignStatus.Ended
-                        && c.UnusedPointsClawbackEnabled
+                        && c.RefundClawbackEnabled
                         && c.UnusedPointsClawbackProcessedAt == null)
             .ToListAsync(cancellationToken);
 
-        var reclaimed = 0;
+        var clawbacks = 0;
 
         foreach (var campaign in campaigns)
         {
-            reclaimed += await ReclaimForCampaignAsync(campaign, today, now, cancellationToken);
+            clawbacks += await SweepCampaignAsync(campaign, today, now, cancellationToken);
         }
 
         await context.SaveChangesAsync(cancellationToken);
 
-        return reclaimed;
+        if (clawbacks > 0)
+        {
+            logger.LogInformation(
+                "Unspent-point sweep: settled {Campaigns} campaigns, wrote {Clawbacks} rows.",
+                campaigns.Count, clawbacks);
+        }
+
+        return clawbacks;
     }
 
-    // Sweep one ended campaign for points that were earned but never redeemed inside the
-    // window: write a negative UnusedPointsClawback row for each non-exempt group with an
-    // unspent balance, and stamp ProcessedAt once the campaign is settled. Returns how many
-    // clawback rows it staged (saved by the caller).
-    private async Task<int> ReclaimForCampaignAsync(
+    // Sweep one campaign once its reward is N days old: a customer keeps only what they
+    // redeemed, and a negative Clawback row takes the rest. Then stamp ProcessedAt.
+    private async Task<int> SweepCampaignAsync(
         Campaign campaign, DateTime today, DateTime now, CancellationToken cancellationToken)
     {
         var rewards = await context.CampaignRewards
@@ -197,74 +218,41 @@ public class RewardReconciliationService(
 
         if (earnRows.Count == 0)
         {
-            // Nobody qualified when the batch ran — nothing to reclaim, and nothing will
-            // ever change that, so this campaign is done.
+            // Nobody qualified when the batch ran — nothing to sweep, ever.
             campaign.UnusedPointsClawbackProcessedAt = now;
             return 0;
         }
 
-        // The window runs from the day the reward was loaded — every Earn row of a
-        // campaign shares that date, the same rule ReconcileReversalsAsync uses above.
+        // N days is counted from the day the reward was loaded. Null (which the DTO does not
+        // allow while the option is on) is treated as sweep-on-load-day.
         var loadDate = earnRows.Max(r => r.RewardDate).Date;
-        var deadline = loadDate.AddDays(campaign.UnusedPointsClawbackDays!.Value);
 
-        if (today < deadline)
+        if (today < loadDate.AddDays(campaign.RefundClawbackDays ?? 0))
         {
-            // Window still open — leave ProcessedAt null so a later run picks this up.
+            // Not yet — leave ProcessedAt null so a later run picks this up.
             return 0;
         }
 
-        // Net balance per group (customer, or customer+card for a card based campaign),
-        // the same rollup ReconcileReversalsAsync uses to find what a group currently holds.
+        // Net balance per group after step 1: the Earn row plus any refund Clawback rows.
         var groups = rewards
             .GroupBy(r => (r.CustomerId, r.CardId))
             .Select(g => new GroupBalance(g.Key.CustomerId, g.Key.CardId, g.Sum(r => r.RewardPoint)))
             .Where(g => g.NetPoint > 0)
             .ToList();
 
-        var reclaimed = await WriteUnusedPointClawbacksAsync(campaign, groups, now, cancellationToken);
+        if (groups.Count == 0)
+        {
+            campaign.UnusedPointsClawbackProcessedAt = now;
+            return 0;
+        }
 
-        campaign.UnusedPointsClawbackProcessedAt = now;
-        return reclaimed;
-    }
-
-    // Given the groups that still hold points, drop the exempt ones and the points already
-    // redeemed, and write a negative UnusedPointsClawback row for whatever is left unspent.
-    // Returns how many clawback rows it staged (saved by the caller).
-    private async Task<int> WriteUnusedPointClawbacksAsync(
-        Campaign campaign, IReadOnlyList<GroupBalance> groups, DateTime now, CancellationToken cancellationToken)
-    {
-        var exemptProductIds = campaign.ClawbackExemptProducts.Select(x => x.ProductId).ToHashSet();
-
-        // Card based rewards carry the specific card; exemption is checked against that
-        // card's product. Customer based rewards pool every card (CardId is null), so
-        // there is no single card to check — a customer is exempt there if any one of
-        // their cards is on an exempt product, which is the only reading that makes sense
-        // once the reward is no longer tied to one card.
-        var cardIds = groups.Where(g => g.CardId != null).Select(g => g.CardId!.Value).Distinct().ToList();
-
-        var cardProducts = await context.Cards
-            .Where(c => cardIds.Contains(c.Id))
-            .Select(c => new { c.Id, c.ProductId })
-            .ToDictionaryAsync(c => c.Id, c => c.ProductId, cancellationToken);
-
+        // Points spent show up on TRANSACTION as rows with the "PS" code. A transaction carries
+        // no campaign link, so redemption is matched by card rather than by campaign: a
+        // card-based group nets its own card's PS spend; a customer-based group (CardId null,
+        // every card pooled) nets the PS spend of all the customer's cards. Only spending dated
+        // from the campaign's end through now counts.
         var customerIds = groups.Select(g => g.CustomerId).Distinct().ToList();
 
-        HashSet<int> customerHasExemptCard = exemptProductIds.Count == 0
-            ? []
-            : (await context.Cards
-                .Where(c => customerIds.Contains(c.CustomerId) && exemptProductIds.Contains(c.ProductId))
-                .Select(c => c.CustomerId)
-                .Distinct()
-                .ToListAsync(cancellationToken))
-            .ToHashSet();
-
-        // Points spent show up on TRANSACTION as rows with the "PS" code. A transaction
-        // carries no campaign link, so redemption is matched by card rather than by
-        // campaign: a card based group nets its own card's PS spend; a customer based
-        // group (CardId null, every card pooled) nets the PS spend of all the customer's
-        // cards — the same reading the exemption check above uses. Only spending dated
-        // from the campaign's end through now counts.
         var psSpend = await context.Transactions
             .AsNoTracking()
             .Where(t => t.TransactionCode.Code == RedemptionTransactionCode
@@ -274,55 +262,50 @@ public class RewardReconciliationService(
             .Select(t => new { t.CustomerId, t.CardId, t.Amount })
             .ToListAsync(cancellationToken);
 
-        var redeemedByCard = psSpend
+        var spentByCard = psSpend
             .GroupBy(t => t.CardId)
             .ToDictionary(g => g.Key, g => g.Sum(t => t.Amount));
 
-        var redeemedByCustomer = psSpend
+        var spentByCustomer = psSpend
             .GroupBy(t => t.CustomerId)
             .ToDictionary(g => g.Key, g => g.Sum(t => t.Amount));
 
-        var reclaimed = 0;
+        var clawbacks = 0;
 
         foreach (var g in groups)
         {
-            var exempt = g.CardId is int cardId
-                ? cardProducts.TryGetValue(cardId, out var productId) && exemptProductIds.Contains(productId)
-                : customerHasExemptCard.Contains(g.CustomerId);
+            var spent = g.CardId is int cardId
+                ? spentByCard.GetValueOrDefault(cardId, 0m)
+                : spentByCustomer.GetValueOrDefault(g.CustomerId, 0m);
 
-            if (exempt)
-            {
-                continue;
-            }
+            // The customer keeps what they spent; the unspent rest comes back. Never negative —
+            // step 1 already caps what they could have spent, and if recorded spend somehow
+            // exceeds the balance (points from another campaign on the same card in this
+            // window), nothing is written and the balance stays as it is.
+            var clawback = g.NetPoint - spent;
 
-            var redeemed = g.CardId is int redeemedCardId
-                ? redeemedByCard.GetValueOrDefault(redeemedCardId, 0m)
-                : redeemedByCustomer.GetValueOrDefault(g.CustomerId, 0m);
-
-            var unused = g.NetPoint - redeemed;
-
-            if (unused > 0)
+            if (clawback > 0)
             {
                 context.CampaignRewards.Add(new CampaignReward
                 {
                     CampaignId = campaign.Id,
                     CustomerId = g.CustomerId,
                     CardId = g.CardId,
-                    RewardType = RewardType.UnusedPointsClawback,
+                    RewardType = RewardType.Clawback,
                     QualifyingCount = 0,
-                    RewardPoint = -unused,
+                    RewardPoint = -clawback,
                     RewardDate = now
                 });
 
-                reclaimed++;
+                clawbacks++;
             }
         }
 
-        return reclaimed;
+        campaign.UnusedPointsClawbackProcessedAt = now;
+        return clawbacks;
     }
 
-    // A campaign group that still holds points: the customer, the card (null when the reward
-    // pools every card), and its current net balance. The contract between the sweep's gate
-    // and the clawback-writing step.
+    // A campaign group and its net balance after refund reconciliation — the input to the
+    // unspent sweep.
     private sealed record GroupBalance(int CustomerId, int? CardId, decimal NetPoint);
 }
