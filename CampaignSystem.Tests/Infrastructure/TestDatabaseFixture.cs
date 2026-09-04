@@ -17,8 +17,12 @@ namespace CampaignSystem.Tests.Infrastructure;
 /// </summary>
 public class TestDatabaseFixture
 {
-    private const string ConnectionString =
-        @"Server=(localdb)\MSSQLLocalDB;Database=CampaignSystem_Test;Trusted_Connection=True;TrustServerCertificate=True";
+    // On a machine with SQL Server Express but no LocalDB the whole suite fails to initialise.
+    // Read the connection string from CAMPAIGNSYSTEM_TEST_CONNECTION when it is set, falling
+    // back to the LocalDB string otherwise — no change for anyone already on LocalDB.
+    private static readonly string ConnectionString =
+        Environment.GetEnvironmentVariable("CAMPAIGNSYSTEM_TEST_CONNECTION")
+        ?? @"Server=(localdb)\MSSQLLocalDB;Database=CampaignSystem_Test;Trusted_Connection=True;TrustServerCertificate=True";
 
     private static readonly Lock InitialisationLock = new();
     private static bool _initialised;
