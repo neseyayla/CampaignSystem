@@ -1,0 +1,74 @@
+========================================================
+SİMÜLASYON DEMO SENARYOSU  (2 kampanya - kısa)
+Admin "Kampanya Tanım" formuna bu değerleri gir.
+Tüm müşteri şifreleri: 123456
+Admin: 10007919 / 123456
+========================================================
+
+
+========================================================
+1) MASS + KART BAZLI  ->  otomatik kazanç + segment/ürün kısıtı
+========================================================
+Kampanya Adı      : Şirket Çalışanlarına Market Kampanyası
+Kampanya Türü     : MASS - herkese açık
+Kazanım Tipi      : Kart Bazlı
+Açıklama          : Şirket çalışanı müşterilerimize, Visa Classic
+                    kartlarıyla Migros, BİM ve A101'de 150 TL üzeri
+                    alışverişlerde işlem başına 20 puan.
+Başlangıç Tarihi  : 01.08.2026
+Bitiş Tarihi      : 31.08.2026
+İşlem Başına Puan : 20
+Maksimum Ödül     : 300
+Cinsiyet          : Tüm cinsiyetler
+Kart Türü         : Hepsi
+Müşteri Grubu     : Şirket Çalışanı     <-- KISIT
+Ürün Kodu         : Visa Classic        <-- KISIT
+İşlem Kodu        : Satış
+Üye İşyeri        : Migros, BİM, A101
+Min Tutar         : 150
+Max Tutar         : (boş)
+
+ÖRNEK MÜŞTERİ : 10095028 (Şirket Çalışanı, Visa Classic asıl kart)
+BEKLENEN      : Katılmadan "Kampanyalarım"da kazanıyor görünür.
+                Visa Classic kartındaki 3 market harcaması sayılır -> ~60 puan.
+DIŞLANAN      : Şirket çalışanı olmayan ya da Visa Classic kartı olmayan
+                müşteriler bu kampanyayı görmez (kısıt çalışır).
+
+
+========================================================
+2) SI + KART BAZLI  ->  "Katıl + kart seç" akışı (öne çıkan kısım)
+========================================================
+Kampanya Adı      : Hafta Sonu Restoran Kampanyası
+Kampanya Türü     : SI - katılım gerekli
+Kazanım Tipi      : Kart Bazlı
+Açıklama          : Grande Cafe, Köfteci Yusuf ve Big Chefs'te
+                    100 TL üzeri harcamalarda işlem başına 30 puan.
+Başlangıç Tarihi  : 01.08.2026
+Bitiş Tarihi      : 31.08.2026
+İşlem Başına Puan : 30
+Maksimum Ödül     : 250
+Cinsiyet          : Tüm cinsiyetler
+Kart Türü         : Hepsi
+Müşteri Grubu     : (boş)
+Ürün Kodu         : (boş)
+İşlem Kodu        : Satış
+Üye İşyeri        : Grande Cafe, Köfteci Yusuf, Big Chefs
+Min Tutar         : 100
+Max Tutar         : (boş)
+
+ÖRNEK MÜŞTERİ : 10166299 (tek kart -> kart seçiminde belirsizlik yok)
+BEKLENEN      : "Uygun Kampanyalar"da Katıl butonu -> tek kart çıkar,
+                seç -> "Katıldınız". (Katılım anı en görsel kısım.)
+
+
+========================================================
+VİDEO AKIŞI
+========================================================
+1. Admin (10007919) -> iki kampanyayı formdan tanımla.
+2. Müşteri 10095028 -> otomatik kazanç + ilerleme çubuğu (Kampanya 1).
+3. Müşteri 10166299 -> Katıl + kart seç akışı (Kampanya 2).
+
+NOT: Kampanya 2'de (SI) katıldıktan HEMEN sonra puan 0 görünür,
+     çünkü katılımdan sonra harcama yok (gerçekçi davranış).
+     Puanı da göstermek istersen katılımı geçmişe çekip batch çalıştır.
+========================================================

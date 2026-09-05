@@ -1,0 +1,783 @@
+{
+  "info": {
+    "name": "CampaignSystem",
+    "description": "End-to-end walkthrough of the campaign system, in the order the steps actually happen: reference data, a customer with two cards, a campaign with its criteria, transactions, then the reward batch.\n\nRun the whole collection with the runner, or fire the requests top to bottom by hand. Ids flow from one request to the next through collection variables, so nothing has to be copied by hand.\n\nThe customer number and the transaction reference numbers are generated from the clock, so the collection can be run repeatedly without colliding with its own earlier runs.\n\nbaseUrl points at the HTTP port on purpose. The HTTPS one uses a self-signed development certificate, which Postman rejects until SSL verification is switched off — the application listens on both, so this avoids the detour.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5284" },
+    { "key": "customerId", "value": "" },
+    { "key": "cardOneId", "value": "" },
+    { "key": "cardTwoId", "value": "" },
+    { "key": "campaignId", "value": "" },
+    { "key": "customerNumber", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1 - Reference data",
+      "item": [
+        {
+          "name": "Segments",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('Seeded segments are present', function () {",
+                  "    const codes = pm.response.json().map(s => s.segmentCode);",
+                  "    pm.expect(codes).to.include('CFT');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/segments", "host": ["{{baseUrl}}"], "path": ["api", "segments"] }
+          }
+        },
+        {
+          "name": "Products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/products", "host": ["{{baseUrl}}"], "path": ["api", "products"] }
+          }
+        },
+        {
+          "name": "Merchants",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/merchants", "host": ["{{baseUrl}}"], "path": ["api", "merchants"] }
+          }
+        },
+        {
+          "name": "Transaction codes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/transaction-codes", "host": ["{{baseUrl}}"], "path": ["api", "transaction-codes"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2 - Customer and cards",
+      "item": [
+        {
+          "name": "Create customer",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Unique per run, so the collection does not collide with its own history.",
+                  "pm.collectionVariables.set('customerNumber', 'PM' + Date.now().toString().slice(-8));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('customerId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerNumber\": \"{{customerNumber}}\",\n  \"gender\": \"Female\",\n  \"segmentId\": 3\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/customers", "host": ["{{baseUrl}}"], "path": ["api", "customers"] },
+            "description": "Segment 3 is Farmer, one of the two segments the campaign below targets."
+          }
+        },
+        {
+          "name": "Create card one (Visa Gold)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('cardOneId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": {{customerId}},\n  \"productId\": 3,\n  \"cardType\": \"Primary\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/cards", "host": ["{{baseUrl}}"], "path": ["api", "cards"] }
+          }
+        },
+        {
+          "name": "Create card two (MasterCard Gold)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('cardTwoId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": {{customerId}},\n  \"productId\": 4,\n  \"cardType\": \"Supplementary\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/cards", "host": ["{{baseUrl}}"], "path": ["api", "cards"] },
+            "description": "A second card matters: under a card based campaign each one earns its own reward row."
+          }
+        },
+        {
+          "name": "Reject card for unknown customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": 999999,\n  \"productId\": 3,\n  \"cardType\": \"Primary\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/cards", "host": ["{{baseUrl}}"], "path": ["api", "cards"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3 - Campaign",
+      "item": [
+        {
+          "name": "Create July campaign",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('campaignId', pm.response.json().id);",
+                  "pm.test('Starts as Ongoing, because the start date has passed', function () {",
+                  "    pm.expect(pm.response.json().status).to.eql('Ongoing');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman July Fuel Campaign\",\n  \"description\": \"50 points per fuel sale over 250\",\n  \"campaignType\": \"Mass\",\n  \"earningType\": \"CardBased\",\n  \"startDate\": \"2026-07-01T00:00:00\",\n  \"endDate\": \"2026-07-31T23:59:59\",\n  \"minimumAmount\": 250,\n  \"rewardPoint\": 50,\n  \"maxRewardAmount\": 500\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/campaigns", "host": ["{{baseUrl}}"], "path": ["api", "campaigns"] },
+            "description": "Dates are in the past so the batch will pick the campaign up. Neither Id nor Status is sent — the server decides both."
+          }
+        },
+        {
+          "name": "Reject end date before start date",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('400', () => pm.response.to.have.status(400));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Invalid dates\",\n  \"campaignType\": \"Mass\",\n  \"earningType\": \"CardBased\",\n  \"startDate\": \"2026-07-31T00:00:00\",\n  \"endDate\": \"2026-07-01T00:00:00\",\n  \"rewardPoint\": 50\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/campaigns", "host": ["{{baseUrl}}"], "path": ["api", "campaigns"] }
+          }
+        },
+        {
+          "name": "Set criteria",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('204', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"segmentIds\": [2, 3],\n  \"productIds\": [3, 4, 5, 6],\n  \"merchantIds\": [3],\n  \"transactionCodeIds\": [1]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/criteria",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "campaigns", "{{campaignId}}", "criteria"]
+            },
+            "description": "Company Employee and Farmer segments, Gold and above, at Opet, on sales. An empty list would mean no restriction on that dimension rather than nothing matching."
+          }
+        },
+        {
+          "name": "Read criteria back",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('Criteria came back as they were set', function () {",
+                  "    const criteria = pm.response.json();",
+                  "    pm.expect(criteria.merchantIds).to.eql([3]);",
+                  "    pm.expect(criteria.productIds).to.have.lengthOf(4);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/criteria",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "campaigns", "{{campaignId}}", "criteria"]
+            }
+          }
+        },
+        {
+          "name": "Reject unknown criteria id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('400', () => pm.response.to.have.status(400));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"segmentIds\": [999],\n  \"productIds\": [],\n  \"merchantIds\": [],\n  \"transactionCodeIds\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/criteria",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "campaigns", "{{campaignId}}", "criteria"]
+            },
+            "description": "The whole set is rejected, so the criteria set above stays intact."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4 - Transactions",
+      "description": "Three qualifying sales on card one and two on card two, plus one under the minimum. A card based campaign paying 50 a transaction therefore owes 150 and 100.",
+      "item": [
+        {
+          "name": "Card one - 300",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));",
+                  "pm.test('CustomerId was filled in from the card', function () {",
+                  "    pm.expect(pm.response.json().customerId).to.eql(Number(pm.collectionVariables.get('customerId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rrn\": \"PM{{$timestamp}}{{$randomInt}}\",\n  \"cardId\": {{cardOneId}},\n  \"merchantId\": 3,\n  \"transactionCodeId\": 1,\n  \"transactionDate\": \"2026-07-05T14:30:00\",\n  \"amount\": 300.00\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/transactions", "host": ["{{baseUrl}}"], "path": ["api", "transactions"] },
+            "description": "CustomerId is not sent: the service reads it off the card so the two can never disagree."
+          }
+        },
+        {
+          "name": "Card one - 500",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('201', () => pm.response.to.have.status(201));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rrn\": \"PM{{$timestamp}}{{$randomInt}}\",\n  \"cardId\": {{cardOneId}},\n  \"merchantId\": 3,\n  \"transactionCodeId\": 1,\n  \"transactionDate\": \"2026-07-09T11:00:00\",\n  \"amount\": 500.00\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/transactions", "host": ["{{baseUrl}}"], "path": ["api", "transactions"] }
+          }
+        },
+        {
+          "name": "Card one - 250 (exactly on the minimum)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('201', () => pm.response.to.have.status(201));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rrn\": \"PM{{$timestamp}}{{$randomInt}}\",\n  \"cardId\": {{cardOneId}},\n  \"merchantId\": 3,\n  \"transactionCodeId\": 1,\n  \"transactionDate\": \"2026-07-14T18:45:00\",\n  \"amount\": 250.00\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/transactions", "host": ["{{baseUrl}}"], "path": ["api", "transactions"] },
+            "description": "The minimum is inclusive, so this one counts."
+          }
+        },
+        {
+          "name": "Card two - 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('201', () => pm.response.to.have.status(201));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rrn\": \"PM{{$timestamp}}{{$randomInt}}\",\n  \"cardId\": {{cardTwoId}},\n  \"merchantId\": 3,\n  \"transactionCodeId\": 1,\n  \"transactionDate\": \"2026-07-07T09:15:00\",\n  \"amount\": 400.00\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/transactions", "host": ["{{baseUrl}}"], "path": ["api", "transactions"] }
+          }
+        },
+        {
+          "name": "Card two - 900",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('201', () => pm.response.to.have.status(201));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rrn\": \"PM{{$timestamp}}{{$randomInt}}\",\n  \"cardId\": {{cardTwoId}},\n  \"merchantId\": 3,\n  \"transactionCodeId\": 1,\n  \"transactionDate\": \"2026-07-21T20:00:00\",\n  \"amount\": 900.00\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/transactions", "host": ["{{baseUrl}}"], "path": ["api", "transactions"] }
+          }
+        },
+        {
+          "name": "Card one - 100 (under the minimum, must not count)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('201', () => pm.response.to.have.status(201));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rrn\": \"PM{{$timestamp}}{{$randomInt}}\",\n  \"cardId\": {{cardOneId}},\n  \"merchantId\": 3,\n  \"transactionCodeId\": 1,\n  \"transactionDate\": \"2026-07-25T12:00:00\",\n  \"amount\": 100.00\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/transactions", "host": ["{{baseUrl}}"], "path": ["api", "transactions"] },
+            "description": "Recorded like any other transaction; the campaign's 250 minimum is what excludes it from the reward."
+          }
+        },
+        {
+          "name": "Reject amount of zero",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('400', () => pm.response.to.have.status(400));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rrn\": \"PM{{$timestamp}}{{$randomInt}}\",\n  \"cardId\": {{cardOneId}},\n  \"merchantId\": 3,\n  \"transactionCodeId\": 1,\n  \"transactionDate\": \"2026-07-25T12:00:00\",\n  \"amount\": 0\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/transactions", "host": ["{{baseUrl}}"], "path": ["api", "transactions"] }
+          }
+        },
+        {
+          "name": "This customer's transactions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('Six transactions were recorded', function () {",
+                  "    pm.expect(pm.response.json()).to.have.lengthOf(6);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions?customerId={{customerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions"],
+              "query": [{ "key": "customerId", "value": "{{customerId}}" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5 - Rewards",
+      "item": [
+        {
+          "name": "Preview before anything is paid",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('Two cards, 150 and 100, totalling 250', function () {",
+                  "    const preview = pm.response.json();",
+                  "    pm.expect(preview.lines).to.have.lengthOf(2);",
+                  "    pm.expect(preview.totalRewardPoint).to.eql(250);",
+                  "});",
+                  "pm.test('The 100 transaction was excluded by the minimum', function () {",
+                  "    const counts = pm.response.json().lines.map(l => l.qualifyingCount).sort();",
+                  "    pm.expect(counts).to.eql([2, 3]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/rewards/preview?customerId={{customerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "campaigns", "{{campaignId}}", "rewards", "preview"],
+              "query": [{ "key": "customerId", "value": "{{customerId}}" }]
+            },
+            "description": "Writes nothing. This is what the customer would see while the campaign is still running, and it has to match what the batch eventually pays."
+          }
+        },
+        {
+          "name": "Refuse to calculate a campaign that has not been closed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/rewards/calculate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "campaigns", "{{campaignId}}", "rewards", "calculate"]
+            },
+            "description": "The campaign is still Ongoing as far as the stored status goes. Only the daily batch moves it to Loading, and rewards are calculated from there."
+          }
+        },
+        {
+          "name": "Run the daily batch",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('At least this campaign was closed and loaded', function () {",
+                  "    const result = pm.response.json();",
+                  "    pm.expect(result.closed).to.be.at.least(1);",
+                  "    pm.expect(result.loaded).to.be.at.least(1);",
+                  "});",
+                  "pm.test('Nothing failed', function () {",
+                  "    pm.expect(pm.response.json().failures).to.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/batch/run", "host": ["{{baseUrl}}"], "path": ["api", "batch", "run"] },
+            "description": "Three steps in one call: start campaigns that have begun, close those that have finished, load the rewards of those that are due. The counts cover every campaign in the database, not only this one."
+          }
+        },
+        {
+          "name": "Rewards that were written",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "",
+                  "// The campaign reaches every transaction in the database that meets its criteria,",
+                  "// not only the ones this run created — any other customer in a targeted segment",
+                  "// holding a Gold card earns from it too. So the assertions look at this run's",
+                  "// customer alone; the campaign total depends on whatever else the database holds.",
+                  "const customerId = Number(pm.collectionVariables.get('customerId'));",
+                  "const mine = pm.response.json().filter(r => r.customerId === customerId);",
+                  "",
+                  "pm.test('One row per card for this customer, 250 in total', function () {",
+                  "    pm.expect(mine).to.have.lengthOf(2);",
+                  "    pm.expect(mine.reduce((sum, r) => sum + r.rewardPoint, 0)).to.eql(250);",
+                  "});",
+                  "",
+                  "pm.test('A card based reward always names its card', function () {",
+                  "    mine.forEach(r => pm.expect(r.cardId).to.not.be.null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/rewards",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "campaigns", "{{campaignId}}", "rewards"]
+            }
+          }
+        },
+        {
+          "name": "Campaign summary per customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "",
+                  "// Other customers may qualify for this campaign as well, so the customer count",
+                  "// and the campaign total depend on what else is in the database. This run's own",
+                  "// line does not.",
+                  "const customerId = Number(pm.collectionVariables.get('customerId'));",
+                  "const summary = pm.response.json();",
+                  "const mine = summary.customers.find(c => c.customerId === customerId);",
+                  "",
+                  "pm.test('This customer appears in the summary', function () {",
+                  "    pm.expect(mine).to.not.be.undefined;",
+                  "});",
+                  "",
+                  "pm.test('Two reward rows rolled up into 250 points', function () {",
+                  "    pm.expect(mine.rewardRows).to.eql(2);",
+                  "    pm.expect(mine.totalRewardPoint).to.eql(250);",
+                  "});",
+                  "",
+                  "pm.test('The campaign total is at least this customer owed', function () {",
+                  "    pm.expect(summary.totalRewardPoint).to.be.at.least(250);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/rewards/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "campaigns", "{{campaignId}}", "rewards", "summary"]
+            }
+          }
+        },
+        {
+          "name": "Everything this customer has earned",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('250 from one campaign', function () {",
+                  "    const summary = pm.response.json();",
+                  "    pm.expect(summary.totalRewardPoint).to.eql(250);",
+                  "    pm.expect(summary.campaigns).to.have.lengthOf(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/customers/{{customerId}}/rewards",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "customers", "{{customerId}}", "rewards"]
+            },
+            "description": "The call centre view: how many points, and which campaigns they came from."
+          }
+        },
+        {
+          "name": "Refuse to pay the same campaign twice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 or 409, never a second payment', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 409]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/campaigns/{{campaignId}}/rewards/calculate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "campaigns", "{{campaignId}}", "rewards", "calculate"]
+            },
+            "description": "The campaign is Ended now. Rewards are money, so a repeat run is refused rather than recalculated."
+          }
+        },
+        {
+          "name": "Run the batch again - nothing left to do",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('A second run of the day changes nothing', function () {",
+                  "    const result = pm.response.json();",
+                  "    pm.expect(result.loaded).to.eql(0);",
+                  "    pm.expect(result.rewardsCreated).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/batch/run", "host": ["{{baseUrl}}"], "path": ["api", "batch", "run"] },
+            "description": "Proof that a scheduler firing twice cannot pay twice."
+          }
+        }
+      ]
+    }
+  ]
+}

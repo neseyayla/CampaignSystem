@@ -1,0 +1,16 @@
+/* You can add global styles to this file, and also import other style files */
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: #14181f;
+  background: #fff;
+}
+
+a {
+  color: #14181f;
+}
+
+a:hover {
+  color: #5b616b;
+}

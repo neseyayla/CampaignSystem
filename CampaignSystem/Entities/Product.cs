@@ -14,4 +14,6 @@ public class Product
     public ICollection<Card> Cards { get; set; } = [];
 
     public ICollection<CampaignProduct> CampaignProducts { get; set; } = [];
+
+    public ICollection<CampaignClawbackExemptProduct> ClawbackExemptCampaigns { get; set; } = [];
 }

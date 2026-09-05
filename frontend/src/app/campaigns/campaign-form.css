@@ -1,0 +1,440 @@
+:host {
+  display: block;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin: 0 0 1.5rem;
+  letter-spacing: -0.01em;
+}
+
+section {
+  border: 1px solid #e2e5ea;
+  border-radius: 3px;
+  padding: 1.1rem 1.4rem 1.4rem;
+  /* More air between sections, and a soft shadow so each one reads as its own panel rather
+     than blending into the next. */
+  margin-bottom: 1.6rem;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(20 24 31 / 7%);
+  overflow: hidden;
+}
+
+h2 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #5b616b;
+  margin: -1.1rem -1.4rem 1.1rem;
+  padding: 0.75rem 1.4rem;
+  background: #fffbe8;
+  border-bottom: 1px solid #e6e8ec;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem 1.25rem;
+
+  /* Top-aligned: a field with a helper line under it must not stretch its neighbours, so the
+     inputs across a row line up at the same height. */
+  align-items: start;
+}
+
+@media (max-width: 1200px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.grid.amounts {
+  margin-top: 1rem;
+  max-width: 32rem;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+/* Kampanya Türü + Kazanım Tipi share one grid column, stacked, so the SI panel that
+   appears next to them (.enrollment-basis) gets a column of its own instead of pushing
+   everything into a third row. */
+.stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+
+label > span {
+  color: #3c4149;
+  font-weight: 600;
+}
+
+input[type='text'],
+input[type='date'],
+input[type='number'],
+select,
+textarea {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #c9ced6;
+  border-radius: 3px;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+input[type='text']:focus,
+input[type='date']:focus,
+input[type='number']:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #ffcc00;
+  box-shadow: 0 0 0 3px #ffcc0033;
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* A single clean chevron in place of the browser's default arrow, which renders differently
+   (and often clumsily) across platforms. The field stays square. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7280' d='M1 1.5 6 6.5l5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  padding-right: 2rem;
+}
+
+small {
+  color: #8b919a;
+  font-size: 0.76rem;
+}
+
+small.error,
+.error {
+  color: #b3261e;
+}
+
+.banner {
+  border: 1px solid #f0c8c4;
+  background: #fdf0ef;
+  border-radius: 3px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+  margin: 0 0 1rem;
+}
+
+.level {
+  border: 1px solid #d7dbe1;
+  border-radius: 3px;
+  padding: 0.5rem 0.8rem 0.65rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.level legend {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #3c4149;
+  padding: 0 0.3rem;
+}
+
+.radio {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 400;
+}
+
+input[type='radio'],
+input[type='checkbox'] {
+  accent-color: #ffcc00;
+}
+
+.pickers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 1200px) {
+  .pickers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+
+button {
+  padding: 0.6rem 1.3rem;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background: #ffcc00;
+  color: #14181f;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #fff;
+  color: #3c4149;
+  font-weight: 500;
+  border-color: #c9ced6;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+@media (max-width: 720px) {
+  .grid,
+  .pickers {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Gender and card type sit above the criteria lists: they narrow the same dimension —
+   who the campaign reaches — so they belong in that section rather than in General. */
+.grid.demographics {
+  margin-bottom: 1.25rem;
+}
+
+/* Conditions */
+
+.hint {
+  font-size: 0.8rem;
+  color: #8b919a;
+  margin: -0.3rem 0 1rem;
+}
+
+.condition-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.condition-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.condition-list li.empty {
+  color: #8b919a;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.condition-list input[type='text'] {
+  flex: 1;
+  min-width: 0;
+}
+
+.tag {
+  font-size: 0.72rem;
+  color: #8b919a;
+  border: 1px solid #d7dbe1;
+  border-radius: 3px;
+  padding: 0.15rem 0.4rem;
+  white-space: nowrap;
+}
+
+.icon-btn {
+  padding: 0.3rem 0.55rem;
+  background: #fff;
+  color: #3c4149;
+  border: 1px solid #c9ced6;
+  font-weight: 400;
+}
+
+.icon-btn.remove {
+  color: #b3261e;
+  border-color: #e6b3ae;
+}
+
+.icon-btn.remove:hover:not(:disabled) {
+  background: #fdf0ef;
+}
+
+.condition-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* Screen head */
+
+.screen-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.record {
+  font-size: 0.8rem;
+  color: #5b616b;
+}
+
+.record.new {
+  color: #8b919a;
+  font-style: italic;
+}
+
+.notice.banner {
+  border: 1px solid #cfe6d6;
+  background: #f0f9f3;
+  color: #17643a;
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.destructive {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* A bordered button rather than an underlined link: deleting a campaign is a real action
+   and should not read as a footnote. */
+footer .delete-btn {
+  border: 1px solid #e6b3ae;
+  background: #fff;
+  color: #b3261e;
+}
+
+footer .delete-btn:hover:not(:disabled) {
+  background: #fdf0ef;
+}
+
+.confirm-text {
+  font-size: 0.85rem;
+  color: #b3261e;
+  font-weight: 600;
+}
+
+/* Filled red only on the button that actually deletes. */
+footer .danger {
+  border: 1px solid #b3261e;
+  background: #b3261e;
+  color: #fff;
+  font-weight: 600;
+}
+
+footer .danger:hover:not(:disabled) {
+  background: #8f1e18;
+}
+
+/* Refund-clawback toggle: inline checkbox on its own row. */
+label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
+}
+label.check input {
+  width: auto;
+}
+
+/* Inline campaign-idea panel, shown on a new campaign only. */
+.suggestions {
+  border: 1px solid #e6e8ec;
+  border-radius: 3px;
+  margin-bottom: 1.5rem;
+  background: #fffdf5;
+}
+.suggestions-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  background: #fffbe8;
+  border: none;
+  border-bottom: 1px solid #e6e8ec;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: #14181f;
+  cursor: pointer;
+}
+.suggestions.collapsed .suggestions-head {
+  border-bottom: none;
+}
+.suggestions-head small {
+  font-weight: 400;
+  color: #7a5200;
+}
+.suggestions-head .chevron {
+  margin-left: auto;
+  color: #7a5200;
+}
+.suggestions ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.suggestions li {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid #eef0f3;
+}
+.suggestions li:last-child {
+  border-bottom: none;
+}
+.suggestions .s-main {
+  display: flex;
+  gap: 0.7rem;
+  flex: 1;
+}
+.suggestions .s-rank {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffcc00;
+  color: #14181f;
+  font-weight: 700;
+  font-size: 0.78rem;
+  border-radius: 3px;
+}
+.suggestions .s-main p {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: #5b616b;
+}
+.suggestions-empty {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.82rem;
+  color: #5b616b;
+}

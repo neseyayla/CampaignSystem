@@ -1,6 +1,0 @@
-@CampaignSystem_HostAddress = http://localhost:5284
-
-GET {{CampaignSystem_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

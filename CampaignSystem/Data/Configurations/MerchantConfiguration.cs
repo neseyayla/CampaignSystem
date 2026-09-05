@@ -22,5 +22,42 @@ public class MerchantConfiguration : IEntityTypeConfiguration<Merchant>
             .IsRequired();
 
         builder.HasIndex(x => x.MerchantNumber).IsUnique();
+
+        builder.HasOne(x => x.MerchantCategory)
+            .WithMany(x => x.Merchants)
+            .HasForeignKey(x => x.MerchantCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Twelve merchants across the categories a card campaign usually targets: fuel,
+        // grocery, restaurant, electronics, clothing. Enough variety that a campaign
+        // restricted to one category actually excludes something.
+        //
+        // Member numbers follow the nine digit form the card scheme issues, rather than the
+        // short placeholders this table started with.
+        //
+        // MerchantCategoryId values reference MerchantCategoryConfiguration: 1=Gıda/Market,
+        // 2=Restoran, 3=Akaryakıt, 7=Elektronik, 4=Giyim.
+        builder.HasData(
+            // Restoran
+            new Merchant { Id = 1, MerchantNumber = "300145782", MerchantName = "Grande Cafe", IsActive = true, MerchantCategoryId = 2 },
+            new Merchant { Id = 2, MerchantNumber = "300912467", MerchantName = "Köfteci Yusuf", IsActive = true, MerchantCategoryId = 2 },
+            new Merchant { Id = 12, MerchantNumber = "300558214", MerchantName = "Big Chefs", IsActive = true, MerchantCategoryId = 2 },
+
+            // Akaryakıt
+            new Merchant { Id = 3, MerchantNumber = "410874193", MerchantName = "Opet", IsActive = true, MerchantCategoryId = 3 },
+            new Merchant { Id = 4, MerchantNumber = "410336729", MerchantName = "Shell", IsActive = true, MerchantCategoryId = 3 },
+            new Merchant { Id = 5, MerchantNumber = "410771056", MerchantName = "Petrol Ofisi", IsActive = true, MerchantCategoryId = 3 },
+
+            // Gıda / Market
+            new Merchant { Id = 6, MerchantNumber = "520419863", MerchantName = "Migros", IsActive = true, MerchantCategoryId = 1 },
+            new Merchant { Id = 7, MerchantNumber = "520684137", MerchantName = "BİM", IsActive = true, MerchantCategoryId = 1 },
+            new Merchant { Id = 8, MerchantNumber = "520297540", MerchantName = "A101", IsActive = true, MerchantCategoryId = 1 },
+
+            // Elektronik
+            new Merchant { Id = 9, MerchantNumber = "610853024", MerchantName = "Teknosa", IsActive = true, MerchantCategoryId = 7 },
+            new Merchant { Id = 10, MerchantNumber = "610140678", MerchantName = "Vatan Bilgisayar", IsActive = true, MerchantCategoryId = 7 },
+
+            // Giyim
+            new Merchant { Id = 11, MerchantNumber = "710962385", MerchantName = "LC Waikiki", IsActive = true, MerchantCategoryId = 4 });
     }
 }

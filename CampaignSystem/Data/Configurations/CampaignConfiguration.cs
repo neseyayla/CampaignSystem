@@ -26,6 +26,13 @@ public class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
             .IsUnicode(false)
             .IsRequired();
 
+        // Null for a MASS campaign. Stored as the enum member name like Status: this is a
+        // rule internal to this application, not a code the bank's other systems share.
+        builder.Property(x => x.EnrollmentBasis)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsUnicode(false);
+
         builder.Property(x => x.StartDate).HasColumnType("datetime2");
         builder.Property(x => x.EndDate).HasColumnType("datetime2");
 
@@ -40,6 +47,18 @@ public class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
             .IsUnicode(false)
             .IsRequired();
 
+        // Optional demographic filters. Null is stored as NULL and means "no restriction",
+        // so nothing is written when the campaign does not narrow on that dimension.
+        builder.Property(x => x.Gender)
+            .HasConversion(EnumCodeConverters.GenderToCode)
+            .HasMaxLength(1)
+            .IsUnicode(false);
+
+        builder.Property(x => x.CardType)
+            .HasConversion(EnumCodeConverters.CardTypeToCode)
+            .HasMaxLength(1)
+            .IsUnicode(false);
+
         // Stored as the enum member name; the values are longer than two characters and
         // are only read by this application, so a short code buys nothing here.
         builder.Property(x => x.Status)
@@ -47,6 +66,11 @@ public class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
             .HasMaxLength(20)
             .IsUnicode(false)
             .IsRequired();
+
+        builder.Property(x => x.UnusedPointsClawbackProcessedAt).HasColumnType("datetime2");
+
+        // Derived from EarningType rather than stored, so there is nothing to map.
+        builder.Ignore(x => x.AccumulatesPerCard);
 
         // The batch job selects campaigns to evaluate by status and end date.
         builder.HasIndex(x => new { x.Status, x.EndDate });

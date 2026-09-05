@@ -1,0 +1,46 @@
+========================================================
+ÖRNEK KAMPANYA — Katılım ekranı testi için
+Admin "Kampanya Tanım" formuna bu değerleri gir.
+========================================================
+
+Kampanya Adı      : Hafta Sonu Kahve & Lezzet Kampanyası
+
+Kampanya Türü     : SI — katılım gerekli
+
+Kazanım Tipi      : Kart Bazlı
+
+Açıklama          : Anlaşmalı kafe ve restoranlarda 100 TL üzeri
+                    harcamalarda işlem başına 30 puan. Katıl,
+                    kartınla harca, kazan.
+
+Başlangıç Tarihi  : 01.08.2026
+Bitiş Tarihi      : 31.10.2026
+
+İşlem Başına Puan : 30
+Maksimum Ödül     : 300
+
+Cinsiyet          : Tüm cinsiyetler
+Kart Türü         : Hepsi
+Müşteri Grubu     : (boş bırak — herkes uygun)
+Ürün Kodu         : (boş bırak)
+
+İşlem Kodu        : Satış
+Üye İşyeri        : Grande Cafe, Köfteci Yusuf, Big Chefs
+
+Min Tutar         : 100
+Max Tutar         : (boş bırak)
+
+--------------------------------------------------------
+NEDEN BÖYLE?
+- SI + Kart Bazlı  -> müşteri ekranında "Katıl" çıkar,
+                      katılınca kart seçici açılır.
+- Demografik kısıt yok -> giriş yapan her müşteri uygun.
+- İşyeri/İşlem Kodu/Min Tutar -> "Kampanya Koşulları" olarak
+  görünür, uygunluğu daraltmaz.
+- Tarihler bugünü kapsar -> "Uygun Kampanyalar" sekmesinde çıkar.
+
+TEST AKIŞI
+1) Admin (10007919 / 123456) -> formu doldur -> Kaydet
+2) Müşteri (herhangi biri / 123456) ile giriş
+3) Uygun Kampanyalar -> Katıl -> kart seç -> "Katıldınız"
+========================================================

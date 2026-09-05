@@ -1,0 +1,334 @@
+/*
+ * The campaign header and the tab navbar: a title with a one-line points summary and a
+ * decorative star on the right, then a single white navbar whose tabs are divided by thin
+ * separators — not four separate pill buttons. Accented in the bank's yellow throughout.
+ *
+ * Its own stylesheet, alongside my-campaigns.css which still owns the cards and the rest.
+ */
+
+$ink: #1b1b2f;
+$body: #465571;
+$accent: #e0a000; // deep gold, readable as text/icon on white
+$accent-bright: #fdb913; // VakıfBank yellow, for the star and the active underline
+$accent-soft: #fff3d1; // light yellow, for the pill and the active count
+$accent-deep: #9a6b00; // text on the light-yellow pill
+$line: #e8ebf1;
+
+/* ── Header ───────────────────────────────────── */
+
+.campaign-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  padding: 0.5rem 0.25rem 1.75rem;
+}
+
+.title-area h1 {
+  margin: 0;
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -1.6px;
+  color: $ink;
+}
+
+.title-area p {
+  margin: 0.55rem 0 0;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.2px;
+  color: #667085;
+}
+
+/* Points card ─── star badge + the customer's total, on its own panel to the right. */
+.points-card {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.85rem 1.25rem;
+  background: #fff;
+  border: 1px solid $line;
+  border-radius: 16px;
+  box-shadow: 0 5px 18px rgba(60, 45, 10, 0.05);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.15s ease;
+}
+
+.points-card:hover {
+  transform: translateY(-1px);
+  border-color: #e2d9c2;
+  box-shadow: 0 8px 22px rgba(60, 45, 10, 0.1);
+}
+
+.star-box {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: $accent-soft;
+  color: $accent-bright;
+}
+
+.star-box svg {
+  width: 26px;
+  height: 26px;
+  fill: currentColor;
+}
+
+.points-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.points-label {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+  color: #667085;
+}
+
+.points-number {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+  color: $ink;
+  font-variant-numeric: tabular-nums;
+
+  span {
+    margin-left: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.2px;
+    color: #667085;
+  }
+}
+
+.points-earned {
+  font-size: 12.5px;
+  font-weight: 400;
+  letter-spacing: -0.1px;
+  color: #7c889b;
+}
+
+@media (max-width: 40rem) {
+  .title-area h1 {
+    font-size: 32px;
+  }
+
+  .points-card {
+    width: 100%;
+  }
+}
+
+/* ── Navbar ───────────────────────────────────── */
+
+.campaign-nav {
+  height: 60px;
+  width: 100%;
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 1.75rem;
+
+  background: #fff;
+  border: 1px solid $line;
+  border-radius: 16px;
+  box-shadow: 0 5px 18px rgba(60, 45, 10, 0.05);
+}
+
+/* Only the tabs clip to the rounded corners; the filter must not, or its dropdown — which
+   opens below the bar — gets cut off. */
+.nav-tab:first-child {
+  border-radius: 16px 0 0 16px;
+}
+
+.nav-tab {
+  position: relative;
+  flex: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  border: 0;
+  background: transparent;
+
+  color: $body;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+
+  cursor: pointer;
+}
+
+.nav-tab:hover {
+  background: #fffaef;
+}
+
+.nav-tab.active {
+  color: $accent;
+  font-weight: 600;
+}
+
+.nav-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 0;
+  height: 4px;
+  background: $accent-bright;
+  border-radius: 4px 4px 0 0;
+}
+
+.nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-icon svg {
+  width: 19px;
+  height: 19px;
+  fill: currentColor;
+}
+
+.nav-icon svg [fill='none'] {
+  fill: none;
+}
+
+.nav-divider {
+  width: 1px;
+  height: 26px;
+  align-self: center;
+  background: $line;
+}
+
+.nav-count {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #f0f2f5;
+  color: #56637a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.nav-tab.active .nav-count {
+  background: $accent-soft;
+  color: $accent-deep;
+}
+
+/* ── Filter ───────────────────────────────────── */
+
+.filter {
+  position: relative;
+  display: flex;
+  width: 220px;
+  flex-shrink: 0;
+}
+
+.filter-button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  border: 0;
+  background: transparent;
+
+  color: $body;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+
+  cursor: pointer;
+}
+
+.filter-button:hover {
+  background: #fffaef;
+}
+
+.filter-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.filter-chev {
+  font-size: 14px;
+  color: #7c889b;
+}
+
+.sort-menu {
+  position: absolute;
+  // Touches the button (no gap), so moving the cursor down into the menu never crosses a dead
+  // zone that would trip mouseleave and close it early.
+  top: 100%;
+  // Full width of the filter above it, so the dropdown matches the button, not wider.
+  left: 0;
+  right: 0;
+  z-index: 25;
+  padding: 0.4rem;
+  background: #fff;
+  border: 1px solid $line;
+  border-radius: 0.625rem;
+  box-shadow: 0 12px 32px rgba(60, 45, 10, 0.14);
+}
+
+.sort-head {
+  display: block;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9aa5b1;
+}
+
+.sort-menu button {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: none;
+  font: inherit;
+  font-size: 0.875rem;
+  color: #1a1a1a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sort-menu button:hover {
+  background: #f4f6f9;
+}
+
+.sort-menu button.on {
+  background: $accent-soft;
+  font-weight: 600;
+  color: $accent-deep;
+}
+
+@media (max-width: 52rem) {
+  .campaign-nav {
+    height: auto;
+    flex-wrap: wrap;
+  }
+  .nav-tab {
+    flex: 1 1 40%;
+    padding: 1rem 0.5rem;
+  }
+  .filter {
+    width: 100%;
+  }
+  .nav-divider {
+    display: none;
+  }
+}

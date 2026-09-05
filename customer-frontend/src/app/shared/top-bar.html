@@ -1,0 +1,51 @@
+<header class="bar">
+  <div class="bar-inner">
+    <button type="button" class="brand" (click)="goCampaigns()" title="Kampanyalar">
+      <img
+        class="logo"
+        src="logo-wide.png"
+        srcset="logo-wide.png 1x, logo-wide@2x.png 2x"
+        alt="VakıfBank" />
+    </button>
+
+    <div class="account">
+      <button type="button" class="trigger" (click)="toggle()" [class.on]="open()">
+        <span class="avatar" aria-hidden="true">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="8" r="3.6" fill="currentColor" />
+            <path
+              d="M4.5 19.6c0-3.6 3.4-5.7 7.5-5.7s7.5 2.1 7.5 5.7a0.9 0.9 0 0 1-0.9 0.9H5.4a0.9 0.9 0 0 1-0.9-0.9z"
+              fill="currentColor" />
+          </svg>
+        </span>
+        <span class="chev" aria-hidden="true">▾</span>
+      </button>
+
+      @if (open()) {
+        <div class="menu" role="menu">
+          <div class="menu-head">
+            <span class="avatar big" aria-hidden="true">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="8" r="3.6" fill="currentColor" />
+                <path
+                  d="M4.5 19.6c0-3.6 3.4-5.7 7.5-5.7s7.5 2.1 7.5 5.7a0.9 0.9 0 0 1-0.9 0.9H5.4a0.9 0.9 0 0 1-0.9-0.9z"
+                  fill="currentColor" />
+              </svg>
+            </span>
+            <div class="menu-id">
+              <span class="menu-label">Müşteri No</span>
+              <span class="menu-num">{{ customerNumber() }}</span>
+            </div>
+          </div>
+
+          <button type="button" role="menuitem" (click)="goProfile()">Profilim</button>
+          <button type="button" role="menuitem" (click)="goCampaigns()">Kampanyalar</button>
+
+          <div class="menu-sep"></div>
+
+          <button type="button" role="menuitem" class="danger" (click)="signOut()">Çıkış</button>
+        </div>
+      }
+    </div>
+  </div>
+</header>

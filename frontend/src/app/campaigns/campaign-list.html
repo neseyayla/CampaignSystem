@@ -1,0 +1,46 @@
+<header>
+  <h1>Kampanyalar</h1>
+  <div class="actions">
+    <button type="button" class="secondary" (click)="load()" [disabled]="loading()">Yenile</button>
+    <a class="button" routerLink="/campaigns/new">Yeni Kampanya</a>
+  </div>
+</header>
+
+@if (loading()) {
+  <p class="state">Yükleniyor…</p>
+} @else if (error()) {
+  <p class="state error">{{ error() }}</p>
+} @else if (campaigns().length === 0) {
+  <p class="state">Henüz kampanya tanımlanmamış.</p>
+} @else {
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Kampanya Adı</th>
+          <th>Tür</th>
+          <th>Seviye</th>
+          <th>Durum</th>
+          <th>Dönem</th>
+          <th class="numeric">Puan</th>
+          <th class="numeric">Tavan</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (campaign of campaigns(); track campaign.id) {
+          <tr>
+            <td>{{ campaign.id }}</td>
+            <td><a [routerLink]="['/campaigns', campaign.id]">{{ campaign.name }}</a></td>
+            <td>{{ campaignTypeLabels[campaign.campaignType] }}</td>
+            <td>{{ earningTypeLabels[campaign.earningType] }}</td>
+            <td><span class="status" [class]="campaign.status.toLowerCase()">{{ statusLabels[campaign.status] }}</span></td>
+            <td>{{ campaign.startDate | date: 'dd.MM.yyyy' }} – {{ campaign.endDate | date: 'dd.MM.yyyy' }}</td>
+            <td class="numeric">{{ campaign.rewardPoint ?? '—' }}</td>
+            <td class="numeric">{{ campaign.maxRewardAmount ?? '—' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

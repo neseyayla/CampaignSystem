@@ -1,0 +1,372 @@
+<header class="screen-head">
+  <h1>Batch Kampanya Tanım</h1>
+
+  @if (editing()) {
+    <span class="record">Kampanya No: <strong>{{ campaignId() }}</strong> · Durum: {{ status() }}</span>
+  } @else {
+    <span class="record new">Yeni kayıt</span>
+  }
+</header>
+
+@if (!editing()) {
+  <section class="suggestions" [class.collapsed]="!suggestionsOpen()">
+    <button type="button" class="suggestions-head" (click)="toggleSuggestions()">
+      <span>Kampanya önerileri</span>
+      @if (suggestionsLoading()) {
+        <small>yükleniyor…</small>
+      } @else {
+        <small>{{ suggestions().length }} öneri · son harcamalara göre</small>
+      }
+      <span class="chevron">{{ suggestionsOpen() ? '▾' : '▸' }}</span>
+    </button>
+
+    @if (suggestionsOpen() && !suggestionsLoading()) {
+      @if (suggestions().length === 0) {
+        <p class="suggestions-empty">Şu an öne çıkan bir kategori yok.</p>
+      } @else {
+        <ul>
+          @for (s of suggestions(); track s.merchantCategoryId) {
+            <li>
+              <div class="s-main">
+                <span class="s-rank">{{ s.rank }}</span>
+                <div>
+                  <strong>{{ s.merchantCategoryName }}</strong>
+                  <p>{{ s.headline }}</p>
+                </div>
+              </div>
+              <button type="button" class="secondary" (click)="applySuggestion(s)">Uygula</button>
+            </li>
+          }
+        </ul>
+      }
+    }
+  </section>
+}
+
+<form [formGroup]="form" (ngSubmit)="save()">
+  <section>
+    <h2>Genel</h2>
+
+    <div class="grid">
+      <label class="wide">
+        <span>Kampanya Adı</span>
+        <input type="text" formControlName="name" maxlength="200" />
+        @if (invalid('name')) {
+          <small class="error">Kampanya adı zorunludur.</small>
+        }
+      </label>
+
+      <div class="stacked">
+        <label>
+          <span>Kampanya Türü</span>
+          <select formControlName="campaignType">
+            <option value="Mass">MASS — herkese açık</option>
+            <option value="EnrollmentRequired">SI — katılım gerekli</option>
+          </select>
+        </label>
+
+        <fieldset class="level">
+          <legend>Kazanım Tipi</legend>
+          <label class="radio">
+            <input type="radio" formControlName="earningType" value="CardBased" />
+            Kart Bazlı
+          </label>
+          <label class="radio">
+            <input type="radio" formControlName="earningType" value="CustomerBased" />
+            Müşteri Bazlı
+          </label>
+        </fieldset>
+      </div>
+
+      @if (campaignType() === 'EnrollmentRequired') {
+        <fieldset class="level enrollment-basis">
+          <legend>Puan Hesaplaması</legend>
+          <label class="radio">
+            <input type="radio" formControlName="enrollmentBasis" value="ParticipationDate" />
+            Kampanyaya katılım tarihinden itibaren
+          </label>
+          <label class="radio">
+            <input type="radio" formControlName="enrollmentBasis" value="CampaignPeriod" />
+            Kampanya tarihi aralığındaki tüm işlemler dahil
+          </label>
+        </fieldset>
+      }
+
+      <label class="wide">
+        <span>Açıklama</span>
+        <textarea formControlName="description" rows="2" maxlength="1000"></textarea>
+      </label>
+
+      <label>
+        <span>Başlangıç Tarihi</span>
+        <input type="date" formControlName="startDate" />
+        @if (invalid('startDate')) {
+          <small class="error">Başlangıç tarihi zorunludur.</small>
+        }
+      </label>
+
+      <label>
+        <span>Bitiş Tarihi</span>
+        <input type="date" formControlName="endDate" />
+        @if (invalid('endDate')) {
+          <small class="error">Bitiş tarihi zorunludur.</small>
+        }
+      </label>
+
+      <label>
+        <span>İşlem Başına Puan</span>
+        <input type="number" formControlName="rewardPoint" min="0" step="0.01" />
+      </label>
+
+      <label>
+        <span>Maksimum Ödül</span>
+        <input type="number" formControlName="maxRewardAmount" min="0" step="0.01" />
+      </label>
+
+      <label class="check">
+        <input type="checkbox" formControlName="refundClawbackEnabled" />
+        <span>İade sonrası puan geri alımı</span>
+      </label>
+
+      @if (clawbackOn()) {
+        <label>
+          <span>Geri Alım (gün)</span>
+          <input
+            type="number"
+            formControlName="refundClawbackDays"
+            min="0"
+            step="1" />
+          @if (invalid('refundClawbackDays')) {
+            <small class="error">Gün sayısı zorunludur.</small>
+          }
+        </label>
+      }
+
+      <label class="check">
+        <input type="checkbox" formControlName="unusedPointsClawbackEnabled" />
+        <span>Kullanılmayan puan geri alımı</span>
+      </label>
+
+      @if (unusedClawbackOn()) {
+        <label>
+          <span>Geri Alım (gün)</span>
+          <input
+            type="number"
+            formControlName="unusedPointsClawbackDays"
+            min="0"
+            step="1" />
+          @if (invalid('unusedPointsClawbackDays')) {
+            <small class="error">Gün sayısı zorunludur.</small>
+          }
+        </label>
+      }
+    </div>
+  </section>
+
+  <section>
+    <h2>Kart / Müşteri Kriterleri</h2>
+
+    <div class="grid demographics">
+      <label>
+        <span>Cinsiyet</span>
+        <select formControlName="gender">
+          <option value="">Tüm cinsiyetler</option>
+          <option value="Male">Erkek</option>
+          <option value="Female">Kadın</option>
+        </select>
+      </label>
+
+      <fieldset class="level">
+        <legend>Kart Türü</legend>
+        <label class="radio">
+          <input type="radio" formControlName="cardType" value="" />
+          Hepsi
+        </label>
+        <label class="radio">
+          <input type="radio" formControlName="cardType" value="Primary" />
+          Asıl Kartlar
+        </label>
+        <label class="radio">
+          <input type="radio" formControlName="cardType" value="Supplementary" />
+          Ek Kartlar
+        </label>
+      </fieldset>
+    </div>
+
+    <div class="pickers">
+      <app-criteria-picker
+        label="Müşteri Grubu"
+        [options]="segments()"
+        [(selected)]="selectedSegments" />
+
+      <app-criteria-picker
+        label="Ürün Kodu"
+        [options]="products()"
+        [(selected)]="selectedProducts" />
+    </div>
+
+    @if (unusedClawbackOn()) {
+      <div class="pickers">
+        <app-criteria-picker
+          label="Premium Kartlar (Geri Alımdan Muaf)"
+          [options]="products()"
+          [(selected)]="selectedClawbackExemptProducts" />
+      </div>
+    }
+  </section>
+
+  <section>
+    <h2>İşlem Kriterleri</h2>
+
+    <div class="pickers">
+      <app-criteria-picker
+        label="İşlem Kodu"
+        [options]="transactionCodes()"
+        [(selected)]="selectedTransactionCodes" />
+
+      <app-criteria-picker
+        label="Üye İşyeri"
+        [options]="merchants()"
+        [(selected)]="selectedMerchants" />
+    </div>
+
+    <div class="grid amounts">
+      <label>
+        <span>Min Tutar</span>
+        <input type="number" formControlName="minimumAmount" min="0" step="0.01" />
+      </label>
+
+      <label>
+        <span>Max Tutar</span>
+        <input type="number" formControlName="maximumAmount" min="0" step="0.01" />
+      </label>
+    </div>
+  </section>
+
+  <section class="conditions">
+    @if (editing()) {
+      <h2>Kampanya Koşulları</h2>
+
+      <p class="hint">
+        Müşteri ekranında kampanya detayının altında bu sırayla görünür. Kurallardan
+        türetilen satırlar kaydedildikten sonra elle düzenlenebilir; "Yeniden Oluştur"
+        bunları kampanyanın güncel kural ve kriterlerinden yeniden yazar, elle eklenmiş
+        satırlara dokunmaz.
+      </p>
+    } @else {
+      <h2>Kampanya Koşulları (Önizleme)</h2>
+
+      <p class="hint">
+        Formu doldurdukça otomatik satırlar güncellenir. Elle eklediğiniz satırlar bu
+        sırada korunur; kampanyayı kaydettiğinizde koşullar aşağıdaki haliyle yazılır.
+      </p>
+    }
+
+    <ol class="condition-list">
+      @for (condition of conditions(); track $index) {
+        <li>
+          <input
+            type="text"
+            [value]="condition.text"
+            (input)="editCondition($index, $any($event.target).value)"
+            maxlength="500" />
+
+          @if (!condition.isAutoGenerated) {
+            <span class="tag">elle eklendi</span>
+          }
+
+          <button
+            type="button"
+            class="icon-btn"
+            title="Yukarı taşı"
+            [disabled]="$index === 0"
+            (click)="moveConditionUp($index)">
+            ↑
+          </button>
+          <button
+            type="button"
+            class="icon-btn"
+            title="Aşağı taşı"
+            [disabled]="$index === conditions().length - 1"
+            (click)="moveConditionDown($index)">
+            ↓
+          </button>
+          <button
+            type="button"
+            class="icon-btn remove"
+            title="Kaldır"
+            (click)="removeCondition($index)">
+            ✕
+          </button>
+        </li>
+      } @empty {
+        <li class="empty">
+          @if (editing()) {
+            Henüz koşul yok. "Yeniden Oluştur" ile kurallardan üretebilirsiniz.
+          } @else {
+            Kuralları ve kriterleri doldurdukça koşul cümleleri burada görünecek.
+          }
+        </li>
+      }
+    </ol>
+
+    <div class="condition-actions">
+      <button type="button" class="secondary" (click)="addCondition()">+ Serbest Satır Ekle</button>
+      @if (editing()) {
+        <button
+          type="button"
+          class="secondary"
+          [disabled]="conditionsSaving()"
+          (click)="regenerateConditions()">
+          Yeniden Oluştur
+        </button>
+        <span class="spacer"></span>
+        <button type="button" [disabled]="conditionsSaving()" (click)="saveConditions()">
+          {{ conditionsSaving() ? 'Kaydediliyor…' : 'Koşulları Kaydet' }}
+        </button>
+      }
+    </div>
+
+    @if (conditionsNotice()) {
+      <p class="notice banner">{{ conditionsNotice() }}</p>
+    }
+  </section>
+
+  @if (error()) {
+    <p class="error banner">{{ error() }}</p>
+  }
+
+  @if (notice()) {
+    <p class="notice banner">{{ notice() }}</p>
+  }
+
+  <footer>
+    @if (editing()) {
+      <!-- Kept apart from the save buttons: a destructive action should not sit under the
+           thumb that is reaching for Güncelle. -->
+      <div class="destructive">
+        @if (confirmingDelete()) {
+          <!-- The question is text and the answers are buttons. A single button reading
+               "Emin misiniz?" looks like a label, and it is not obvious what pressing it
+               means. -->
+          <span class="confirm-text">Kampanya silinsin mi?</span>
+          <button type="button" class="danger" (click)="confirmDelete()" [disabled]="saving()">
+            Evet
+          </button>
+          <button type="button" class="secondary" (click)="cancelDelete()">Hayır</button>
+        } @else {
+          <button type="button" class="delete-btn" (click)="askDelete()" [disabled]="saving()">
+            Sil
+          </button>
+        }
+      </div>
+    }
+
+    <span class="spacer"></span>
+
+    <button type="button" class="secondary" (click)="cancel()" [disabled]="saving()">Vazgeç</button>
+    <button type="submit" [disabled]="saving()">
+      {{ saving() ? 'Kaydediliyor…' : editing() ? 'Güncelle' : 'Kaydet' }}
+    </button>
+  </footer>
+</form>

@@ -1,0 +1,117 @@
+# Brings up the whole system with one command: a SQL Server container and the API that talks
+# to it. Secrets (SA password, signing key) are read from a .env file that is NOT committed —
+# copy .env.example to .env and fill it in. Only non-secret config lives in this file.
+
+services:
+  # ── Database ────────────────────────────────────────────────
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      # From .env — a strong SA password (8+ chars, upper/lower/digit/symbol).
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
+    ports:
+      # host:container — lets you also connect from SSMS on localhost,1433 if you want.
+      - "1433:1433"
+    volumes:
+      # Keeps the database files even if the container is recreated.
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      # The API must not start until SQL Server is actually accepting connections, not just
+      # while the container is "running". This probes it until it answers.
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ── API ─────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy      # wait for the healthcheck above to pass
+      elasticsearch:
+        condition: service_started      # logging must not block the API; the sink retries
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      # Turns the Elasticsearch sink on (empty in appsettings.json, so a plain local run stays
+      # off). "elasticsearch" is the service name below, resolved by Docker's internal DNS.
+      Elasticsearch__Uri: "http://elasticsearch:9200"
+      # The batch schedules on the container's local clock. Without this the container is UTC,
+      # so "00:30" would fire at 03:30 in Türkiye. Pin the zone so RunAt means local time.
+      TZ: "Europe/Istanbul"
+      # Only the container applies migrations on boot, so its empty database gets the schema.
+      # Unset when you run locally, so your LocalDB is never touched automatically.
+      RunMigrationsAtStartup: "true"
+      # Daily batch schedule. Env vars override appsettings.json (the "__" is the ":" separator),
+      # so change the time here and "docker compose up -d api" — no rebuild needed. Set Enabled
+      # to "false" to turn the scheduled run off (e.g. if you only trigger POST /api/batch/run).
+      DailyBatch__RunAt: "02:00"
+      DailyBatch__Enabled: "true"
+      # "db" is the service name above; Docker's internal DNS resolves it to the container.
+      # No User Secrets in a container, so these come in as env vars — the secret parts from .env.
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=CampaignSystem;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=False"
+      # The app refuses to start without this; at least 32 characters.
+      Jwt__SigningKey: "${JWT_SIGNING_KEY}"
+    ports:
+      - "5284:8080"                      # reach the API on http://localhost:5284
+
+  # ── Staff front end (Angular) ───────────────────────────────
+  # nginx serving the built app. The browser still calls the API on localhost:5284, so no URL
+  # change is needed — this container only serves static files.
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "4200:80"                        # reach the staff app on http://localhost:4200
+
+  # ── Customer front end (Angular) ────────────────────────────
+  customer-frontend:
+    build:
+      context: ./customer-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "4300:80"                        # reach the customer app on http://localhost:4300
+
+  # ── Elasticsearch (central log store) ───────────────────────
+  # Where the API's logs are collected so both developers search the same place. This is a
+  # DEVELOPMENT node: security is turned off so Kibana and the API reach it over plain HTTP
+  # with no password. Never run a production node this way.
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    environment:
+      discovery.type: "single-node"
+      xpack.security.enabled: "false"
+      # Cap the JVM heap so Elasticsearch does not eat all of the host's memory.
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"                      # http://localhost:9200
+    volumes:
+      # Keeps the indexed logs across container recreation.
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  # ── Kibana (log search UI) ──────────────────────────────────
+  # The web interface for reading and searching the logs at http://localhost:5601.
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
+    ports:
+      - "5601:5601"                      # reach Kibana on http://localhost:5601
+
+volumes:
+  mssql-data:
+  es-data:

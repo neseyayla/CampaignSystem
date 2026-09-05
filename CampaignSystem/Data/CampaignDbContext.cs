@@ -21,6 +21,8 @@ public class CampaignDbContext : DbContext
     public DbSet<Segment> Segments => Set<Segment>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Merchant> Merchants => Set<Merchant>();
+    public DbSet<MerchantCategory> MerchantCategories => Set<MerchantCategory>();
+    public DbSet<SeasonalPattern> SeasonalPatterns => Set<SeasonalPattern>();
     public DbSet<TransactionCode> TransactionCodes => Set<TransactionCode>();
 
     // Customer and card
@@ -35,6 +37,9 @@ public class CampaignDbContext : DbContext
     public DbSet<CampaignProduct> CampaignProducts => Set<CampaignProduct>();
     public DbSet<CampaignMerchant> CampaignMerchants => Set<CampaignMerchant>();
     public DbSet<CampaignTransactionCode> CampaignTransactionCodes => Set<CampaignTransactionCode>();
+    public DbSet<CampaignClawbackExemptProduct> CampaignClawbackExemptProducts => Set<CampaignClawbackExemptProduct>();
+    public DbSet<CampaignCondition> CampaignConditions => Set<CampaignCondition>();
+    public DbSet<CampaignConditionTemplate> CampaignConditionTemplates => Set<CampaignConditionTemplate>();
 
     // Enrollment, transactions and results
     public DbSet<CampaignParticipation> CampaignParticipations => Set<CampaignParticipation>();

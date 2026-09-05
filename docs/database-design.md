@@ -12,14 +12,18 @@ Order of change: `schema.dbml` → entity class → migration. Never the other w
 
 ## Business flow
 
-1. A campaign is defined by the business development team
-2. The campaign is approved and published (`Status`)
-3. If the campaign requires enrollment (`CampaignType = SI`), customers enroll
-4. Customer transactions accumulate over the campaign period
-5. The batch job runs when the campaign ends
-6. Qualifying transactions are identified, rewards are calculated and posted
+1. A campaign is defined by the business development team, together with its criteria
+2. It waits until its start date (`Status = Pending`)
+3. The start date arrives and the campaign runs (`Status = Ongoing`)
+4. If the campaign requires enrollment (`CampaignType = SI`), customers enroll
+5. Customer transactions accumulate over the campaign period
+6. The end date passes and the batch job takes the campaign up (`Status = Loading`)
+7. Qualifying transactions are identified, rewards are calculated and posted
+8. The campaign is closed (`Status = Ended`)
 
 Evaluation happens **once** — the batch job runs a single time after the campaign ends.
+
+`Status` follows the batch pipeline, not an approval chain: `Pending → Ongoing → Loading → Ended`.
 
 ---
 
@@ -106,6 +110,8 @@ erDiagram
         decimal  RewardPoint
         decimal  MaxRewardAmount
         string   EarningType
+        string   Gender
+        string   CardType
         string   Status
         boolean  IsActive
     }
@@ -211,7 +217,7 @@ Transaction type.
 |---|---|---|
 | Id | int | PK, identity |
 | CustomerNumber | varchar(20) | UNIQUE, NOT NULL |
-| Gender | varchar(1) | null — `E` = male, `K` = female |
+| Gender | varchar(1) | NOT NULL — `E` = male, `K` = female |
 | SegmentId | int | FK → SEGMENT, null |
 | IsActive | bit | default 1 |
 
@@ -246,9 +252,11 @@ The clear card number is **never stored in any table** (PCI DSS).
 | MinimumAmount | decimal(18,2) | null — lower bound per transaction |
 | MaximumAmount | decimal(18,2) | null — upper bound per transaction |
 | RewardPoint | decimal(18,2) | null — points per qualifying transaction |
-| MaxRewardAmount | decimal(18,2) | null — reward cap for the whole campaign |
+| MaxRewardAmount | decimal(18,2) | null — reward cap, applied per reward row (see below) |
 | EarningType | varchar(2) | NOT NULL — `K` = accumulate per card, `M` = accumulate per customer |
-| Status | varchar(20) | NOT NULL — stored as the enum member name, e.g. `Published` |
+| Gender | varchar(1) | null — `E` = male, `K` = female. Null places no restriction |
+| CardType | varchar(1) | null — `A` = primary, `E` = supplementary. Null covers both |
+| Status | varchar(20) | NOT NULL — stored as the enum member name: `Pending`, `Ongoing`, `Loading`, `Ended` |
 | IsActive | bit | default 1 |
 
 Index: `(Status, EndDate)` — the campaign selection query of the batch job
@@ -356,9 +364,13 @@ qualifying transactions =
       AND TransactionCodeId  IN (CAMPAIGN_TRANSACTION_CODE)  -- only if rows exist
       AND Card.ProductId     IN (CAMPAIGN_PRODUCT)           -- only if rows exist
       AND Customer.SegmentId IN (CAMPAIGN_SEGMENT)           -- only if rows exist
+      AND Customer.Gender    = Campaign.Gender               -- only if the campaign sets one
+      AND Card.CardType      = Campaign.CardType             -- only if the campaign sets one
 ```
 
 If a criteria junction table has no rows for the campaign, that criterion is not applied — the campaign is unrestricted on that dimension.
+
+`Gender` and `CardType` sit on the campaign row rather than in a junction table, because the screen offers a single choice for each rather than a list. A null follows the same rule as an empty junction table: no restriction. A customer whose gender was never recorded is excluded once a campaign names one — an unknown value cannot be shown to match, and paying on a guess is worse than not paying.
 
 `EarningType` then decides at which level those transactions are grouped, and therefore how many reward rows one customer receives:
 
@@ -381,6 +393,17 @@ for each group:
 
 A customer holding three cards therefore receives three reward rows under `K` and a single pooled row under `M`. The null `CardId` of an `M` row is not missing data — it states that the reward belongs to the customer rather than to any one card.
 
+### What MaxRewardAmount caps
+
+The cap applies to each reward row, so it follows whatever unit the campaign accumulates in:
+
+| EarningType | Unit | A cap of 500 means |
+|---|---|---|
+| `M` — per customer | customer | the customer earns at most 500 from this campaign |
+| `K` — per card | card | each of the customer's cards earns at most 500 |
+
+No separate field says which: whoever defines the campaign already chose the unit through `EarningType`, and the cap follows it.
+
 ---
 
 ## Reference data
@@ -391,11 +414,11 @@ Seed data loaded on first setup.
 
 | SegmentCode | SegmentName |
 |---|---|
-| OGR | Student |
-| PER | Company Employee |
-| CFT | Farmer |
-| EVH | Homemaker |
-| EMK | Retiree |
+| OGR | Öğrenci |
+| PER | Şirket Çalışanı |
+| CFT | Çiftçi |
+| EVH | Ev Hanımı |
+| EMK | Emekli |
 
 ### PRODUCT
 
@@ -420,9 +443,9 @@ Seed data loaded on first setup.
 
 | Code | Name |
 |---|---|
-| SA | Sale |
-| NA | Cash Advance |
-| OD | Debt Payment |
+| SA | Satış |
+| NA | Nakit Avans |
+| OD | Borç Ödeme |
 
 ---
 
@@ -441,7 +464,7 @@ Seed data loaded on first setup.
 | RewardPoint | 50.00 |
 | MaxRewardAmount | 500.00 |
 | EarningType | K (accumulate per card) |
-| Status | Published |
+| Status | Ongoing |
 
 **Criteria junction tables**
 

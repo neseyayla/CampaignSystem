@@ -18,6 +18,12 @@ public class Campaign
 
     public CampaignType CampaignType { get; set; }
 
+    /// <summary>
+    /// Only meaningful when <see cref="CampaignType"/> is <see cref="Enums.CampaignType.EnrollmentRequired"/>
+    /// — null for a MASS campaign, which has no enrollment to measure from.
+    /// </summary>
+    public EnrollmentBasis? EnrollmentBasis { get; set; }
+
     public DateTime StartDate { get; set; }
 
     public DateTime EndDate { get; set; }
@@ -31,12 +37,76 @@ public class Campaign
     /// <summary>Points earned per qualifying transaction.</summary>
     public decimal? RewardPoint { get; set; }
 
-    /// <summary>Reward cap for the whole campaign.</summary>
+    /// <summary>
+    /// Reward cap. Applied to each reward row, so it follows whatever unit the campaign
+    /// accumulates in: per customer under <see cref="EarningType.CustomerBased"/>, per card
+    /// under <see cref="EarningType.CardBased"/>.
+    /// </summary>
     public decimal? MaxRewardAmount { get; set; }
+
+    /// <summary>
+    /// Whether refunding a counted purchase claws its points back after the campaign has paid.
+    /// Off means a refund is ignored once the reward is granted.
+    /// </summary>
+    public bool RefundClawbackEnabled { get; set; }
+
+    /// <summary>
+    /// How many days after the reward is loaded a refund can still claw points back. Null while
+    /// clawback is enabled means no time limit; ignored when clawback is off.
+    /// </summary>
+    public int? RefundClawbackDays { get; set; }
+
+    /// <summary>
+    /// Whether points earned from this campaign and never redeemed are clawed back once
+    /// <see cref="UnusedPointsClawbackDays"/> has passed since they were loaded.
+    /// </summary>
+    public bool UnusedPointsClawbackEnabled { get; set; }
+
+    /// <summary>
+    /// How many days after the reward is loaded a customer has to redeem it before the unused
+    /// remainder is clawed back. Required when <see cref="UnusedPointsClawbackEnabled"/> is on;
+    /// ignored when it is off.
+    /// </summary>
+    public int? UnusedPointsClawbackDays { get; set; }
+
+    /// <summary>
+    /// When the one-time unused-points sweep ran for this campaign. Null means it has not run
+    /// yet — unlike refund clawback, which re-checks on every batch while its window is open,
+    /// this only ever needs to happen once per campaign, so this flag is what stops the batch
+    /// from re-scanning (and re-clawing) a campaign it has already swept.
+    /// </summary>
+    public DateTime? UnusedPointsClawbackProcessedAt { get; set; }
 
     public EarningType EarningType { get; set; }
 
+    /// <summary>
+    /// Restricts the campaign to one gender. Null means no restriction, which is the same
+    /// rule the criteria junction tables follow: saying nothing includes everyone.
+    /// </summary>
+    public Gender? Gender { get; set; }
+
+    /// <summary>
+    /// Restricts the campaign to primary or to supplementary cards. Null covers both — the
+    /// "Hepsi" option on the screen this replaces.
+    /// </summary>
+    public CardType? CardType { get; set; }
+
+    /// <summary>
+    /// Where the campaign stands: Pending, Ongoing, Loading or Ended.
+    ///
+    /// Stored rather than worked out from the dates on every read, so that a query, a report
+    /// or anyone looking at the table sees the same answer the application does. Keeping it
+    /// truthful is the daily batch's job — it advances campaigns whose start or end date has
+    /// arrived, then loads the rewards of the ones that are due.
+    /// </summary>
     public CampaignStatus Status { get; set; }
+
+    /// <summary>
+    /// Whether transactions accumulate per card, which decides how many reward rows one
+    /// customer receives. Kept here rather than in a service so the reward batch and the
+    /// enrollment rules cannot read it differently.
+    /// </summary>
+    public bool AccumulatesPerCard => EarningType == EarningType.CardBased;
 
     public bool IsActive { get; set; } = true;
 
@@ -47,6 +117,11 @@ public class Campaign
     public ICollection<CampaignMerchant> CampaignMerchants { get; set; } = [];
 
     public ICollection<CampaignTransactionCode> CampaignTransactionCodes { get; set; } = [];
+
+    /// <summary>Card products exempt from the unused-points clawback for this campaign.</summary>
+    public ICollection<CampaignClawbackExemptProduct> ClawbackExemptProducts { get; set; } = [];
+
+    public ICollection<CampaignCondition> Conditions { get; set; } = [];
 
     public ICollection<CampaignParticipation> Participations { get; set; } = [];
 

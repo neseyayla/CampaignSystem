@@ -21,7 +21,20 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         builder.Property(x => x.Gender)
             .HasConversion(EnumCodeConverters.GenderToCode)
             .HasMaxLength(1)
+            .IsUnicode(false)
+            .IsRequired();
+
+        // Long enough for the hasher's output, which carries the format marker, the salt and
+        // the derived key together. Not unicode: the value is base64.
+        builder.Property(x => x.PasswordHash)
+            .HasMaxLength(200)
             .IsUnicode(false);
+
+        // Not null with a false default: a row is an ordinary customer unless it is deliberately
+        // made an admin, so a missing value can never be mistaken for permission.
+        builder.Property(x => x.IsAdmin)
+            .HasDefaultValue(false)
+            .IsRequired();
 
         builder.HasIndex(x => x.CustomerNumber).IsUnique();
 

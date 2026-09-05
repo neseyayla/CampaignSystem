@@ -38,7 +38,7 @@ Table TRANSACTION_CODE {
 Table CUSTOMER {
   Id int [pk, increment]
   CustomerNumber varchar(20) [not null, unique]
-  Gender varchar(1) [note: 'E = male, K = female']
+  Gender varchar(1) [not null, note: 'E = male, K = female']
   SegmentId int [ref: > SEGMENT.Id]
   IsActive boolean [not null, default: true]
 }
@@ -71,6 +71,8 @@ Table CAMPAIGN {
   RewardPoint decimal(18,2) [note: 'points earned per qualifying transaction']
   MaxRewardAmount decimal(18,2) [note: 'reward cap for the whole campaign']
   EarningType varchar(2) [not null, note: 'K = accumulate per card, M = accumulate per customer']
+  Gender varchar(1) [note: 'E = male, K = female, null = no restriction']
+  CardType varchar(1) [note: 'A = primary, E = supplementary, null = both']
   Status varchar(20) [not null]
   IsActive boolean [not null, default: true]
 

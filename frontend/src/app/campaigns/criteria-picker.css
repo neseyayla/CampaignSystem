@@ -1,0 +1,274 @@
+.field-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #3c4149;
+  margin-bottom: 0.4rem;
+}
+
+.field-label .count {
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: #e5f5ec;
+  color: #17643a;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* ── The field ────────────────────────────────── */
+
+/* A single control that reads as a multi-select: selections sit inside as chips and a chevron
+   marks it as openable. */
+.picker {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-height: 2.2rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid #c9ced6;
+  border-radius: 3px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.picker:hover {
+  border-color: #b0b6c0;
+}
+
+.picker:focus-within,
+.picker:active {
+  border-color: #ffcc00;
+  box-shadow: 0 0 0 3px rgb(255 204 0 / 25%);
+}
+
+.chips {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  /* One row tall when empty, grows with each selection, caps at three rows and scrolls beyond that. */
+  min-height: 2.2rem;
+  max-height: 6.5rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.chip {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  flex-shrink: 0;
+  padding: 0.4rem 0.1rem;
+  border-bottom: 1px solid #eef0f3;
+  font-size: 0.82rem;
+  color: #3c4149;
+}
+
+.chip:last-child {
+  border-bottom: none;
+}
+
+.chip .code {
+  flex-shrink: 0;
+  font-family: ui-monospace, Consolas, monospace;
+  font-weight: 600;
+  color: #14181f;
+}
+
+.chip-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: #5b616b;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  width: 1.05rem;
+  height: 1.05rem;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #8b919a;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.chip-x:hover {
+  background: #f6d6d3;
+  color: #b3261e;
+}
+
+.placeholder {
+  padding: 0.4rem 0.1rem;
+  color: #8b919a;
+  font-size: 0.82rem;
+}
+
+.chev {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-top: 0.55rem;
+  padding-right: 0.25rem;
+  color: #8b919a;
+}
+
+/* ── Popup ────────────────────────────────────── */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(20 24 31 / 45%);
+  z-index: 100;
+}
+
+.modal {
+  width: 100%;
+  max-width: 26rem;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgb(20 24 31 / 25%);
+}
+
+.modal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.modal h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #14181f;
+}
+
+.modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: none;
+  border-radius: 0.4rem;
+  background: none;
+  color: #5b616b;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.modal-close:hover {
+  background: #f0f2f5;
+  color: #14181f;
+}
+
+.modal ul {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem;
+  overflow-y: auto;
+}
+
+.modal li label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.modal li label:hover {
+  background: #f7f8fa;
+}
+
+/* A picked row is tinted, so the selection is legible without hunting for ticked boxes. */
+.modal li label.on {
+  background: #fff7d6;
+}
+
+.modal input[type='checkbox'] {
+  accent-color: #ffcc00;
+  width: 1rem;
+  height: 1rem;
+}
+
+.modal .code {
+  font-family: ui-monospace, Consolas, monospace;
+  color: #14181f;
+  min-width: 3.5rem;
+}
+
+.modal .name {
+  color: #5b616b;
+}
+
+.modal .empty {
+  font-size: 0.85rem;
+  color: #8b919a;
+  padding: 0.5rem 0.6rem;
+}
+
+.modal footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.8rem 1.1rem;
+  border-top: 1px solid #eef0f3;
+}
+
+.modal .count {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: #e5f5ec;
+  color: #17643a;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.done-btn {
+  padding: 0.5rem 1.1rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  background: #ffcc00;
+  color: #14181f;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.done-btn:hover {
+  background: #f0c000;
+}
