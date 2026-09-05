@@ -8,6 +8,41 @@
   }
 </header>
 
+@if (!editing()) {
+  <section class="suggestions" [class.collapsed]="!suggestionsOpen()">
+    <button type="button" class="suggestions-head" (click)="toggleSuggestions()">
+      <span>Kampanya önerileri</span>
+      @if (suggestionsLoading()) {
+        <small>yükleniyor…</small>
+      } @else {
+        <small>{{ suggestions().length }} öneri · son harcamalara göre</small>
+      }
+      <span class="chevron">{{ suggestionsOpen() ? '▾' : '▸' }}</span>
+    </button>
+
+    @if (suggestionsOpen() && !suggestionsLoading()) {
+      @if (suggestions().length === 0) {
+        <p class="suggestions-empty">Şu an öne çıkan bir kategori yok.</p>
+      } @else {
+        <ul>
+          @for (s of suggestions(); track s.merchantCategoryId) {
+            <li>
+              <div class="s-main">
+                <span class="s-rank">{{ s.rank }}</span>
+                <div>
+                  <strong>{{ s.merchantCategoryName }}</strong>
+                  <p>{{ s.headline }}</p>
+                </div>
+              </div>
+              <button type="button" class="secondary" (click)="applySuggestion(s)">Uygula</button>
+            </li>
+          }
+        </ul>
+      }
+    }
+  </section>
+}
+
 <form [formGroup]="form" (ngSubmit)="save()">
   <section>
     <h2>Genel</h2>
@@ -90,7 +125,7 @@
 
       <label class="check">
         <input type="checkbox" formControlName="refundClawbackEnabled" />
-        <span>Puan geri alımı</span>
+        <span>İade sonrası puan geri alımı</span>
       </label>
 
       @if (clawbackOn()) {
@@ -102,6 +137,25 @@
             min="0"
             step="1" />
           @if (invalid('refundClawbackDays')) {
+            <small class="error">Gün sayısı zorunludur.</small>
+          }
+        </label>
+      }
+
+      <label class="check">
+        <input type="checkbox" formControlName="unusedPointsClawbackEnabled" />
+        <span>Kullanılmayan puan geri alımı</span>
+      </label>
+
+      @if (unusedClawbackOn()) {
+        <label>
+          <span>Geri Alım (gün)</span>
+          <input
+            type="number"
+            formControlName="unusedPointsClawbackDays"
+            min="0"
+            step="1" />
+          @if (invalid('unusedPointsClawbackDays')) {
             <small class="error">Gün sayısı zorunludur.</small>
           }
         </label>
@@ -150,6 +204,15 @@
         [options]="products()"
         [(selected)]="selectedProducts" />
     </div>
+
+    @if (unusedClawbackOn()) {
+      <div class="pickers">
+        <app-criteria-picker
+          label="Premium Kartlar (Geri Alımdan Muaf)"
+          [options]="products()"
+          [(selected)]="selectedClawbackExemptProducts" />
+      </div>
+    }
   </section>
 
   <section>
@@ -303,7 +366,7 @@
 
     <button type="button" class="secondary" (click)="cancel()" [disabled]="saving()">Vazgeç</button>
     <button type="submit" [disabled]="saving()">
-      {{ saving() ? 'Kaydediliyor…' : editing() ? 'Kampanya Güncelle' : 'Kampanya Oluştur' }}
+      {{ saving() ? 'Kaydediliyor…' : editing() ? 'Güncelle' : 'Kaydet' }}
     </button>
   </footer>
 </form>
