@@ -24,9 +24,15 @@ public class DailyBatchResultDto
 
     /// <summary>
     /// Reward rows reduced because a purchase they counted was refunded, across every campaign
-    /// still inside its point-clawback window.
+    /// still inside its refund window.
     /// </summary>
     public int RewardsReduced { get; set; }
+
+    /// <summary>
+    /// Clawback rows written because points a campaign paid were never redeemed within its
+    /// unused-points window.
+    /// </summary>
+    public int PointsReclaimed { get; set; }
 
     /// <summary>
     /// Campaigns that were due but could not be loaded, with the reason. The run carries on

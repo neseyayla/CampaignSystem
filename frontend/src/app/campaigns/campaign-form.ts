@@ -5,6 +5,7 @@ import { EMPTY, Subject, catchError, debounceTime, forkJoin, of, switchMap } fro
 
 import { CampaignService } from '../services/campaign.service';
 import { LookupService } from '../services/lookup.service';
+import { RecommendationService } from '../services/recommendation.service';
 import {
   Campaign,
   CampaignCondition,
@@ -18,7 +19,7 @@ import {
   Gender
 } from '../models/campaign';
 import { LookupOption } from '../models/lookup';
-import { CampaignSuggestionDraft } from '../models/recommendation';
+import { CampaignSuggestion, CampaignSuggestionDraft } from '../models/recommendation';
 import { CriteriaPicker } from './criteria-picker';
 
 /**
@@ -38,6 +39,7 @@ export class CampaignForm {
   private readonly formBuilder = inject(FormBuilder);
   private readonly campaignService = inject(CampaignService);
   private readonly lookupService = inject(LookupService);
+  private readonly recommendationService = inject(RecommendationService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -50,6 +52,7 @@ export class CampaignForm {
   protected readonly selectedProducts = signal<number[]>([]);
   protected readonly selectedMerchants = signal<number[]>([]);
   protected readonly selectedTransactionCodes = signal<number[]>([]);
+  protected readonly selectedClawbackExemptProducts = signal<number[]>([]);
 
   /** The campaign being edited, or null while a new one is being entered. */
   protected readonly campaignId = signal<number | null>(null);
@@ -63,6 +66,13 @@ export class CampaignForm {
   protected readonly conditionsSaving = signal(false);
   protected readonly conditionsNotice = signal<string | null>(null);
 
+  // Campaign ideas from the recommendation engine, loaded every time this screen opens for a
+  // NEW campaign. The engine computes them live per request, so what shows here is always the
+  // current picture — it is not a batch job or a manual trigger.
+  protected readonly suggestions = signal<CampaignSuggestion[]>([]);
+  protected readonly suggestionsLoading = signal(false);
+  protected readonly suggestionsOpen = signal(true);
+
   /** Fires whenever something that feeds the "new campaign" preview changes. See ctor. */
   private readonly conditionsPreviewTrigger = new Subject<void>();
 
@@ -75,8 +85,11 @@ export class CampaignForm {
    */
   protected readonly campaignType = signal<CampaignType>('Mass');
 
-  // Mirrors the point-clawback checkbox so the "days" input can appear the instant it is ticked.
+  // Mirrors the refund-clawback checkbox so the "days" input can appear the instant it is ticked.
   protected readonly clawbackOn = signal(false);
+
+  // Same idea for the unused-points clawback checkbox.
+  protected readonly unusedClawbackOn = signal(false);
 
   /**
    * True once Sil has been pressed and before it is confirmed. Deleting takes two presses
@@ -107,11 +120,15 @@ export class CampaignForm {
     maximumAmount: [null as number | null],
     rewardPoint: [null as number | null],
     maxRewardAmount: [null as number | null],
-    // Point clawback: whether points are clawed back after the campaign has paid when a refund
-    // (full or partial) drops a counted purchase, and for how many days after the reward is
-    // loaded that window stays open.
+    // Refund clawback: whether a refund reclaims points after the campaign has paid, and for
+    // how many days after the reward is loaded it still does (null = no limit).
     refundClawbackEnabled: [false],
-    refundClawbackDays: [null as number | null]
+    refundClawbackDays: [null as number | null],
+    // Unused-points clawback: whether points never redeemed are clawed back once the window
+    // below has passed, counted from the day the reward is loaded — same shape as refund
+    // clawback above.
+    unusedPointsClawbackEnabled: [false],
+    unusedPointsClawbackDays: [null as number | null]
   });
 
   constructor() {
@@ -139,8 +156,10 @@ export class CampaignForm {
 
       if (id) {
         this.load(Number(id));
+        this.suggestions.set([]);
       } else {
         this.clear();
+        this.loadSuggestions();
       }
     });
 
@@ -152,6 +171,21 @@ export class CampaignForm {
       this.clawbackOn.set(on);
 
       const days = this.form.controls.refundClawbackDays;
+
+      if (on) {
+        days.addValidators(Validators.required);
+      } else {
+        days.removeValidators(Validators.required);
+        days.setValue(null);
+      }
+
+      days.updateValueAndValidity();
+    });
+
+    this.form.controls.unusedPointsClawbackEnabled.valueChanges.subscribe(on => {
+      this.unusedClawbackOn.set(on);
+
+      const days = this.form.controls.unusedPointsClawbackDays;
 
       if (on) {
         days.addValidators(Validators.required);
@@ -196,6 +230,7 @@ export class CampaignForm {
       this.selectedProducts();
       this.selectedMerchants();
       this.selectedTransactionCodes();
+      this.selectedClawbackExemptProducts();
 
       this.conditionsPreviewTrigger.next();
     });
@@ -220,16 +255,16 @@ export class CampaignForm {
             maximumAmount: value.maximumAmount,
             rewardPoint: value.rewardPoint,
             maxRewardAmount: value.maxRewardAmount,
-            // The separate "unused points" clawback has been removed from the form; the
-            // request shape still carries these, so they are always sent off.
-            unusedPointsClawbackEnabled: false,
-            unusedPointsClawbackDays: null,
+            unusedPointsClawbackEnabled: value.unusedPointsClawbackEnabled,
+            unusedPointsClawbackDays: value.unusedPointsClawbackEnabled
+              ? value.unusedPointsClawbackDays
+              : null,
             criteria: {
               segmentIds: this.selectedSegments(),
               productIds: this.selectedProducts(),
               merchantIds: this.selectedMerchants(),
               transactionCodeIds: this.selectedTransactionCodes(),
-              clawbackExemptProductIds: []
+              clawbackExemptProductIds: this.selectedClawbackExemptProducts()
             }
           };
 
@@ -325,13 +360,16 @@ export class CampaignForm {
       rewardPoint: null,
       maxRewardAmount: null,
       refundClawbackEnabled: false,
-      refundClawbackDays: null
+      refundClawbackDays: null,
+      unusedPointsClawbackEnabled: false,
+      unusedPointsClawbackDays: null
     });
 
     this.selectedSegments.set([]);
     this.selectedProducts.set([]);
     this.selectedMerchants.set([]);
     this.selectedTransactionCodes.set([]);
+    this.selectedClawbackExemptProducts.set([]);
 
     this.conditions.set([]);
     this.conditionsNotice.set(null);
@@ -353,8 +391,38 @@ export class CampaignForm {
   }
 
   /**
+   * Loads the current campaign ideas for the inline panel. Runs every time the screen opens
+   * for a new campaign — the engine is a live per-request calculation, so this is cheap and
+   * always current. A failure just hides the panel; it must never block defining a campaign.
+   */
+  private loadSuggestions(): void {
+    this.suggestionsLoading.set(true);
+    this.suggestionsOpen.set(true);
+
+    this.recommendationService.getSuggestions({ maxSuggestions: 6 }).subscribe({
+      next: list => {
+        this.suggestions.set(list);
+        this.suggestionsLoading.set(false);
+      },
+      error: () => {
+        this.suggestions.set([]);
+        this.suggestionsLoading.set(false);
+      }
+    });
+  }
+
+  /** "Uygula" on an inline suggestion — same prefill as arriving from the other screen. */
+  protected applySuggestion(suggestion: CampaignSuggestion): void {
+    this.applyDraft(suggestion.draft);
+  }
+
+  protected toggleSuggestions(): void {
+    this.suggestionsOpen.update(open => !open);
+  }
+
+  /**
    * Fills in the fields the engine has an opinion on and leaves the rest for the operator.
-   * Only used when the screen was opened from the Kampanya Önerileri page with a draft.
+   * Shared by the router-state path and the inline "Uygula" button.
    */
   private applyDraft(draft: CampaignSuggestionDraft): void {
     this.form.patchValue({
@@ -416,13 +484,16 @@ export class CampaignForm {
       rewardPoint: campaign.rewardPoint,
       maxRewardAmount: campaign.maxRewardAmount,
       refundClawbackEnabled: campaign.refundClawbackEnabled,
-      refundClawbackDays: campaign.refundClawbackDays
+      refundClawbackDays: campaign.refundClawbackDays,
+      unusedPointsClawbackEnabled: campaign.unusedPointsClawbackEnabled,
+      unusedPointsClawbackDays: campaign.unusedPointsClawbackDays
     });
 
     this.selectedSegments.set(criteria.segmentIds);
     this.selectedProducts.set(criteria.productIds);
     this.selectedMerchants.set(criteria.merchantIds);
     this.selectedTransactionCodes.set(criteria.transactionCodeIds);
+    this.selectedClawbackExemptProducts.set(criteria.clawbackExemptProductIds);
   }
 
   /** Writes the form: creates a campaign when id is null, updates it otherwise. */
@@ -467,10 +538,10 @@ export class CampaignForm {
       refundClawbackEnabled: value.refundClawbackEnabled,
       // Only meaningful with clawback on; sent as null otherwise so it never lingers.
       refundClawbackDays: value.refundClawbackEnabled ? value.refundClawbackDays : null,
-      // The separate "unused points" clawback has been removed from the form; the API shape
-      // still carries these, so they are always sent off.
-      unusedPointsClawbackEnabled: false,
-      unusedPointsClawbackDays: null
+      unusedPointsClawbackEnabled: value.unusedPointsClawbackEnabled,
+      unusedPointsClawbackDays: value.unusedPointsClawbackEnabled
+        ? value.unusedPointsClawbackDays
+        : null
     };
 
     const criteria: CampaignCriteria = {
@@ -478,7 +549,7 @@ export class CampaignForm {
       productIds: this.selectedProducts(),
       merchantIds: this.selectedMerchants(),
       transactionCodeIds: this.selectedTransactionCodes(),
-      clawbackExemptProductIds: []
+      clawbackExemptProductIds: this.selectedClawbackExemptProducts()
     };
 
     // The campaign has to exist before its criteria can point at it, so the criteria call

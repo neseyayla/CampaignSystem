@@ -33,10 +33,15 @@ public class DailyBatchService(
 
         await LoadDueRewardsAsync(now, result, cancellationToken);
 
-        // After loading, settle point clawback: once a campaign's reward is N days old, a
-        // customer keeps only the points they spent and everything still unspent — a refunded
-        // purchase's points included — is clawed back. One pass, settled once per campaign.
-        result.RewardsReduced = await reconciliationService.SettlePointClawbackAsync(cancellationToken);
+        // After loading, reconcile refunds: a purchase counted at loading time may have been
+        // reversed since, and while the campaign is still inside its refund window those points
+        // are clawed back.
+        result.RewardsReduced = await reconciliationService.ReconcileReversalsAsync(cancellationToken);
+
+        // Then sweep for unused points: a campaign whose redemption window has now closed has
+        // whatever was never redeemed clawed back, once, regardless of the refund reconciliation
+        // above.
+        result.PointsReclaimed = await reconciliationService.ReclaimUnusedPointsAsync(cancellationToken);
 
         // Any of these moved a campaign between the statuses the customer catalog is built from:
         // a started one appears, a closed one turns reward-pending, a loaded one ends and leaves.
@@ -49,10 +54,10 @@ public class DailyBatchService(
         logger.LogInformation(
             "Daily batch finished. Started {Started}, closed {Closed}, loaded {Loaded} campaigns, " +
             "wrote {Rewards} rewards worth {Points} points, reduced {Reduced} rewards, " +
-            "{Failures} failures.",
+            "reclaimed {Reclaimed} unused-point rewards, {Failures} failures.",
             result.Started, result.Closed, result.Loaded,
             result.RewardsCreated, result.TotalRewardPoint, result.RewardsReduced,
-            result.Failures.Count);
+            result.PointsReclaimed, result.Failures.Count);
 
         return result;
     }
