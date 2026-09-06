@@ -1,0 +1,53 @@
+<div class="page">
+  <h1>Kampanya Raporu</h1>
+
+  <form class="card" (submit)="$event.preventDefault(); submit()" novalidate>
+    <label class="field">
+      <span>Kampanya</span>
+      <select
+        [ngModel]="selectedId()"
+        (ngModelChange)="selectedId.set($event)"
+        name="campaignId"
+      >
+        <option [ngValue]="null">— Kampanya seçin —</option>
+        @for (campaign of campaigns(); track campaign.id) {
+          <option [ngValue]="campaign.id">{{ campaign.name }}</option>
+        }
+      </select>
+    </label>
+    <button type="submit" class="button" [disabled]="!canSubmit()">Getir</button>
+  </form>
+
+  @if (loading()) {
+    <div class="state">Yükleniyor…</div>
+  }
+
+  @if (error(); as message) {
+    <div class="state error">{{ message }}</div>
+  }
+
+  @if (result(); as r) {
+    <section class="result">
+      <h2>{{ r.campaignName }} <span class="muted">#{{ r.campaignId }}</span></h2>
+
+      <dl class="stats">
+        <div class="stat">
+          <dt>Müşteri sayısı</dt>
+          <dd>{{ r.customerCount }}</dd>
+        </div>
+        <div class="stat">
+          <dt>Toplam kazanılan puan</dt>
+          <dd>{{ r.totalPointsEarned }}</dd>
+        </div>
+        <div class="stat">
+          <dt>Toplam geri alınan puan</dt>
+          <dd>{{ r.totalPointsClawedBack }}</dd>
+        </div>
+        <div class="stat">
+          <dt>Toplam iade tutarı</dt>
+          <dd>{{ r.totalRefundAmount }}</dd>
+        </div>
+      </dl>
+    </section>
+  }
+</div>
