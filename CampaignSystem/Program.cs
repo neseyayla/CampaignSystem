@@ -185,6 +185,7 @@ builder.Services.AddScoped<ITransactionCodeService, TransactionCodeService>();
 builder.Services.AddScoped<ICustomerCampaignService, CustomerCampaignService>();
 builder.Services.AddScoped<ICampaignRecommendationService, CampaignRecommendationService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<CampaignSystem.Services.Reports.IReportService, CampaignSystem.Services.Reports.ReportService>();
 
 
 
