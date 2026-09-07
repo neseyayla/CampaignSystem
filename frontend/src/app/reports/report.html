@@ -1,53 +1,194 @@
 <div class="page">
   <h1>Kampanya Raporu</h1>
 
-  <form class="card" (submit)="$event.preventDefault(); submit()" novalidate>
-    <label class="field">
+  <form class="filters" (submit)="$event.preventDefault(); apply()">
+    <div class="field campaign-field">
       <span>Kampanya</span>
+      <input
+        type="text"
+        [ngModel]="draftCampaignText()"
+        (ngModelChange)="onCampaignInput($event)"
+        (focus)="showCampaignList.set(true)"
+        (blur)="closeCampaignListSoon()"
+        name="campaign"
+        placeholder="Tüm kampanyalar"
+        autocomplete="off"
+      />
+      @if (showCampaignList() && filteredCampaigns().length > 0) {
+        <ul class="suggestions">
+          @for (option of filteredCampaigns(); track option.id) {
+            <li>
+              <button type="button" (mousedown)="$event.preventDefault()" (click)="pickCampaign(option.name)">
+                {{ option.name }}
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+
+    <label class="field">
+      <span>Geri Alım</span>
       <select
-        [ngModel]="selectedId()"
-        (ngModelChange)="selectedId.set($event)"
-        name="campaignId"
+        [ngModel]="draftClawback()"
+        (ngModelChange)="draftClawback.set($event)"
+        name="clawback"
       >
-        <option [ngValue]="null">— Kampanya seçin —</option>
-        @for (campaign of campaigns(); track campaign.id) {
-          <option [ngValue]="campaign.id">{{ campaign.name }}</option>
+        @for (option of clawbackOptions; track option.value) {
+          <option [ngValue]="option.value">{{ option.label }}</option>
         }
       </select>
     </label>
-    <button type="submit" class="button" [disabled]="!canSubmit()">Getir</button>
+
+    <div class="filter-actions">
+      <button type="submit" class="button">Filtrele</button>
+      <button type="button" class="button ghost" (click)="clear()">Temizle</button>
+    </div>
   </form>
 
-  @if (loading()) {
-    <div class="state">Yükleniyor…</div>
+  @if (chips().length > 0) {
+    <div class="chips">
+      @for (chip of chips(); track chip.key) {
+        <button type="button" class="chip" (click)="removeChip(chip.key)">
+          {{ chip.label }} <span class="x" aria-hidden="true">×</span>
+        </button>
+      }
+    </div>
   }
 
   @if (error(); as message) {
     <div class="state error">{{ message }}</div>
-  }
+  } @else if (loading()) {
+    <div class="state">Yükleniyor…</div>
+  } @else if (rows().length === 0) {
+    <div class="state">Bu koşullara uyan kampanya yok.</div>
+  } @else {
+    <div class="summary">
+      <div class="summary-card">
+        <span class="label">Kampanya Sayısı</span>
+        <span class="value">{{ totals().campaignCount | number }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="label">Müşteri Sayısı</span>
+        <span class="value">{{ totals().distinctCustomerCount | number }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="label">Kazanılan Puan</span>
+        <span class="value">{{ totals().totalPointsEarned | number:'1.0-2' }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="label">Geri Alınan Puan</span>
+        <span class="value">{{ totals().totalPointsClawedBack | number:'1.0-2' }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="label">Net Puan</span>
+        <span class="value">{{ totals().netPoints | number:'1.0-2' }}</span>
+      </div>
+    </div>
 
-  @if (result(); as r) {
-    <section class="result">
-      <h2>{{ r.campaignName }} <span class="muted">#{{ r.campaignId }}</span></h2>
+    <div class="card table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="sortable" (click)="sortBy('name')"
+                title="Kampanya adı">
+              Kampanya <span class="arrow">{{ sortArrow('name') }}</span>
+            </th>
+            <th class="sortable numeric" (click)="sortBy('customers')"
+                title="Kampanyadan puan kazanan farklı müşteri sayısı">
+              Müşteri sayısı <span class="arrow">{{ sortArrow('customers') }}</span>
+            </th>
+            <th class="sortable numeric" (click)="sortBy('earned')"
+                title="Bu kampanyada müşterilere yüklenen toplam puan">
+              Kazanılan puan <span class="arrow">{{ sortArrow('earned') }}</span>
+            </th>
+            <th class="sortable numeric" (click)="sortBy('refund')"
+                title="Bir işlem iade edildiğinde, kalan tutar kampanya koşulunu artık sağlamadığı için geri alınan puan (iade tutarı değil)">
+              İade sonrası geri alınan <span class="arrow">{{ sortArrow('refund') }}</span>
+            </th>
+            <th class="sortable numeric" (click)="sortBy('unused')"
+                title="Kampanya bitince harcanmadığı için geri alınan puan">
+              Kullanılmayan puan geri alımı <span class="arrow">{{ sortArrow('unused') }}</span>
+            </th>
+            <th class="sortable numeric" (click)="sortBy('net')"
+                title="Kazanılan − iade sonrası geri alınan − kullanılmayan puan geri alımı">
+              Net puan <span class="arrow">{{ sortArrow('net') }}</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track row.campaignId) {
+            <tr class="campaign-row" [class.expanded]="expandedId() === row.campaignId"
+                (click)="toggleRow(row.campaignId)">
+              <td>
+                <span class="caret">{{ expandedId() === row.campaignId ? '▾' : '▸' }}</span>
+                {{ row.campaignName }}
+              </td>
+              <td class="numeric">{{ row.customerCount | number }}</td>
+              <td class="numeric">{{ row.totalPointsEarned | number:'1.0-2' }}</td>
+              <td class="numeric">{{ row.refundClawbackPoints | number:'1.0-2' }}</td>
+              <td class="numeric">{{ row.unusedClawbackPoints | number:'1.0-2' }}</td>
+              <td class="numeric">{{ row.netPoints | number:'1.0-2' }}</td>
+            </tr>
 
-      <dl class="stats">
-        <div class="stat">
-          <dt>Müşteri sayısı</dt>
-          <dd>{{ r.customerCount }}</dd>
-        </div>
-        <div class="stat">
-          <dt>Toplam kazanılan puan</dt>
-          <dd>{{ r.totalPointsEarned }}</dd>
-        </div>
-        <div class="stat">
-          <dt>Toplam geri alınan puan</dt>
-          <dd>{{ r.totalPointsClawedBack }}</dd>
-        </div>
-        <div class="stat">
-          <dt>Toplam iade tutarı</dt>
-          <dd>{{ r.totalRefundAmount }}</dd>
-        </div>
-      </dl>
-    </section>
+            @if (expandedId() === row.campaignId) {
+              <tr class="detail-row">
+                <td [attr.colspan]="6">
+                  <div class="movements">
+                    <div class="tabs">
+                      @for (tab of movementTabs; track tab.value) {
+                        <button
+                          type="button"
+                          class="tab"
+                          [class.active]="movementType() === tab.value"
+                          (click)="selectMovementType(tab.value)"
+                        >
+                          {{ tab.label }}
+                        </button>
+                      }
+                    </div>
+
+                    @if (movementsError(); as message) {
+                      <div class="state error">{{ message }}</div>
+                    } @else if (movementsLoading()) {
+                      <div class="state">Yükleniyor…</div>
+                    } @else if (movements().length === 0) {
+                      <div class="state">Bu türde hareket yok.</div>
+                    } @else {
+                      <table class="movements-table">
+                        <thead>
+                          <tr>
+                            <th>Tarih</th>
+                            <th>Hareket</th>
+                            <th>Müşteri</th>
+                            <th class="numeric">Puan / Tutar</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (movement of movements(); track $index) {
+                            <tr>
+                              <td>{{ movement.date | date:'dd.MM.yyyy' }}</td>
+                              <td>{{ movementLabel(movement.type) }}</td>
+                              <td>{{ movement.customerNumber }}</td>
+                              <td class="numeric">
+                                @if (isMoney(movement.type)) {
+                                  {{ movement.amount | number:'1.0-2' }} TL
+                                } @else {
+                                  {{ movement.amount > 0 ? '+' : '' }}{{ movement.amount | number:'1.0-2' }} puan
+                                }
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
   }
 </div>

@@ -1,6 +1,6 @@
 .page {
   padding: 1.5rem;
-  max-width: 720px;
+  max-width: 1000px;
 }
 
 h1 {
@@ -9,46 +9,98 @@ h1 {
   letter-spacing: -0.01em;
 }
 
-.card {
+/* Filter bar: one compact row — fields and the buttons aligned along the same baseline. */
+.filters {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
-  gap: 1rem;
+  gap: 0.75rem 1rem;
   border: 1px solid #e6e8ec;
   border-radius: 3px;
-  padding: 1.25rem;
   background: #fff;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1rem;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  flex: 1;
+  gap: 0.3rem;
+  flex: 1 1 180px;
 }
 
 .field span {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 600;
   color: #5b616b;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-.field input,
-.field select {
-  padding: 0.5rem 0.7rem;
+.field select,
+.field input {
+  padding: 0.45rem 0.65rem;
   border: 1px solid #c9ced6;
   border-radius: 3px;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   background: #fff;
+  color: #14181f;
 }
 
-.field input:focus,
-.field select:focus {
+.field select:focus,
+.field input:focus {
   outline: none;
   border-color: #ffcc00;
   box-shadow: 0 0 0 3px #fff2b3;
+}
+
+/* Campaign autocomplete: our own suggestion list, so it matches the theme and stays compact. */
+.campaign-field {
+  position: relative;
+}
+
+.suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0.2rem 0 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #c9ced6;
+  border-radius: 3px;
+  box-shadow: 0 6px 16px rgba(20, 24, 31, 0.12);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.suggestions button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  font: inherit;
+  font-size: 0.88rem;
+  color: #14181f;
+  cursor: pointer;
+}
+
+.suggestions button:hover {
+  background: #fffbe8;
+}
+
+/* Buttons sit at the end of the row, aligned to the inputs' bottom edge. */
+.filter-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .button {
@@ -63,9 +115,81 @@ h1 {
   cursor: pointer;
 }
 
-.button:disabled {
-  opacity: 0.5;
-  cursor: default;
+.button.ghost {
+  background: #fff;
+  color: #3c4149;
+  border-color: #c9ced6;
+  font-weight: 500;
+}
+
+.button:hover {
+  filter: brightness(0.98);
+}
+
+/* Active filters, each removable by its ×. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid #e0c453;
+  border-radius: 999px;
+  background: #fffbe8;
+  color: #3c4149;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.chip:hover {
+  background: #fff2b3;
+}
+
+.chip .x {
+  font-size: 1rem;
+  line-height: 1;
+  color: #7a5200;
+}
+
+/* Summary strip: sober cards, same palette as the rest — no coloured tiles. */
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.summary-card {
+  flex: 1 1 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border: 1px solid #e6e8ec;
+  border-radius: 3px;
+  background: #fff;
+  padding: 0.75rem 1rem;
+}
+
+.summary-card .label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #5b616b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.summary-card .value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #14181f;
+  font-variant-numeric: tabular-nums;
 }
 
 .state {
@@ -77,51 +201,163 @@ h1 {
   color: #b3261e;
 }
 
-.result {
-  margin-top: 1.5rem;
+.card {
   border: 1px solid #e6e8ec;
   border-radius: 3px;
   overflow: hidden;
 }
 
-.result h2 {
-  font-size: 1rem;
-  margin: 0;
-  padding: 0.9rem 1.25rem;
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid #eef0f3;
+  white-space: nowrap;
+}
+
+thead th {
+  font-weight: 600;
+  color: #4a4f57;
+  font-size: 0.8rem;
   background: #fffbe8;
   border-bottom: 1px solid #e6e8ec;
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+  /* Sentence case, not shouty uppercase — the headers are descriptive phrases now. Let the long
+     ones wrap tidily onto a second line; the numeric cells below stay on one line. */
+  white-space: normal;
+  vertical-align: middle;
+  line-height: 1.3;
 }
 
-.result h2 .muted {
-  color: #8a909a;
-  font-weight: 500;
+th.sortable {
+  cursor: pointer;
+  user-select: none;
 }
 
-.stats {
-  margin: 0;
+th.sortable:hover {
+  color: #14181f;
 }
 
-.stat {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 1rem;
-  padding: 0.8rem 1.25rem;
-  border-bottom: 1px solid #eef0f3;
+.arrow {
+  display: inline-block;
+  width: 0.8em;
+  font-size: 0.7em;
+  color: #7a5200;
 }
 
-.stat:last-child {
+tbody tr:last-child td {
   border-bottom: none;
 }
 
-.stat dt {
-  color: #5b616b;
-  font-size: 0.9rem;
+.campaign-row {
+  cursor: pointer;
 }
 
-.stat dd {
-  margin: 0;
-  font-size: 1.1rem;
+.campaign-row:hover td {
+  background: #fffdf5;
+}
+
+.campaign-row.expanded td {
+  background: #fff6cf;
+}
+
+.caret {
+  display: inline-block;
+  width: 1em;
+  color: #7a5200;
+}
+
+/* Drill-down panel: fills the row, its own surface so the row hover behind it does not show. */
+.detail-row td {
+  padding: 0;
+}
+
+.movements {
+  background: #f7f8fa;
+  border-top: 1px solid #e6e8ec;
+  padding: 1rem 1.25rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.85rem;
+}
+
+.tab {
+  padding: 0.35rem 0.85rem;
+  border: 1px solid #c9ced6;
+  border-radius: 3px;
+  background: #fff;
+  color: #3c4149;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: #ffcc00;
+  border-color: #ffcc00;
+  color: #14181f;
   font-weight: 600;
+}
+
+.movements-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  background: #fff;
+  border: 1px solid #e6e8ec;
+  border-radius: 3px;
+}
+
+.movements-table th,
+.movements-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #eef0f3;
+  white-space: nowrap;
+}
+
+.movements-table thead th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #5b616b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #fbfbfc;
+}
+
+.movements-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* The main-table column min-widths must not leak into the nested ledger. */
+.movements-table td:first-child,
+.movements-table .numeric {
+  min-width: 0;
+}
+
+/* Amounts read faster right aligned — the digits line up by place value. Give the columns enough
+   width that a descriptive header wraps to at most two lines instead of one word per line. */
+.numeric {
+  text-align: right;
   font-variant-numeric: tabular-nums;
+  min-width: 7rem;
+}
+
+/* The name column has no min-width, so the auto layout hands it the leftover space and the
+   numeric columns stay their natural, compact width. */
+tbody td:first-child {
+  min-width: 12rem;
 }
