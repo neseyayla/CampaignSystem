@@ -12,9 +12,8 @@ h1 {
 /* Filter bar: one compact row — fields and the buttons aligned along the same baseline. */
 .filters {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.75rem 1rem;
+  flex-direction: column;
+  gap: 0.85rem;
   border: 1px solid #e6e8ec;
   border-radius: 3px;
   background: #fff;
@@ -22,11 +21,19 @@ h1 {
   margin-bottom: 1rem;
 }
 
+/* Campaign field and clawback checkboxes on one row, aligned along the input's bottom edge. */
+.filter-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1.75rem;
+}
+
 .field {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  flex: 1 1 180px;
+  flex: 0 0 auto;
 }
 
 .field span {
@@ -58,6 +65,7 @@ h1 {
 /* Campaign autocomplete: our own suggestion list, so it matches the theme and stays compact. */
 .campaign-field {
   position: relative;
+  flex: 0 1 340px;
 }
 
 .suggestions {
@@ -99,8 +107,31 @@ h1 {
 .filter-actions {
   display: flex;
   gap: 0.5rem;
-  flex: 0 0 auto;
-  margin-left: auto;
+}
+
+/* Clawback: the two options side by side, next to the campaign field. */
+.clawback-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+  /* Sit at the input's level, clear of the field's label above it. */
+  padding-bottom: 0.45rem;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  color: #14181f;
+  cursor: pointer;
+}
+
+.check input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #ffcc00;
+  cursor: pointer;
 }
 
 .button {

@@ -24,7 +24,7 @@ type SortKey = 'name' | 'customers' | 'earned' | 'refund' | 'unused' | 'net';
 
 /** One active-filter chip shown under the filter bar. */
 interface FilterChip {
-  key: 'campaign' | 'clawback';
+  key: 'campaign' | 'refund' | 'unused';
   label: string;
 }
 
@@ -51,11 +51,14 @@ export class Report {
   // or picked.
   protected readonly draftCampaignText = signal('');
   protected readonly showCampaignList = signal(false);
-  protected readonly draftClawback = signal<ClawbackFilter>('all');
+  // Two clawback checkboxes; none = all, one = that, both = campaigns with both (AND).
+  protected readonly draftRefund = signal(false);
+  protected readonly draftUnused = signal(false);
 
   // Applied state: what the current table and the chips reflect. Also what gets sent to the server.
   private readonly appliedCampaignId = signal<number | null>(null);
-  private readonly appliedClawback = signal<ClawbackFilter>('all');
+  private readonly appliedRefund = signal(false);
+  private readonly appliedUnused = signal(false);
 
   protected readonly sortKey = signal<SortKey>('name');
   protected readonly sortDir = signal<'asc' | 'desc'>('asc');
@@ -102,18 +105,6 @@ export class Report {
     ];
   });
 
-  protected readonly clawbackOptions: { value: ClawbackFilter; label: string }[] = [
-    { value: 'all', label: 'Tümü' },
-    { value: 'refund', label: 'İade geri alımı olanlar' },
-    { value: 'unused', label: 'Kullanılmayan puan geri alımı olanlar' },
-    { value: 'both', label: 'İade ve kullanılmayan geri alımı olanlar' }
-  ];
-
-  private readonly chipLabels: Record<Exclude<ClawbackFilter, 'all'>, string> = {
-    refund: 'İade geri alımı var',
-    unused: 'Kullanılmayan puan geri alımı var',
-    both: 'İade ve kullanılmayan geri alımı var'
-  };
 
   // Campaign suggestions matching what has been typed (substring, case-insensitive).
   protected readonly filteredCampaigns = computed(() => {
@@ -146,9 +137,11 @@ export class Report {
       chips.push({ key: 'campaign', label: name });
     }
 
-    const clawback = this.appliedClawback();
-    if (clawback !== 'all') {
-      chips.push({ key: 'clawback', label: this.chipLabels[clawback] });
+    if (this.appliedRefund()) {
+      chips.push({ key: 'refund', label: 'İade geri alımı var' });
+    }
+    if (this.appliedUnused()) {
+      chips.push({ key: 'unused', label: 'Kullanılmayan puan geri alımı var' });
     }
 
     return chips;
@@ -178,16 +171,19 @@ export class Report {
   /** Apply the draft filters: they become the active filters and the table is reloaded. */
   protected apply(): void {
     this.appliedCampaignId.set(this.resolveCampaignId(this.draftCampaignText()));
-    this.appliedClawback.set(this.draftClawback());
+    this.appliedRefund.set(this.draftRefund());
+    this.appliedUnused.set(this.draftUnused());
     this.load();
   }
 
   /** Reset every filter, draft and applied, and reload the full report. */
   protected clear(): void {
     this.draftCampaignText.set('');
-    this.draftClawback.set('all');
+    this.draftRefund.set(false);
+    this.draftUnused.set(false);
     this.appliedCampaignId.set(null);
-    this.appliedClawback.set('all');
+    this.appliedRefund.set(false);
+    this.appliedUnused.set(false);
     this.load();
   }
 
@@ -196,11 +192,24 @@ export class Report {
     if (key === 'campaign') {
       this.draftCampaignText.set('');
       this.appliedCampaignId.set(null);
+    } else if (key === 'refund') {
+      this.draftRefund.set(false);
+      this.appliedRefund.set(false);
     } else {
-      this.draftClawback.set('all');
-      this.appliedClawback.set('all');
+      this.draftUnused.set(false);
+      this.appliedUnused.set(false);
     }
     this.load();
+  }
+
+  // Both boxes on = campaigns with both (AND); one = that; none = all.
+  private clawbackFilter(): ClawbackFilter {
+    const refund = this.appliedRefund();
+    const unused = this.appliedUnused();
+    if (refund && unused) return 'both';
+    if (refund) return 'refund';
+    if (unused) return 'unused';
+    return 'all';
   }
 
   // Match the typed/picked text to a campaign name (trimmed, case-insensitive). Empty or no match
@@ -285,7 +294,7 @@ export class Report {
 
     this.service.getSummaries({
       campaignId: this.appliedCampaignId(),
-      clawback: this.appliedClawback()
+      clawback: this.clawbackFilter()
     }).subscribe({
       next: result => {
         this.summaries.set(result.campaigns);

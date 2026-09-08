@@ -1,44 +1,54 @@
 <div class="page">
-  <h1>Kampanya Raporu</h1>
+  <h1>Kampanya Analizi</h1>
 
   <form class="filters" (submit)="$event.preventDefault(); apply()">
-    <div class="field campaign-field">
-      <span>Kampanya</span>
-      <input
-        type="text"
-        [ngModel]="draftCampaignText()"
-        (ngModelChange)="onCampaignInput($event)"
-        (focus)="showCampaignList.set(true)"
-        (blur)="closeCampaignListSoon()"
-        name="campaign"
-        placeholder="Tüm kampanyalar"
-        autocomplete="off"
-      />
-      @if (showCampaignList() && filteredCampaigns().length > 0) {
-        <ul class="suggestions">
-          @for (option of filteredCampaigns(); track option.id) {
-            <li>
-              <button type="button" (mousedown)="$event.preventDefault()" (click)="pickCampaign(option.name)">
-                {{ option.name }}
-              </button>
-            </li>
-          }
-        </ul>
-      }
-    </div>
-
-    <label class="field">
-      <span>Geri Alım</span>
-      <select
-        [ngModel]="draftClawback()"
-        (ngModelChange)="draftClawback.set($event)"
-        name="clawback"
-      >
-        @for (option of clawbackOptions; track option.value) {
-          <option [ngValue]="option.value">{{ option.label }}</option>
+    <div class="filter-top">
+      <div class="field campaign-field">
+        <span>Kampanya</span>
+        <input
+          type="text"
+          [ngModel]="draftCampaignText()"
+          (ngModelChange)="onCampaignInput($event)"
+          (focus)="showCampaignList.set(true)"
+          (blur)="closeCampaignListSoon()"
+          name="campaign"
+          placeholder="Tüm kampanyalar"
+          autocomplete="off"
+        />
+        @if (showCampaignList() && filteredCampaigns().length > 0) {
+          <ul class="suggestions">
+            @for (option of filteredCampaigns(); track option.id) {
+              <li>
+                <button type="button" (mousedown)="$event.preventDefault()" (click)="pickCampaign(option.name)">
+                  {{ option.name }}
+                </button>
+              </li>
+            }
+          </ul>
         }
-      </select>
-    </label>
+      </div>
+
+      <div class="clawback-options">
+        <label class="check">
+          <input
+            type="checkbox"
+            [ngModel]="draftRefund()"
+            (ngModelChange)="draftRefund.set($event)"
+            name="refund"
+          />
+          <span>İade geri alımı</span>
+        </label>
+        <label class="check">
+          <input
+            type="checkbox"
+            [ngModel]="draftUnused()"
+            (ngModelChange)="draftUnused.set($event)"
+            name="unused"
+          />
+          <span>Kullanılmayan puan geri alımı</span>
+        </label>
+      </div>
+    </div>
 
     <div class="filter-actions">
       <button type="submit" class="button">Filtrele</button>
