@@ -13,5 +13,8 @@ public enum ClawbackFilter
     Refund = 1,
 
     /// <summary>Campaigns with unused-points clawback enabled.</summary>
-    Unused = 2
+    Unused = 2,
+
+    /// <summary>Campaigns with both refund and unused-points clawback enabled.</summary>
+    Both = 3
 }

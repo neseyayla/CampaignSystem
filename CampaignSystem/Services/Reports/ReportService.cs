@@ -38,6 +38,7 @@ public class ReportService : IReportService
         {
             ClawbackFilter.Refund => campaignQuery.Where(c => c.RefundClawbackEnabled),
             ClawbackFilter.Unused => campaignQuery.Where(c => c.UnusedPointsClawbackEnabled),
+            ClawbackFilter.Both => campaignQuery.Where(c => c.RefundClawbackEnabled && c.UnusedPointsClawbackEnabled),
             _ => campaignQuery
         };
 
@@ -115,88 +116,81 @@ public class ReportService : IReportService
         return new CampaignReportResultDto(rows, totals);
     }
 
-    public async Task<IReadOnlyList<CampaignMovementDto>> GetCampaignMovementsAsync(
+    public async Task<IReadOnlyList<CampaignLedgerLineDto>> GetCampaignLedgerAsync(
         int campaignId,
-        MovementFilter type,
         CancellationToken cancellationToken = default)
     {
-        var movements = new List<CampaignMovementDto>();
-
-        var needRewards = type is MovementFilter.All or MovementFilter.Earn or MovementFilter.Clawback;
-        var needRefunds = type is MovementFilter.All or MovementFilter.Refund;
-
-        if (needRewards)
-        {
-            // The reward types the chosen tab asks for.
-            var wanted = type switch
+        // Reward rows aggregated by type: how many, the point total and the date span.
+        var rewardAgg = await _db.CampaignRewards
+            .Where(r => r.CampaignId == campaignId)
+            .GroupBy(r => r.RewardType)
+            .Select(g => new
             {
-                MovementFilter.Earn => new[] { RewardType.Earn },
-                MovementFilter.Clawback => new[] { RewardType.Clawback, RewardType.UnusedPointsClawback },
-                _ => new[] { RewardType.Earn, RewardType.Clawback, RewardType.UnusedPointsClawback }
-            };
+                Type = g.Key,
+                Count = g.Count(),
+                Total = g.Sum(r => r.RewardPoint),
+                First = (DateTime?)g.Min(r => r.RewardDate),
+                Last = (DateTime?)g.Max(r => r.RewardDate)
+            })
+            .ToListAsync(cancellationToken);
 
-            var rewards = await _db.CampaignRewards
-                .Where(r => r.CampaignId == campaignId && wanted.Contains(r.RewardType))
-                .Select(r => new
-                {
-                    r.RewardDate,
-                    r.RewardType,
-                    r.RewardPoint,
-                    r.Customer.CustomerNumber
-                })
-                .ToListAsync(cancellationToken);
+        var byType = rewardAgg.ToDictionary(x => x.Type);
 
-            movements.AddRange(rewards.Select(r => new CampaignMovementDto(
-                r.RewardDate,
-                MovementTypeFor(r.RewardType),
-                r.CustomerNumber,
-                r.RewardPoint)));
+        // The load line counts distinct customers (matching the table), not reward rows — a
+        // card-based campaign writes one Earn row per card, so rows can exceed customers.
+        var earnCustomers = await _db.CampaignRewards
+            .Where(r => r.CampaignId == campaignId && r.RewardType == RewardType.Earn)
+            .Select(r => r.CustomerId)
+            .Distinct()
+            .CountAsync(cancellationToken);
+
+        CampaignLedgerLineDto RewardLine(string type, RewardType rewardType, int? countOverride = null)
+        {
+            byType.TryGetValue(rewardType, out var a);
+            return new CampaignLedgerLineDto(type, countOverride ?? a?.Count ?? 0, a?.Total ?? 0m, a?.First, a?.Last);
         }
 
-        if (needRefunds)
+        // Refund line (money): refunds by this campaign's earners whose original fell in its window.
+        var refundCount = 0;
+        var refundTotal = 0m;
+        DateTime? refundFirst = null, refundLast = null;
+
+        var campaign = await _db.Campaigns
+            .Where(c => c.Id == campaignId)
+            .Select(c => new { c.StartDate, c.EndDate })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (campaign is not null)
         {
-            var campaign = await _db.Campaigns
-                .Where(c => c.Id == campaignId)
-                .Select(c => new { c.StartDate, c.EndDate })
-                .FirstOrDefaultAsync(cancellationToken);
+            var earnerIds = _db.CampaignRewards
+                .Where(r => r.CampaignId == campaignId && r.RewardType == RewardType.Earn)
+                .Select(r => r.CustomerId)
+                .Distinct();
 
-            if (campaign is not null)
+            var refundRows = await (
+                from refund in _db.Transactions
+                where refund.OriginalTransactionId != null && earnerIds.Contains(refund.CustomerId)
+                join original in _db.Transactions on refund.OriginalTransactionId equals original.Id
+                where original.TransactionDate >= campaign.StartDate
+                      && original.TransactionDate <= campaign.EndDate
+                select new { refund.Amount, refund.TransactionDate })
+                .ToListAsync(cancellationToken);
+
+            refundCount = refundRows.Count;
+            refundTotal = refundRows.Sum(r => Math.Abs(r.Amount));
+            if (refundCount > 0)
             {
-                // Refunds made by this campaign's earners whose original purchase fell in its window.
-                var earnerIds = _db.CampaignRewards
-                    .Where(r => r.CampaignId == campaignId && r.RewardType == RewardType.Earn)
-                    .Select(r => r.CustomerId)
-                    .Distinct();
-
-                var refunds = await (
-                    from refund in _db.Transactions
-                    where refund.OriginalTransactionId != null && earnerIds.Contains(refund.CustomerId)
-                    join original in _db.Transactions on refund.OriginalTransactionId equals original.Id
-                    where original.TransactionDate >= campaign.StartDate
-                          && original.TransactionDate <= campaign.EndDate
-                    select new
-                    {
-                        refund.TransactionDate,
-                        refund.Amount,
-                        refund.Customer.CustomerNumber
-                    })
-                    .ToListAsync(cancellationToken);
-
-                movements.AddRange(refunds.Select(r => new CampaignMovementDto(
-                    r.TransactionDate,
-                    "refund",
-                    r.CustomerNumber,
-                    Math.Abs(r.Amount))));
+                refundFirst = refundRows.Min(r => r.TransactionDate);
+                refundLast = refundRows.Max(r => r.TransactionDate);
             }
         }
 
-        return movements.OrderBy(m => m.Date).ToList();
+        return new List<CampaignLedgerLineDto>
+        {
+            RewardLine("earn", RewardType.Earn, earnCustomers),
+            new("refund", refundCount, refundTotal, refundFirst, refundLast),
+            RewardLine("refundClawback", RewardType.Clawback),
+            RewardLine("unusedClawback", RewardType.UnusedPointsClawback)
+        };
     }
-
-    private static string MovementTypeFor(RewardType type) => type switch
-    {
-        RewardType.Clawback => "refundClawback",
-        RewardType.UnusedPointsClawback => "unusedClawback",
-        _ => "earn"
-    };
 }

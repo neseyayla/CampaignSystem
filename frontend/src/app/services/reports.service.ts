@@ -38,20 +38,18 @@ export interface CampaignReportResult {
 }
 
 /** How the report is narrowed by a campaign's clawback settings. */
-export type ClawbackFilter = 'all' | 'refund' | 'unused';
+export type ClawbackFilter = 'all' | 'refund' | 'unused' | 'both';
 
-/** The kind of a ledger movement — points, except 'refund' which is money (TL). */
-export type MovementType = 'earn' | 'refundClawback' | 'unusedClawback' | 'refund';
+/** The kind of a ledger line — points, except 'refund' which is money (TL). */
+export type LedgerLineType = 'earn' | 'refundClawback' | 'unusedClawback' | 'refund';
 
-/** Which movements the ledger returns, matching the panel tabs. */
-export type MovementFilter = 'all' | 'earn' | 'refund' | 'clawback';
-
-/** One line of a campaign's movement ledger. */
-export interface CampaignMovement {
-  date: string;
-  type: MovementType;
-  customerNumber: string;
-  amount: number;
+/** One aggregated line of a campaign's ledger summary. */
+export interface CampaignLedgerLine {
+  type: LedgerLineType;
+  count: number;
+  total: number;
+  firstDate: string | null;
+  lastDate: string | null;
 }
 
 /** The report filters, sent to the server so the narrowing happens in the query, not here. */
@@ -74,11 +72,8 @@ export class ReportsService {
     return this.http.get<CampaignReportResult>(`${this.baseUrl}/campaigns`, { params });
   }
 
-  /** A single campaign's movement ledger, narrowed to the given kind. */
-  getMovements(campaignId: number, type: MovementFilter): Observable<CampaignMovement[]> {
-    let params = new HttpParams();
-    if (type !== 'all') params = params.set('type', type);
-
-    return this.http.get<CampaignMovement[]>(`${this.baseUrl}/campaigns/${campaignId}/movements`, { params });
+  /** A single campaign's ledger summary (loads, refunds, clawbacks). */
+  getLedger(campaignId: number): Observable<CampaignLedgerLine[]> {
+    return this.http.get<CampaignLedgerLine[]>(`${this.baseUrl}/campaigns/${campaignId}/ledger`);
   }
 }

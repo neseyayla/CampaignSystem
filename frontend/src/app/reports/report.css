@@ -289,63 +289,97 @@ tbody tr:last-child td {
   padding: 1rem 1.25rem;
 }
 
-.tabs {
-  display: flex;
-  gap: 0.4rem;
-  margin-bottom: 0.85rem;
-}
-
-.tab {
-  padding: 0.35rem 0.85rem;
-  border: 1px solid #c9ced6;
-  border-radius: 3px;
-  background: #fff;
-  color: #3c4149;
-  font: inherit;
-  font-size: 0.82rem;
-  cursor: pointer;
-}
-
-.tab.active {
-  background: #ffcc00;
-  border-color: #ffcc00;
-  color: #14181f;
-  font-weight: 600;
-}
-
-.movements-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
+/* Ledger summary: one aggregated line per movement kind. */
+.ledger {
   background: #fff;
   border: 1px solid #e6e8ec;
   border-radius: 3px;
 }
 
-.movements-table th,
-.movements-table td {
-  padding: 0.5rem 0.75rem;
+.ledger-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.65rem 0.9rem;
   border-bottom: 1px solid #eef0f3;
-  white-space: nowrap;
+  font-size: 0.88rem;
 }
 
-.movements-table thead th {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #5b616b;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: #fbfbfc;
-}
-
-.movements-table tbody tr:last-child td {
+.ledger-line:last-child {
   border-bottom: none;
 }
 
-/* The main-table column min-widths must not leak into the nested ledger. */
-.movements-table td:first-child,
-.movements-table .numeric {
-  min-width: 0;
+.ln-label {
+  color: #5b616b;
+}
+
+.ln-total {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #14181f;
+}
+
+/* "Hareketleri gör" — a quiet text button under the ratios. */
+.link-button {
+  margin-top: 0.6rem;
+  padding: 0.2rem 0;
+  border: none;
+  background: none;
+  color: #7a5200;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Aggregated movement lines, revealed on demand. */
+.movement-lines {
+  margin-top: 0.6rem;
+  background: #fff;
+  border: 1px solid #e6e8ec;
+  border-radius: 3px;
+}
+
+.movement-line {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto auto auto;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid #eef0f3;
+  font-size: 0.85rem;
+}
+
+.movement-line:last-child {
+  border-bottom: none;
+}
+
+.ml-label {
+  font-weight: 600;
+  color: #14181f;
+}
+
+/* Date, count and total each right-align so their columns line up cleanly. */
+.ml-date,
+.ml-count {
+  text-align: right;
+  color: #5b616b;
+  font-variant-numeric: tabular-nums;
+}
+
+.ml-count {
+  min-width: 5rem;
+}
+
+.ml-total {
+  text-align: right;
+  min-width: 6rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #14181f;
 }
 
 /* Amounts read faster right aligned — the digits line up by place value. Give the columns enough

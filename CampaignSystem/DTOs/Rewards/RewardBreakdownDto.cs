@@ -23,6 +23,14 @@ public class RewardBreakdownDto
     /// </summary>
     public decimal? MinimumAmount { get; set; }
 
+    /// <summary>
+    /// Points clawed back because they were never redeemed within the campaign's unused-points
+    /// window, as a positive figure. Not tied to any one purchase — refund clawbacks already show
+    /// on their purchase line in red — so it is reported once here and shown as its own line, so
+    /// the breakdown reconciles with the reward balance.
+    /// </summary>
+    public decimal UnusedClawbackPoints { get; set; }
+
     public List<RewardBreakdownLineDto> Lines { get; set; } = [];
 }
 

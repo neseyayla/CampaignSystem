@@ -63,28 +63,30 @@
   } @else if (rows().length === 0) {
     <div class="state">Bu koşullara uyan kampanya yok.</div>
   } @else {
-    <div class="summary">
-      <div class="summary-card">
-        <span class="label">Kampanya Sayısı</span>
-        <span class="value">{{ totals().campaignCount | number }}</span>
+    @if (rows().length > 1) {
+      <div class="summary">
+        <div class="summary-card">
+          <span class="label">Kampanya Sayısı</span>
+          <span class="value">{{ totals().campaignCount | number }}</span>
+        </div>
+        <div class="summary-card">
+          <span class="label">Müşteri Sayısı</span>
+          <span class="value">{{ totals().distinctCustomerCount | number }}</span>
+        </div>
+        <div class="summary-card">
+          <span class="label">Kazanılan Puan</span>
+          <span class="value">{{ totals().totalPointsEarned | number:'1.0-2' }}</span>
+        </div>
+        <div class="summary-card">
+          <span class="label">Geri Alınan Puan</span>
+          <span class="value">{{ totals().totalPointsClawedBack | number:'1.0-2' }}</span>
+        </div>
+        <div class="summary-card">
+          <span class="label">Net Puan</span>
+          <span class="value">{{ totals().netPoints | number:'1.0-2' }}</span>
+        </div>
       </div>
-      <div class="summary-card">
-        <span class="label">Müşteri Sayısı</span>
-        <span class="value">{{ totals().distinctCustomerCount | number }}</span>
-      </div>
-      <div class="summary-card">
-        <span class="label">Kazanılan Puan</span>
-        <span class="value">{{ totals().totalPointsEarned | number:'1.0-2' }}</span>
-      </div>
-      <div class="summary-card">
-        <span class="label">Geri Alınan Puan</span>
-        <span class="value">{{ totals().totalPointsClawedBack | number:'1.0-2' }}</span>
-      </div>
-      <div class="summary-card">
-        <span class="label">Net Puan</span>
-        <span class="value">{{ totals().netPoints | number:'1.0-2' }}</span>
-      </div>
-    </div>
+    }
 
     <div class="card table-wrap">
       <table>
@@ -135,52 +137,42 @@
               <tr class="detail-row">
                 <td [attr.colspan]="6">
                   <div class="movements">
-                    <div class="tabs">
-                      @for (tab of movementTabs; track tab.value) {
-                        <button
-                          type="button"
-                          class="tab"
-                          [class.active]="movementType() === tab.value"
-                          (click)="selectMovementType(tab.value)"
-                        >
-                          {{ tab.label }}
-                        </button>
-                      }
-                    </div>
-
-                    @if (movementsError(); as message) {
+                    @if (ledgerError(); as message) {
                       <div class="state error">{{ message }}</div>
-                    } @else if (movementsLoading()) {
+                    } @else if (ledgerLoading()) {
                       <div class="state">Yükleniyor…</div>
-                    } @else if (movements().length === 0) {
-                      <div class="state">Bu türde hareket yok.</div>
                     } @else {
-                      <table class="movements-table">
-                        <thead>
-                          <tr>
-                            <th>Tarih</th>
-                            <th>Hareket</th>
-                            <th>Müşteri</th>
-                            <th class="numeric">Puan / Tutar</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          @for (movement of movements(); track $index) {
-                            <tr>
-                              <td>{{ movement.date | date:'dd.MM.yyyy' }}</td>
-                              <td>{{ movementLabel(movement.type) }}</td>
-                              <td>{{ movement.customerNumber }}</td>
-                              <td class="numeric">
-                                @if (isMoney(movement.type)) {
-                                  {{ movement.amount | number:'1.0-2' }} TL
+                      <div class="ledger">
+                        @for (stat of ledgerStats(); track stat.label) {
+                          <div class="ledger-line">
+                            <span class="ln-label">{{ stat.label }}</span>
+                            <span class="ln-total">{{ stat.value }}</span>
+                          </div>
+                        }
+                      </div>
+
+                      <button type="button" class="link-button" (click)="toggleLedgerLines()">
+                        {{ showLedgerLines() ? 'Hareketleri gizle' : 'Hareketleri gör' }}
+                      </button>
+
+                      @if (showLedgerLines()) {
+                        <div class="movement-lines">
+                          @for (line of ledger(); track line.type) {
+                            <div class="movement-line">
+                              <span class="ml-label">{{ ledgerLabel(line.type) }}</span>
+                              <span class="ml-date">{{ ledgerDate(line) }}</span>
+                              <span class="ml-count">{{ line.count | number }} {{ countUnit(line.type) }}</span>
+                              <span class="ml-total">
+                                @if (isMoney(line.type)) {
+                                  {{ line.total | number:'1.0-2' }} TL
                                 } @else {
-                                  {{ movement.amount > 0 ? '+' : '' }}{{ movement.amount | number:'1.0-2' }} puan
+                                  {{ line.total > 0 ? '+' : '' }}{{ line.total | number:'1.0-2' }} puan
                                 }
-                              </td>
-                            </tr>
+                              </span>
+                            </div>
                           }
-                        </tbody>
-                      </table>
+                        </div>
+                      }
                     }
                   </div>
                 </td>

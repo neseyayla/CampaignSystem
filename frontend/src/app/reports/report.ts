@@ -1,13 +1,12 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import {
-  CampaignMovement,
+  CampaignLedgerLine,
   CampaignReportSummary,
   ClawbackFilter,
-  MovementFilter,
-  MovementType,
+  LedgerLineType,
   ReportsService,
   ReportTotals
 } from '../services/reports.service';
@@ -31,7 +30,7 @@ interface FilterChip {
 
 @Component({
   selector: 'app-report',
-  imports: [DatePipe, DecimalPipe, FormsModule],
+  imports: [DecimalPipe, FormsModule],
   templateUrl: './report.html',
   styleUrl: './report.css'
 })
@@ -61,36 +60,59 @@ export class Report {
   protected readonly sortKey = signal<SortKey>('name');
   protected readonly sortDir = signal<'asc' | 'desc'>('asc');
 
-  // Drill-down: the expanded campaign's movement ledger and the active tab.
+  // Drill-down: the expanded campaign's ledger summary.
   protected readonly expandedId = signal<number | null>(null);
-  protected readonly movements = signal<CampaignMovement[]>([]);
-  protected readonly movementsLoading = signal(false);
-  protected readonly movementsError = signal<string | null>(null);
-  protected readonly movementType = signal<MovementFilter>('all');
+  protected readonly ledger = signal<CampaignLedgerLine[]>([]);
+  protected readonly ledgerLoading = signal(false);
+  protected readonly ledgerError = signal<string | null>(null);
+  // The panel defaults to the ratios; "Hareketleri Gör" reveals the aggregated movement lines.
+  protected readonly showLedgerLines = signal(false);
 
-  protected readonly movementTabs: { value: MovementFilter; label: string }[] = [
-    { value: 'all', label: 'Tümü' },
-    { value: 'earn', label: 'Yükleme' },
-    { value: 'refund', label: 'İade' },
-    { value: 'clawback', label: 'Geri Alım' }
-  ];
-
-  private readonly movementLabels: Record<MovementType, string> = {
+  private readonly ledgerLabels: Record<LedgerLineType, string> = {
     earn: 'Yükleme',
+    refund: 'İade',
     refundClawback: 'İade sonrası geri alım',
-    unusedClawback: 'Kullanılmayan puan geri alımı',
-    refund: 'İade'
+    unusedClawback: 'Kullanılmayan puan geri alımı'
   };
+
+  // Derived ratios from the ledger — insight the campaign row does not already show.
+  protected readonly ledgerStats = computed<{ label: string; value: string }[]>(() => {
+    const lines = this.ledger();
+    if (lines.length === 0) return [];
+
+    const line = (type: LedgerLineType) => lines.find(l => l.type === type);
+    const earnTotal = line('earn')?.total ?? 0;
+    const earnCustomers = line('earn')?.count ?? 0;
+    const clawback = Math.abs(line('refundClawback')?.total ?? 0) + Math.abs(line('unusedClawback')?.total ?? 0);
+    const net = earnTotal - clawback;
+    const refundCount = line('refund')?.count ?? 0;
+    const refundTotal = line('refund')?.total ?? 0;
+    const refundClawbackCount = line('refundClawback')?.count ?? 0;
+
+    const pct = (ratio: number | null) => ratio === null ? '—' : `%${(ratio * 100).toFixed(1)}`;
+    const num = (value: number | null, suffix = '') =>
+      value === null ? '—' : value.toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + suffix;
+
+    return [
+      { label: 'Ortalama puan / müşteri', value: num(earnCustomers > 0 ? earnTotal / earnCustomers : null) },
+      { label: 'Net puan oranı', value: pct(earnTotal > 0 ? net / earnTotal : null) },
+      { label: 'Geri alım oranı (kazanılana göre)', value: pct(earnTotal > 0 ? clawback / earnTotal : null) },
+      { label: 'İadelerin geri alıma dönüşme oranı', value: pct(refundCount > 0 ? refundClawbackCount / refundCount : null) },
+      { label: 'Ortalama iade tutarı', value: num(refundCount > 0 ? refundTotal / refundCount : null, ' TL') }
+    ];
+  });
 
   protected readonly clawbackOptions: { value: ClawbackFilter; label: string }[] = [
     { value: 'all', label: 'Tümü' },
     { value: 'refund', label: 'İade geri alımı olanlar' },
-    { value: 'unused', label: 'Kullanılmayan puan geri alımı olanlar' }
+    { value: 'unused', label: 'Kullanılmayan puan geri alımı olanlar' },
+    { value: 'both', label: 'İade ve kullanılmayan geri alımı olanlar' }
   ];
 
   private readonly chipLabels: Record<Exclude<ClawbackFilter, 'all'>, string> = {
     refund: 'İade geri alımı var',
-    unused: 'Kullanılmayan puan geri alımı var'
+    unused: 'Kullanılmayan puan geri alımı var',
+    both: 'İade ve kullanılmayan geri alımı var'
   };
 
   // Campaign suggestions matching what has been typed (substring, case-insensitive).
@@ -191,50 +213,66 @@ export class Report {
     return match?.id ?? null;
   }
 
-  /** Expand a campaign to its movement ledger, or collapse it if already open. */
+  /** Expand a campaign to its ledger summary, or collapse it if already open. */
   protected toggleRow(campaignId: number): void {
     if (this.expandedId() === campaignId) {
       this.expandedId.set(null);
       return;
     }
     this.expandedId.set(campaignId);
-    this.movementType.set('all');
-    this.loadMovements();
+    this.showLedgerLines.set(false);
+    this.loadLedger();
   }
 
-  /** Switch the ledger tab and reload its movements. */
-  protected selectMovementType(type: MovementFilter): void {
-    if (this.movementType() === type) return;
-    this.movementType.set(type);
-    this.loadMovements();
+  /** Toggle between the ratios and the aggregated movement lines. */
+  protected toggleLedgerLines(): void {
+    this.showLedgerLines.set(!this.showLedgerLines());
   }
 
-  /** Human label for a movement kind. */
-  protected movementLabel(type: MovementType): string {
-    return this.movementLabels[type];
+  /** Human label for a ledger line kind. */
+  protected ledgerLabel(type: LedgerLineType): string {
+    return this.ledgerLabels[type];
   }
 
-  /** A refund is money (TL); every other movement is points. */
-  protected isMoney(type: MovementType): boolean {
+  /** A refund is money (TL); every other line is points. */
+  protected isMoney(type: LedgerLineType): boolean {
     return type === 'refund';
   }
 
-  private loadMovements(): void {
+  /** What the count is measured in: rewarded customers vs individual transactions. */
+  protected countUnit(type: LedgerLineType): string {
+    return type === 'earn' ? 'müşteri' : 'işlem';
+  }
+
+  /** The line's date, or a range when its movements span more than one day. Empty when none. */
+  protected ledgerDate(line: CampaignLedgerLine): string {
+    if (!line.firstDate) return '';
+    const first = this.formatDate(line.firstDate);
+    if (!line.lastDate || line.lastDate === line.firstDate) return first;
+    return `${first} – ${this.formatDate(line.lastDate)}`;
+  }
+
+  private formatDate(iso: string): string {
+    const [year, month, day] = iso.split('T')[0].split('-');
+    return `${day}.${month}.${year}`;
+  }
+
+  private loadLedger(): void {
     const id = this.expandedId();
     if (id === null) return;
 
-    this.movementsLoading.set(true);
-    this.movementsError.set(null);
-    this.movements.set([]);
+    this.ledgerLoading.set(true);
+    this.ledgerError.set(null);
+    this.ledger.set([]);
 
-    this.service.getMovements(id, this.movementType()).subscribe({
-      next: rows => {
-        this.movements.set(rows);
-        this.movementsLoading.set(false);
+    this.service.getLedger(id).subscribe({
+      next: lines => {
+        this.ledger.set(lines);
+        this.ledgerLoading.set(false);
       },
       error: () => {
-        this.movementsError.set('Hareketler yüklenemedi. API çalışıyor mu?');
-        this.movementsLoading.set(false);
+        this.ledgerError.set('Özet yüklenemedi. API çalışıyor mu?');
+        this.ledgerLoading.set(false);
       }
     });
   }

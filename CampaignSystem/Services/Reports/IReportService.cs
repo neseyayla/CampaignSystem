@@ -17,11 +17,10 @@ public interface IReportService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// One campaign's movement ledger, ordered by date: loaded rewards, refund transactions and
-    /// the point clawbacks. Narrowed to the requested kind.
+    /// One campaign's ledger summary: an aggregated line each for loaded rewards, refund
+    /// transactions, refund-driven clawbacks and unused-points clawbacks.
     /// </summary>
-    Task<IReadOnlyList<CampaignMovementDto>> GetCampaignMovementsAsync(
+    Task<IReadOnlyList<CampaignLedgerLineDto>> GetCampaignLedgerAsync(
         int campaignId,
-        MovementFilter type,
         CancellationToken cancellationToken = default);
 }

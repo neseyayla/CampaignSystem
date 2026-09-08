@@ -29,15 +29,14 @@ public class ReportsController : ControllerBase
         return Ok(summaries);
     }
 
-    /// <summary>One campaign's movement ledger (loads, refunds, clawbacks), for the drill-down.</summary>
-    [HttpGet("campaigns/{id:int}/movements")]
-    public async Task<IActionResult> GetCampaignMovements(
+    /// <summary>One campaign's ledger summary (loads, refunds, clawbacks), for the drill-down.</summary>
+    [HttpGet("campaigns/{id:int}/ledger")]
+    public async Task<IActionResult> GetCampaignLedger(
         [FromRoute] int id,
-        [FromQuery] MovementFilter type,
         CancellationToken cancellationToken)
     {
-        var movements = await _service.GetCampaignMovementsAsync(id, type, cancellationToken);
+        var ledger = await _service.GetCampaignLedgerAsync(id, cancellationToken);
 
-        return Ok(movements);
+        return Ok(ledger);
     }
 }
