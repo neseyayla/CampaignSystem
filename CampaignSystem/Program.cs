@@ -6,6 +6,8 @@ using CampaignSystem.Middleware;
 using CampaignSystem.Repositories;
 using CampaignSystem.Services;
 using CampaignSystem.Services.Caching;
+using Anthropic;
+using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -114,6 +116,9 @@ builder.Services.Configure<DailyBatchOptions>(
 builder.Services.Configure<RecommendationOptions>(
     builder.Configuration.GetSection(RecommendationOptions.SectionName));
 
+builder.Services.Configure<AdvisorOptions>(
+    builder.Configuration.GetSection(AdvisorOptions.SectionName));
+
 builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection(JwtOptions.SectionName));
 
@@ -184,6 +189,21 @@ builder.Services.AddScoped<IMerchantService, MerchantService>();
 builder.Services.AddScoped<ITransactionCodeService, TransactionCodeService>();
 builder.Services.AddScoped<ICustomerCampaignService, CustomerCampaignService>();
 builder.Services.AddScoped<ICampaignRecommendationService, CampaignRecommendationService>();
+
+// The advisor's HTTP client is a singleton: it holds a connection pool and nothing per
+// request. A missing key is not fatal here — the endpoint refuses with a message that says
+// how to set it, so everything else still runs for a developer who has not configured one.
+builder.Services.AddSingleton(serviceProvider =>
+{
+    var advisor = serviceProvider.GetRequiredService<IOptions<AdvisorOptions>>().Value;
+
+    return string.IsNullOrWhiteSpace(advisor.ApiKey)
+        ? new AnthropicClient()
+        : new AnthropicClient { ApiKey = advisor.ApiKey };
+});
+
+builder.Services.AddScoped<CampaignSystem.Services.Advisor.ICampaignAdvisorService,
+    CampaignSystem.Services.Advisor.CampaignAdvisorService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<CampaignSystem.Services.Reports.IReportService, CampaignSystem.Services.Reports.ReportService>();
 
