@@ -13,10 +13,12 @@ namespace CampaignSystem.Services.Reports;
 public class ReportService : IReportService
 {
     private readonly CampaignDbContext _db;
+    private readonly IRewardCalculator _calculator;
 
-    public ReportService(CampaignDbContext db)
+    public ReportService(CampaignDbContext db, IRewardCalculator calculator)
     {
         _db = db;
+        _calculator = calculator;
     }
 
     private static readonly CampaignReportResultDto Empty =
@@ -192,5 +194,120 @@ public class ReportService : IReportService
             RewardLine("refundClawback", RewardType.Clawback),
             RewardLine("unusedClawback", RewardType.UnusedPointsClawback)
         };
+    }
+
+    public async Task<IReadOnlyList<DetailReportRowDto>> GetDetailReportAsync(
+        DetailReportType type,
+        int? campaignId,
+        string? customerNumber,
+        int? cardId,
+        CancellationToken cancellationToken = default)
+    {
+        var number = string.IsNullOrWhiteSpace(customerNumber) ? null : customerNumber.Trim();
+
+        // Transactions are their own table with no campaign link; a campaign filter narrows to the
+        // transactions dated inside that campaign's window.
+        if (type == DetailReportType.Transaction)
+        {
+            // No campaign: every transaction matching the customer/card filters.
+            if (campaignId is null)
+            {
+                var query = _db.Transactions.AsNoTracking().AsQueryable();
+
+                if (cardId is not null)
+                    query = query.Where(t => t.CardId == cardId);
+                if (number is not null)
+                    query = query.Where(t => t.Customer.CustomerNumber == number);
+
+                return await query
+                    .OrderByDescending(t => t.TransactionDate)
+                    .Select(t => new DetailReportRowDto(
+                        t.Customer.CustomerNumber,
+                        t.CardId,
+                        null,
+                        t.TransactionDate,
+                        t.Amount,
+                        t.Merchant != null ? t.Merchant.MerchantName : null))
+                    .ToListAsync(cancellationToken);
+            }
+
+            // A campaign: only the transactions the campaign actually counts — its full criteria
+            // (merchants, products, codes, min amount, demographics, enrollment), not just the
+            // date window. Reuses the reward engine so this matches what was paid.
+            var campaign = await _db.Campaigns.FirstOrDefaultAsync(c => c.Id == campaignId, cancellationToken);
+            if (campaign is null) return [];
+
+            int? customerId = null;
+            if (number is not null)
+            {
+                customerId = await _db.Customers
+                    .Where(c => c.CustomerNumber == number)
+                    .Select(c => (int?)c.Id)
+                    .FirstOrDefaultAsync(cancellationToken);
+                if (customerId is null) return [];
+            }
+
+            var qualifying = await _calculator.QualifyingTransactions(
+                campaign, cancellationToken, includeReversed: false, customerId: customerId);
+
+            if (cardId is not null)
+                qualifying = qualifying.Where(t => t.CardId == cardId).ToList();
+
+            // Names for the qualifying rows (the engine returns entities without them loaded).
+            var customerIds = qualifying.Select(t => t.CustomerId).Distinct().ToList();
+            var numberById = (await _db.Customers
+                    .Where(c => customerIds.Contains(c.Id))
+                    .Select(c => new { c.Id, c.CustomerNumber })
+                    .ToListAsync(cancellationToken))
+                .ToDictionary(c => c.Id, c => c.CustomerNumber);
+
+            var merchantIds = qualifying.Where(t => t.MerchantId != null)
+                .Select(t => t.MerchantId!.Value).Distinct().ToList();
+            var merchantById = (await _db.Merchants
+                    .Where(m => merchantIds.Contains(m.Id))
+                    .Select(m => new { m.Id, m.MerchantName })
+                    .ToListAsync(cancellationToken))
+                .ToDictionary(m => m.Id, m => m.MerchantName);
+
+            return qualifying
+                .OrderByDescending(t => t.TransactionDate)
+                .Select(t => new DetailReportRowDto(
+                    numberById.GetValueOrDefault(t.CustomerId, string.Empty),
+                    t.CardId,
+                    null,
+                    t.TransactionDate,
+                    t.Amount,
+                    t.MerchantId != null ? merchantById.GetValueOrDefault(t.MerchantId.Value) : null))
+                .ToList();
+        }
+
+        // The reward reports differ only by which reward type they list.
+        var rewardType = type switch
+        {
+            DetailReportType.UnusedClawback => RewardType.UnusedPointsClawback,
+            DetailReportType.RefundClawback => RewardType.Clawback,
+            _ => RewardType.Earn
+        };
+
+        var rewards = _db.CampaignRewards.AsNoTracking().Where(r => r.RewardType == rewardType);
+
+        if (campaignId is not null)
+            rewards = rewards.Where(r => r.CampaignId == campaignId);
+        if (cardId is not null)
+            rewards = rewards.Where(r => r.CardId == cardId);
+        if (number is not null)
+            rewards = rewards.Where(r => r.Customer.CustomerNumber == number);
+
+        return await rewards
+            .OrderByDescending(r => r.RewardDate)
+            .Select(r => new DetailReportRowDto(
+                r.Customer.CustomerNumber,
+                r.CardId,
+                r.Campaign.Name,
+                r.RewardDate,
+                // Earn is positive; clawbacks are stored negative — report the magnitude.
+                r.RewardPoint < 0 ? -r.RewardPoint : r.RewardPoint,
+                null))
+            .ToListAsync(cancellationToken);
     }
 }

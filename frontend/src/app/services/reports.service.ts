@@ -58,6 +58,26 @@ export interface ReportFilters {
   clawback?: ClawbackFilter;
 }
 
+/** Which detailed, row-level report to fetch. Matches the backend DetailReportType names. */
+export type DetailReportType = 'Loaded' | 'UnusedClawback' | 'RefundClawback' | 'Transaction';
+
+/** Filters for the detailed report; all optional. */
+export interface DetailReportFilters {
+  campaignId?: number | null;
+  customerNumber?: string | null;
+  cardId?: number | null;
+}
+
+/** One row of a detailed report; the meaningful columns depend on the report type. */
+export interface DetailReportRow {
+  customerNumber: string;
+  cardId: number | null;
+  campaignName: string | null;
+  date: string;
+  amount: number;
+  merchantName: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ReportsService {
   private readonly http = inject(HttpClient);
@@ -75,5 +95,15 @@ export class ReportsService {
   /** A single campaign's ledger summary (loads, refunds, clawbacks). */
   getLedger(campaignId: number): Observable<CampaignLedgerLine[]> {
     return this.http.get<CampaignLedgerLine[]>(`${this.baseUrl}/campaigns/${campaignId}/ledger`);
+  }
+
+  /** A detailed, row-level report of the given type, narrowed by the optional filters. */
+  getDetail(type: DetailReportType, filters: DetailReportFilters = {}): Observable<DetailReportRow[]> {
+    let params = new HttpParams().set('type', type);
+    if (filters.campaignId != null) params = params.set('campaignId', filters.campaignId);
+    if (filters.customerNumber) params = params.set('customerNumber', filters.customerNumber);
+    if (filters.cardId != null) params = params.set('cardId', filters.cardId);
+
+    return this.http.get<DetailReportRow[]>(`${this.baseUrl}/detail`, { params });
   }
 }

@@ -29,6 +29,20 @@ public class ReportsController : ControllerBase
         return Ok(summaries);
     }
 
+    /// <summary>A detailed, row-level report (loads / clawbacks / refunds / transactions).</summary>
+    [HttpGet("detail")]
+    public async Task<IActionResult> GetDetailReport(
+        [FromQuery] DetailReportType type,
+        [FromQuery] int? campaignId,
+        [FromQuery] string? customerNumber,
+        [FromQuery] int? cardId,
+        CancellationToken cancellationToken)
+    {
+        var rows = await _service.GetDetailReportAsync(type, campaignId, customerNumber, cardId, cancellationToken);
+
+        return Ok(rows);
+    }
+
     /// <summary>One campaign's ledger summary (loads, refunds, clawbacks), for the drill-down.</summary>
     [HttpGet("campaigns/{id:int}/ledger")]
     public async Task<IActionResult> GetCampaignLedger(

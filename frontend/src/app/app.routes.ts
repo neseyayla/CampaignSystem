@@ -7,6 +7,7 @@ import { CampaignList } from './campaigns/campaign-list';
 import { CampaignSuggestions } from './campaigns/campaign-suggestions';
 import { Login } from './login/login';
 import { Report } from './reports/report';
+import { DetailReport } from './reports/detail-report';
 
 export const routes: Routes = [
   { path: 'login', component: Login, title: 'Giriş', canActivate: [guestGuard] },
@@ -36,7 +37,8 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
 
-  { path: 'reports', component: Report, title: 'Raporlar', canActivate: [authGuard] },
+  { path: 'reports', component: Report, title: 'Kampanya Raporu', canActivate: [authGuard] },
+  { path: 'reports/detail', component: DetailReport, title: 'Detaylı Rapor', canActivate: [authGuard] },
 
   // Anything unrecognised goes to the campaign list rather than a blank page.
   { path: '**', redirectTo: 'campaigns' }

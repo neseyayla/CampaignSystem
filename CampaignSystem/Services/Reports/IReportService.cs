@@ -23,4 +23,16 @@ public interface IReportService
     Task<IReadOnlyList<CampaignLedgerLineDto>> GetCampaignLedgerAsync(
         int campaignId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A detailed, row-level report of the requested kind (loaded rewards, unused-points clawback,
+    /// refund clawback or transactions), narrowed by the optional campaign, customer number and
+    /// card id.
+    /// </summary>
+    Task<IReadOnlyList<DetailReportRowDto>> GetDetailReportAsync(
+        DetailReportType type,
+        int? campaignId,
+        string? customerNumber,
+        int? cardId,
+        CancellationToken cancellationToken = default);
 }
