@@ -24,7 +24,7 @@ public class AdvisorOptions
 
     public string Model { get; set; } = "claude-opus-5";
 
-    public int MaxTokens { get; set; } = 8000;
+    public int MaxTokens { get; set; } = 16000;
 
     /// <summary>
     /// How many times the tool loop may go round before it gives up. Each pass is one API

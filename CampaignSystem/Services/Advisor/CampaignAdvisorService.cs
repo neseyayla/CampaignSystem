@@ -165,6 +165,10 @@ public class CampaignAdvisorService(
                 },
                 cancellationToken: cancellationToken);
 
+            logger.LogInformation(
+                "Advisor turn {Iteration}: stop={StopReason} in={InputTokens} out={OutputTokens}",
+                iteration + 1, response.StopReason, response.Usage.InputTokens, response.Usage.OutputTokens);
+
             // The assistant turn has to be echoed back verbatim alongside the tool results, so
             // every block is rebuilt as its *Param counterpart. Thinking blocks carry a
             // signature the API validates — copying it is not optional.
@@ -219,6 +223,19 @@ public class CampaignAdvisorService(
                 var answer = string.Join(
                     "\n\n",
                     response.Content.Select(b => b.Value).OfType<TextBlock>().Select(t => t.Text));
+
+                // Running out of output budget mid-sentence otherwise comes back as a 200 with a
+                // silently truncated answer — the reader has no way to tell a finished argument
+                // from a cut-off one. Thinking tokens share MaxTokens, so this is easy to hit.
+                if (response.StopReason == StopReason.MaxTokens)
+                {
+                    logger.LogWarning(
+                        "Advisor answer truncated: MaxTokens ({MaxTokens}) reached", _options.MaxTokens);
+
+                    answer +=
+                        $"\n\n---\n\n**⚠ Cevap yarıda kesildi** — çıktı bütçesi ({_options.MaxTokens} token) doldu. " +
+                        "Soruyu daraltın ya da `Advisor:MaxTokens` değerini yükseltin.";
+                }
 
                 return ServiceResult<AdvisorAnswerDto>.Success(new AdvisorAnswerDto(answer, trace));
             }
