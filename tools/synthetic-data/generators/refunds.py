@@ -48,6 +48,14 @@ def generate_refunds(rng, config, transactions_df, latent_df):
     )
     date = src["TransactionDate"].to_numpy() + delay.astype("timedelta64[D]")
 
+    # A refund that would land after the window has not happened yet; keeping it would put
+    # a future-dated row in the table.
+    happened = date < np.datetime64(config.END_DATE) + np.timedelta64(1, "D")
+    src, amount, date = src[happened], amount[happened], date[happened]
+    n = len(src)
+    if n == 0:
+        return transactions_df.iloc[0:0].copy()
+
     start_id = int(transactions_df["Id"].max()) + 1
     ids = np.arange(start_id, start_id + n, dtype=np.int64)
 

@@ -1,18 +1,21 @@
 """
-Merchant categories and merchants (reference data, built once).
+Merchants — the MERCHANT rows the transactions point at.
 
 Model
 -----
 For each category in ``config.MERCHANT_CATEGORIES`` generate ``n_merchants`` merchants
-with Faker-generated names and BKM-style merchant numbers. Within a category, merchants
-are not equally popular: their pull follows a power-law (a few dominant chains, a long
-tail of small ones), so transaction assignment later concentrates realistically.
+with Faker-generated names. Within a category merchants are not equally popular: their
+pull follows a power law (a few dominant chains, a long tail of small ones), so
+transactions later concentrate realistically.
+
+The categories themselves are not generated — the application seeds them, and each
+merchant points at the seeded id. Merchant ids start at ``MERCHANT_ID_START`` because the
+seed already owns merchants 1–12.
 
 Returns
 -------
-(categories_df, merchants_df)
-    ``merchants_df`` carries two helper columns beyond the schema — ``CategoryCode`` and
-    ``Popularity`` — used when assigning transactions.
+merchants_df with the MERCHANT columns plus two helper columns used when assigning
+transactions — ``CategoryCode`` and ``Popularity`` — which main.py drops when writing.
 """
 
 from __future__ import annotations
@@ -26,13 +29,10 @@ def generate_merchants(rng, config):
     fake = Faker("tr_TR")
     Faker.seed(int(rng.integers(0, 2**31 - 1)))
 
-    cat_rows = []
-    merch_rows = []
-    merch_id = 1
+    rows = []
+    merch_id = config.MERCHANT_ID_START
 
-    for cat_id, cat in enumerate(config.MERCHANT_CATEGORIES, start=1):
-        cat_rows.append({"Id": cat_id, "Code": cat.code, "Name": cat.name})
-
+    for cat in config.MERCHANT_CATEGORIES:
         # Zipf-like popularity: a few merchants dominate, most are small.
         pop = 1.0 / np.arange(1, cat.n_merchants + 1) ** 1.1
         pop = pop / pop.sum()
@@ -40,15 +40,18 @@ def generate_merchants(rng, config):
         rng.shuffle(pop)
 
         for k in range(cat.n_merchants):
-            merch_rows.append({
+            rows.append({
                 "Id": merch_id,
-                "MerchantNumber": f"{int(rng.integers(10**8, 10**9))}",
+                # Nine digits like the seeded merchant numbers, in a 9xxxxxxxx range neither
+                # the seed ("300…") nor the sample script ("ORN…") uses, and sequential so
+                # the unique index on MerchantNumber can never trip.
+                "MerchantNumber": f"9{merch_id:08d}",
                 "MerchantName": fake.company(),
-                "MerchantCategoryId": cat_id,
+                "MerchantCategoryId": cat.id,
                 "IsActive": True,
                 "CategoryCode": cat.code,
                 "Popularity": float(pop[k]),
             })
             merch_id += 1
 
-    return pd.DataFrame(cat_rows), pd.DataFrame(merch_rows)
+    return pd.DataFrame(rows)

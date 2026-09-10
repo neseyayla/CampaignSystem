@@ -13,6 +13,11 @@ Eligibility is the campaign's scope: segment and gender (the scalar scopes on th
 row). "Treated" means enrolled (SI) or eligible (Mass); eligible-but-not-enrolled SI
 customers form the control group the uplift model scores against.
 
+The enrollment level follows the application's rule (ParticipationService
+.ValidateLevelAsync): a card-based campaign enrolls a card, a customer-based one enrolls the
+customer with no card. A card-based enrollment covers every card the customer holds, which
+is what the rewards step counts.
+
 Returns
 -------
 (participation_df, treatment_df)
@@ -30,11 +35,12 @@ def _sigmoid(x):
     return 1.0 / (1.0 + np.exp(-x))
 
 
-def generate_participation(rng, config, customers_df, latent_df, campaigns_df):
+def generate_participation(rng, config, customers_df, latent_df, campaigns_df, cards_df):
     cust_id = customers_df["Id"].to_numpy()
     gender = customers_df["Gender"].to_numpy()
     segment = customers_df["SegmentId"].to_numpy()
     responsiveness = latent_df["Responsiveness"].to_numpy()
+    cards_by_cust = cards_df.groupby("CustomerId")["Id"].apply(list).to_dict()
 
     part_rows = []          # participation records (SI enrolled only)
     treat_frames = []       # eligibility/treatment records for every campaign
@@ -56,17 +62,18 @@ def generate_participation(rng, config, customers_df, latent_df, campaigns_df):
         else:
             p = _sigmoid(config.ENROLL_BASE + config.ENROLL_SLOPE * responsiveness[elig_ix])
             treated = rng.random(elig_ix.size) < p
-            # Enrolled customers get a participation row.
-            for j in np.flatnonzero(treated):
-                part_rows.append({
-                    "Id": part_id,
-                    "CampaignId": camp.Id,
-                    "CustomerId": int(cust_id[elig_ix[j]]),
-                    "CardId": pd.NA,
-                    "ParticipationDate": camp.StartDate,
-                    "Status": "Active",
-                })
-                part_id += 1
+            for cust in cust_id[elig_ix[treated]]:
+                card_ids = cards_by_cust[int(cust)] if camp.EarningType == "CardBased" else [pd.NA]
+                for card in card_ids:
+                    part_rows.append({
+                        "Id": part_id,
+                        "CampaignId": camp.Id,
+                        "CustomerId": int(cust),
+                        "CardId": card,
+                        "ParticipationDate": camp.StartDate,
+                        "Status": "Active",
+                    })
+                    part_id += 1
 
         treat_frames.append(pd.DataFrame({
             "CampaignId": camp.Id,

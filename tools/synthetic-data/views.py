@@ -1,16 +1,16 @@
 """
 Readable, joined views over the generated CSVs.
 
-The CSVs in ``output/`` are *normalised* — they mirror the DB tables, so almost every
-column is a foreign key or an enum code. A row like ``1,R1000000000,1,1,134,1,...`` is
-faithful to the schema and unreadable to a human.
+The table files in ``output/`` mirror the database, so almost every column is a foreign
+key or a bank code. A row like ``1,R1000000000,1,1,1004,1,...`` is faithful to the schema
+and unreadable to a human.
 
-This script denormalises them: it loads every CSV into a pandas DataFrame, resolves the
-keys (merchant, category, product, segment, transaction code) and the enum codes (gender,
-card type) into their labels, and writes wide tables where each row tells the whole story
-in words. It also attributes each purchase to the campaign(s) it qualifies for, which no
-single table records — campaign membership lives in the intersection of the treatment
-list, the campaign window and the campaign's targeting criteria.
+This script denormalises them: it loads the CSVs, resolves keys (merchant, category,
+product, segment, transaction code) and codes (E/K, A/E, MASS/SI, K/M) into words, and
+writes wide tables where each row tells the whole story. It also attributes each purchase
+to the campaign(s) it qualifies for, which no single table records — campaign membership
+lives in the intersection of the treatment list, the campaign window and the campaign's
+targeting criteria.
 
 Nothing here changes the generated data; views are a read-only projection written to
 ``output/views/``.
@@ -31,33 +31,42 @@ import config
 VIEWS_DIR = config.OUTPUT_DIR / "views"
 
 # ── Label maps ────────────────────────────────────────────────────────────────
-# Single place to change if you want the views in another language: every code → text
-# substitution below flows from these.
+# Single place to change the wording: every code → text substitution below flows from
+# these. Keys are the values the table files hold.
 
-GENDER_LABELS = {1: "Male", 2: "Female"}
-CARD_TYPE_LABELS = {1: "Primary", 2: "Supplementary"}
-SEGMENT_LABELS = {i + 1: s.name for i, s in enumerate(config.SEGMENTS)}
+GENDER_LABELS = {"E": "Erkek", "K": "Kadın"}
+CARD_TYPE_LABELS = {"A": "Asıl", "E": "Ek"}
+CAMPAIGN_TYPE_LABELS = {"MASS": "Mass", "SI": "Katılımlı"}
+EARNING_TYPE_LABELS = {"K": "Kart bazlı", "M": "Müşteri bazlı"}
+SEGMENT_LABELS = {s.id: s.name for s in config.SEGMENTS}
 TXN_CODE_LABELS = {t.id: t.name for t in config.TRANSACTION_CODES}
-CATEGORY_LABELS = {c.code: c.name for c in config.MERCHANT_CATEGORIES}
+CATEGORY_LABELS = {c.id: c.name for c in config.MERCHANT_CATEGORIES}
 PRODUCT_LABELS = {p.id: p.name for p in config.PRODUCTS}
 
-ALL = "All"    # shown where a campaign puts no restriction on a dimension
+ALL = "Hepsi"  # shown where a campaign puts no restriction on a dimension
 NONE = "—"     # shown where a row has no value at all
 
 
 def _load() -> dict[str, pd.DataFrame]:
-    """Read every generated CSV, parsing the date columns as dates."""
+    """Read every generated CSV, then reshape the two things the table files store
+    differently from how the views want them.
+
+    The database has one TRANSACTION table, so purchases and refunds arrive in one file and
+    are split here. And a campaign's scope arrives as junction rows (CAMPAIGN_SEGMENT,
+    CAMPAIGN_MERCHANT); it is folded back into single ``SegmentIdScope`` /
+    ``CategoryIdScope`` columns, since every generated campaign targets at most one segment
+    and one category.
+    """
     dates = {
         "campaigns": ["StartDate", "EndDate"],
         "transactions": ["TransactionDate", "ClawbackProcessedAt"],
-        "refunds": ["TransactionDate", "ClawbackProcessedAt"],
         "participation": ["ParticipationDate"],
         "rewards": ["RewardDate"],
     }
     names = [
-        "merchant_categories", "merchants", "products", "campaigns", "customers",
-        "latent", "cards", "transactions", "refunds", "participation", "treatment",
-        "rewards", "ground_truth",
+        "customers", "cards", "merchants", "campaigns", "campaign_segments",
+        "campaign_merchants", "transactions", "participation", "rewards",
+        "latent", "treatment", "ground_truth",
     ]
     out = {}
     for name in names:
@@ -65,6 +74,22 @@ def _load() -> dict[str, pd.DataFrame]:
         if not path.exists():
             sys.exit(f"missing {path} — run `uv run python main.py` first")
         out[name] = pd.read_csv(path, parse_dates=dates.get(name))
+
+    txns = out["transactions"]
+    is_refund = txns["TransactionCodeId"] == config.REFUND_CODE_ID
+    out["refunds"] = txns[is_refund].reset_index(drop=True)
+    out["transactions"] = txns[~is_refund].reset_index(drop=True)
+
+    merch_cat = out["merchants"].set_index("Id")["MerchantCategoryId"]
+    seg_scope = out["campaign_segments"].groupby("CampaignId")["SegmentId"].first()
+    cat_scope = (
+        out["campaign_merchants"]
+        .assign(CategoryId=lambda x: x["MerchantId"].map(merch_cat))
+        .groupby("CampaignId")["CategoryId"].first()
+    )
+    camps = out["campaigns"]
+    camps["SegmentIdScope"] = camps["Id"].map(seg_scope)
+    camps["CategoryIdScope"] = camps["Id"].map(cat_scope)
     return out
 
 
@@ -72,7 +97,8 @@ def _opt_label(value, labels: dict, default: str = ALL) -> str:
     """A campaign scope value → its label, or ``default`` when the scope is unset."""
     if pd.isna(value):
         return default
-    return labels.get(int(value), str(value))
+    key = int(value) if isinstance(value, (int, float, np.integer, np.floating)) else value
+    return labels.get(key, str(value))
 
 
 # ── Views ────────────────────────────────────────────────────────────────────
@@ -80,10 +106,9 @@ def _opt_label(value, labels: dict, default: str = ALL) -> str:
 def build_movements(d: dict[str, pd.DataFrame]) -> pd.DataFrame:
     """Every card movement — purchases and refunds — as one row of plain words.
 
-    Purchases and refunds live in separate CSVs but are one table in the database, so
-    they are unioned here. Each row carries who spent (customer number, segment, gender),
-    on which card (type, product), where (merchant, category), what came back as a refund,
-    and which campaign(s) the purchase qualifies for.
+    Each row carries who spent (customer number, segment, gender), on which card (type,
+    product), where (merchant, category), what came back as a refund, and which campaign(s)
+    the purchase qualifies for.
     """
     merch = d["merchants"].set_index("Id")
     cards = d["cards"].set_index("Id")
@@ -109,7 +134,7 @@ def build_movements(d: dict[str, pd.DataFrame]) -> pd.DataFrame:
         "CardType": mv["CardId"].map(cards["CardType"]).map(CARD_TYPE_LABELS),
         "CardProduct": mv["CardId"].map(cards["ProductId"]).map(PRODUCT_LABELS),
         "Merchant": mv["MerchantId"].map(merch["MerchantName"]),
-        "MerchantCategory": mv["MerchantId"].map(merch["CategoryCode"]).map(CATEGORY_LABELS),
+        "MerchantCategory": mv["MerchantId"].map(merch["MerchantCategoryId"]).map(CATEGORY_LABELS),
         "Amount": mv["Amount"].round(2),
         # `+ 0.0` so an unrefunded purchase reads 0.0 rather than -0.0.
         "RefundedAmount": (-refunded).round(2) + 0.0,
@@ -141,7 +166,7 @@ def _attribute_campaigns(d: dict[str, pd.DataFrame], mv: pd.DataFrame) -> pd.Ser
     a joined list rather than a single id. A refund inherits the attribution of the
     purchase it reverses.
     """
-    merch_cat = d["merchants"].set_index("Id")["CategoryCode"]
+    merch_cat = d["merchants"].set_index("Id")["MerchantCategoryId"]
     cust = d["customers"].set_index("Id")
     cards = d["cards"].set_index("Id")
 
@@ -151,7 +176,7 @@ def _attribute_campaigns(d: dict[str, pd.DataFrame], mv: pd.DataFrame) -> pd.Ser
     segment = mv["CustomerId"].map(cust["SegmentId"]).to_numpy()
     gender = mv["CustomerId"].map(cust["Gender"]).to_numpy()
     card_type = mv["CardId"].map(cards["CardType"]).to_numpy()
-    cat_code = mv["MerchantId"].map(merch_cat).to_numpy()
+    cat_id = mv["MerchantId"].map(merch_cat).to_numpy()
     is_purchase = np.isin(mv["TransactionCodeId"].to_numpy(), config.PURCHASE_CODE_IDS)
 
     treated = d["treatment"][d["treatment"]["Treated"]]
@@ -178,8 +203,8 @@ def _attribute_campaigns(d: dict[str, pd.DataFrame], mv: pd.DataFrame) -> pd.Ser
             mask &= gender == camp.Gender
         if not pd.isna(camp.CardType):
             mask &= card_type == camp.CardType
-        if not pd.isna(camp.CategoryCodeScope):
-            mask &= cat_code == camp.CategoryCodeScope
+        if not pd.isna(camp.CategoryIdScope):
+            mask &= cat_id == camp.CategoryIdScope
 
         idx = np.flatnonzero(mask)
         if idx.size:
@@ -220,20 +245,20 @@ def build_campaigns(d: dict[str, pd.DataFrame], movements: pd.DataFrame) -> pd.D
             "CampaignId": c.Id,
             "Name": c.Name,
             "Status": c.Status,
-            "CampaignType": c.CampaignType,
-            "EarningType": c.EarningType,
+            "CampaignType": CAMPAIGN_TYPE_LABELS.get(c.CampaignType, c.CampaignType),
+            "EarningType": EARNING_TYPE_LABELS.get(c.EarningType, c.EarningType),
             "StartDate": c.StartDate.date(),
             "EndDate": c.EndDate.date(),
             "DurationDays": (c.EndDate - c.StartDate).days,
             "TargetSegment": _opt_label(c.SegmentIdScope, SEGMENT_LABELS),
             "TargetGender": _opt_label(c.Gender, GENDER_LABELS),
             "TargetCardType": _opt_label(c.CardType, CARD_TYPE_LABELS),
-            "TargetCategory": CATEGORY_LABELS.get(c.CategoryCodeScope, ALL),
+            "TargetCategory": _opt_label(c.CategoryIdScope, CATEGORY_LABELS),
             "MinimumAmount": c.MinimumAmount,
             "MaximumAmount": NONE if pd.isna(c.MaximumAmount) else c.MaximumAmount,
             "RewardPoint": c.RewardPoint,
             "MaxRewardAmount": NONE if pd.isna(c.MaxRewardAmount) else c.MaxRewardAmount,
-            "Clawback": f"Yes ({int(c.RefundClawbackDays)}d)" if c.RefundClawbackEnabled else "No",
+            "Clawback": f"Evet ({int(c.RefundClawbackDays)} gün)" if c.RefundClawbackEnabled else "Hayır",
             "Participants": int(joined.get(c.Id, 0)),
             "TreatedCustomers": int(treated.get(c.Id, 0)),
             "QualifyingTransactions": int(qual["size"].get(c.Name, 0)),
@@ -260,8 +285,8 @@ def build_rewards(d: dict[str, pd.DataFrame]) -> pd.DataFrame:
     return pd.DataFrame({
         "RewardId": r["Id"],
         "Campaign": r["CampaignId"].map(camps["Name"]),
-        "CampaignType": r["CampaignId"].map(camps["CampaignType"]),
-        "EarningType": r["CampaignId"].map(camps["EarningType"]),
+        "CampaignType": r["CampaignId"].map(camps["CampaignType"]).map(CAMPAIGN_TYPE_LABELS),
+        "EarningType": r["CampaignId"].map(camps["EarningType"]).map(EARNING_TYPE_LABELS),
         "CustomerNumber": r["CustomerId"].map(cust["CustomerNumber"]),
         "Segment": r["CustomerId"].map(cust["SegmentId"]).map(SEGMENT_LABELS),
         "Gender": r["CustomerId"].map(cust["Gender"]).map(GENDER_LABELS),
@@ -291,10 +316,11 @@ def build_participation(d: dict[str, pd.DataFrame]) -> pd.DataFrame:
     return pd.DataFrame({
         "ParticipationId": p["Id"],
         "Campaign": p["CampaignId"].map(camps["Name"]),
-        "CampaignType": p["CampaignId"].map(camps["CampaignType"]),
+        "CampaignType": p["CampaignId"].map(camps["CampaignType"]).map(CAMPAIGN_TYPE_LABELS),
         "CustomerNumber": p["CustomerId"].map(cust["CustomerNumber"]),
         "Segment": p["CustomerId"].map(cust["SegmentId"]).map(SEGMENT_LABELS),
         "Gender": p["CustomerId"].map(cust["Gender"]).map(GENDER_LABELS),
+        "CardId": p["CardId"],
         "ParticipationDate": p["ParticipationDate"].dt.date,
         "Status": p["Status"],
         "Treated": treated.reindex(keys).to_numpy(),
@@ -374,6 +400,8 @@ def main() -> None:
     ap.add_argument("--sample-only", action="store_true",
                     help="skip the full CSVs; write only the 200-row samples")
     args = ap.parse_args()
+    # Turkish names in the console: Windows otherwise prints them in the ANSI code page.
+    sys.stdout.reconfigure(encoding="utf-8")
 
     d = _load()
     print(f"[views] loaded {len(d)} tables from {config.OUTPUT_DIR}")

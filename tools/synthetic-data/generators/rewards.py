@@ -3,7 +3,8 @@ Treatment effect, rewards, and refund clawback — the causal payload.
 
 Pipeline
 --------
-1. Apply the treatment effect to the baseline transactions:
+1. Apply the treatment effect to the baseline transactions, over the part of each
+   campaign that has already happened (up to END_DATE):
      - persuadable treated → extra qualifying purchases in the campaign window/category
        (positive uplift, observable)
      - sleeping_dog treated → a fraction of their in-scope baseline purchases suppressed
@@ -11,11 +12,14 @@ Pipeline
      - sure_thing / lost_cause → no change
    The true per-(customer, campaign) incremental spend (tau) is recorded for ground truth.
 2. Generate refunds on the treated transactions (delegated to ``refunds``).
-3. Compute rewards exactly as the .NET batch would: qualifying purchases per campaign
-   criteria → Earn rows (per card for K, per customer for M, capped by MaxRewardAmount);
-   then refunds that drop a purchase below MinimumAmount produce negative Clawback rows,
-   using the same effective-amount rule the app uses.
+3. Compute rewards as the .NET batch would, for Ended campaigns only — the batch loads
+   rewards once a campaign has ended: qualifying purchases per campaign criteria → Earn
+   rows (per card for K, per customer for M, capped by MaxRewardAmount); then refunds that
+   drop a purchase below MinimumAmount produce negative Clawback rows, using the same
+   effective-amount rule the app uses.
 4. Build ground truth: response type, true tau, reward cost and profit per treated pair.
+   For a campaign still running, tau is the effect so far and the reward cost is 0 — its
+   rewards have not been loaded yet.
 
 Returns
 -------
@@ -52,7 +56,6 @@ def _reward_points(count, reward_point, max_reward):
 def generate_rewards(rng, config, customers_df, latent_df, cards_df, txns_df,
                      campaigns_df, treatment_df, merchants_df):
     # ── Lookups ───────────────────────────────────────────────────────────────
-    n_cust = len(customers_df)
     pos_of_cust = {int(c): i for i, c in enumerate(customers_df["Id"].to_numpy())}
     responsiveness = latent_df["Responsiveness"].to_numpy()
     response_type = latent_df["ResponseType"].to_numpy()
@@ -71,6 +74,8 @@ def generate_rewards(rng, config, customers_df, latent_df, cards_df, txns_df,
     seg_by_cust = customers_df.set_index("Id")["SegmentId"]
     # First (primary) card per customer, for attributing incremental purchases.
     primary_card = cards_df.sort_values("Id").groupby("CustomerId")["Id"].first()
+    # Exclusive upper bound of the window: nothing may be dated on or after it.
+    today_end = np.datetime64(config.END_DATE) + np.timedelta64(1, "D")
 
     treated = treatment_df[treatment_df["Treated"]]
     treated_by_camp = {cid: g["CustomerId"].to_numpy()
@@ -83,7 +88,6 @@ def generate_rewards(rng, config, customers_df, latent_df, cards_df, txns_df,
     txn_date = txns_df["TransactionDate"].to_numpy()
     txn_cust = txns_df["CustomerId"].to_numpy()
     txn_code = txns_df["TransactionCodeId"].to_numpy()
-    txn_merch = txns_df["MerchantId"].to_numpy()
     txn_amt = txns_df["Amount"].to_numpy()
     is_purchase = np.isin(txn_code, config.PURCHASE_CODE_IDS)
     txn_catcode = txns_df["MerchantId"].map(merch_cat).to_numpy()
@@ -98,6 +102,12 @@ def generate_rewards(rng, config, customers_df, latent_df, cards_df, txns_df,
         s_date = np.datetime64(camp.StartDate)
         e_date = np.datetime64(camp.EndDate)
         duration = max(int((e_date - s_date).astype("timedelta64[D]").astype(int)), 1)
+        # Only the part of a campaign that has already happened can change behaviour: a
+        # pending one changes nothing yet, an ongoing one only up to today. Without this the
+        # extra purchases would be dated after the window — in the future.
+        live_days = min(duration, int((today_end - s_date).astype("timedelta64[D]").astype(int)))
+        if live_days <= 0:
+            continue
         cat_scope = _opt(camp.CategoryCodeScope)
 
         # -- persuadables: add incremental qualifying purchases --
@@ -105,11 +115,13 @@ def generate_rewards(rng, config, customers_df, latent_df, cards_df, txns_df,
         if pmask.any():
             p_pos = pos[pmask]
             p_cust = members[pmask]
-            n_extra = rng.poisson(config.PERSUADABLE_EXTRA_LAMBDA * responsiveness[p_pos])
+            n_extra = rng.poisson(
+                config.PERSUADABLE_EXTRA_LAMBDA * responsiveness[p_pos] * live_days / duration
+            )
             total = int(n_extra.sum())
             if total > 0:
                 cust_rep = np.repeat(p_cust, n_extra)
-                offs = rng.integers(0, duration, size=total)
+                offs = rng.integers(0, live_days, size=total)
                 secs = rng.integers(8 * 3600, 22 * 3600, size=total)
                 dates = s_date + offs.astype("timedelta64[D]") + secs.astype("timedelta64[s]")
                 amt = np.round(camp.MinimumAmount * (1.0 + rng.exponential(_INCREMENTAL_AMOUNT_SCALE, size=total)), 2)
@@ -131,7 +143,7 @@ def generate_rewards(rng, config, customers_df, latent_df, cards_df, txns_df,
                     "CardId": cards_rep,
                     "CustomerId": cust_rep,
                     "MerchantId": merch,
-                    "TransactionCodeId": 1,
+                    "TransactionCodeId": config.SALE_CODE_ID,
                     "TransactionDate": dates,
                     "Amount": amt,
                 }))
@@ -201,6 +213,10 @@ def generate_rewards(rng, config, customers_df, latent_df, cards_df, txns_df,
     for camp in campaigns_df.itertuples():
         members = treated_by_camp.get(camp.Id)
         if members is None or members.size == 0:
+            continue
+        # The batch loads rewards only once a campaign has ended; an ongoing campaign has
+        # no reward rows yet, whatever its members have already spent.
+        if camp.Status != "Ended":
             continue
         s_date = np.datetime64(camp.StartDate)
         e_date = np.datetime64(camp.EndDate)
