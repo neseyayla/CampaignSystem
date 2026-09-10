@@ -1,0 +1,428 @@
+.page {
+  padding: 1.5rem;
+  max-width: 1000px;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin: 0 0 1.5rem;
+  letter-spacing: -0.01em;
+}
+
+/* Filter bar: one compact row — fields and the buttons aligned along the same baseline. */
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  border: 1px solid #e6e8ec;
+  border-radius: 3px;
+  background: #fff;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Campaign field and clawback checkboxes on one row, aligned along the input's bottom edge. */
+.filter-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1.75rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+}
+
+.field span {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #5b616b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.field select,
+.field input {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #c9ced6;
+  border-radius: 3px;
+  font: inherit;
+  font-size: 0.88rem;
+  background: #fff;
+  color: #14181f;
+}
+
+.field select:focus,
+.field input:focus {
+  outline: none;
+  border-color: #ffcc00;
+  box-shadow: 0 0 0 3px #fff2b3;
+}
+
+/* Campaign autocomplete: our own suggestion list, so it matches the theme and stays compact. */
+.campaign-field {
+  position: relative;
+  flex: 0 1 340px;
+}
+
+.suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0.2rem 0 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #c9ced6;
+  border-radius: 3px;
+  box-shadow: 0 6px 16px rgba(20, 24, 31, 0.12);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.suggestions button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  font: inherit;
+  font-size: 0.88rem;
+  color: #14181f;
+  cursor: pointer;
+}
+
+.suggestions button:hover {
+  background: #fffbe8;
+}
+
+/* Buttons sit at the end of the row, aligned to the inputs' bottom edge. */
+.filter-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Clawback: the two options side by side, next to the campaign field. */
+.clawback-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+  /* Sit at the input's level, clear of the field's label above it. */
+  padding-bottom: 0.45rem;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  color: #14181f;
+  cursor: pointer;
+}
+
+.check input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #ffcc00;
+  cursor: pointer;
+}
+
+.button {
+  padding: 0.55rem 1.2rem;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: #ffcc00;
+  color: #14181f;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button.ghost {
+  background: #fff;
+  color: #3c4149;
+  border-color: #c9ced6;
+  font-weight: 500;
+}
+
+.button:hover {
+  filter: brightness(0.98);
+}
+
+/* Active filters, each removable by its ×. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid #e0c453;
+  border-radius: 999px;
+  background: #fffbe8;
+  color: #3c4149;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.chip:hover {
+  background: #fff2b3;
+}
+
+.chip .x {
+  font-size: 1rem;
+  line-height: 1;
+  color: #7a5200;
+}
+
+/* Summary strip: sober cards, same palette as the rest — no coloured tiles. */
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.summary-card {
+  flex: 1 1 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border: 1px solid #e6e8ec;
+  border-radius: 3px;
+  background: #fff;
+  padding: 0.75rem 1rem;
+}
+
+.summary-card .label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #5b616b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.summary-card .value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #14181f;
+  font-variant-numeric: tabular-nums;
+}
+
+.state {
+  color: #5b616b;
+  padding: 1.25rem 0;
+}
+
+.state.error {
+  color: #b3261e;
+}
+
+.card {
+  border: 1px solid #e6e8ec;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid #eef0f3;
+  white-space: nowrap;
+}
+
+thead th {
+  font-weight: 600;
+  color: #4a4f57;
+  font-size: 0.8rem;
+  background: #fffbe8;
+  border-bottom: 1px solid #e6e8ec;
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+  /* Sentence case, not shouty uppercase — the headers are descriptive phrases now. Let the long
+     ones wrap tidily onto a second line; the numeric cells below stay on one line. */
+  white-space: normal;
+  vertical-align: middle;
+  line-height: 1.3;
+}
+
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+th.sortable:hover {
+  color: #14181f;
+}
+
+.arrow {
+  display: inline-block;
+  width: 0.8em;
+  font-size: 0.7em;
+  color: #7a5200;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.campaign-row {
+  cursor: pointer;
+}
+
+.campaign-row:hover td {
+  background: #fffdf5;
+}
+
+.campaign-row.expanded td {
+  background: #fff6cf;
+}
+
+.caret {
+  display: inline-block;
+  width: 1em;
+  color: #7a5200;
+}
+
+/* Drill-down panel: fills the row, its own surface so the row hover behind it does not show. */
+.detail-row td {
+  padding: 0;
+}
+
+.movements {
+  background: #f7f8fa;
+  border-top: 1px solid #e6e8ec;
+  padding: 1rem 1.25rem;
+}
+
+/* Ledger summary: one aggregated line per movement kind. */
+.ledger {
+  background: #fff;
+  border: 1px solid #e6e8ec;
+  border-radius: 3px;
+}
+
+.ledger-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid #eef0f3;
+  font-size: 0.88rem;
+}
+
+.ledger-line:last-child {
+  border-bottom: none;
+}
+
+.ln-label {
+  color: #5b616b;
+}
+
+.ln-total {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #14181f;
+}
+
+/* "Hareketleri gör" — a quiet text button under the ratios. */
+.link-button {
+  margin-top: 0.6rem;
+  padding: 0.2rem 0;
+  border: none;
+  background: none;
+  color: #7a5200;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Aggregated movement lines, revealed on demand. */
+.movement-lines {
+  margin-top: 0.6rem;
+  background: #fff;
+  border: 1px solid #e6e8ec;
+  border-radius: 3px;
+}
+
+.movement-line {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto auto auto;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid #eef0f3;
+  font-size: 0.85rem;
+}
+
+.movement-line:last-child {
+  border-bottom: none;
+}
+
+.ml-label {
+  font-weight: 600;
+  color: #14181f;
+}
+
+/* Date, count and total each right-align so their columns line up cleanly. */
+.ml-date,
+.ml-count {
+  text-align: right;
+  color: #5b616b;
+  font-variant-numeric: tabular-nums;
+}
+
+.ml-count {
+  min-width: 5rem;
+}
+
+.ml-total {
+  text-align: right;
+  min-width: 6rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #14181f;
+}
+
+/* Amounts read faster right aligned — the digits line up by place value. Give the columns enough
+   width that a descriptive header wraps to at most two lines instead of one word per line. */
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  min-width: 7rem;
+}
+
+/* The name column has no min-width, so the auto layout hands it the leftover space and the
+   numeric columns stay their natural, compact width. */
+tbody td:first-child {
+  min-width: 12rem;
+}

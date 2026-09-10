@@ -1,0 +1,122 @@
+<div class="page">
+  <h1>Detaylı Rapor</h1>
+
+  <form class="filters" (submit)="$event.preventDefault(); run()">
+    <fieldset class="type-group">
+      <legend>Rapor Türü</legend>
+      @for (t of reportTypes; track t.value) {
+        <label class="radio">
+          <input
+            type="radio"
+            name="type"
+            [value]="t.value"
+            [ngModel]="reportType()"
+            (ngModelChange)="reportType.set($event)"
+          />
+          <span>{{ t.label }}</span>
+        </label>
+      }
+    </fieldset>
+
+    <div class="fields">
+      <label class="field">
+        <span>Kampanya</span>
+        <select [ngModel]="campaignId()" (ngModelChange)="campaignId.set($event)" name="campaign">
+          <option [ngValue]="null">Tümü</option>
+          @for (c of campaigns(); track c.id) {
+            <option [ngValue]="c.id">{{ c.name }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Müşteri No</span>
+        <input
+          type="text"
+          [ngModel]="customerNumber()"
+          (ngModelChange)="customerNumber.set($event)"
+          name="customerNumber"
+          autocomplete="off"
+        />
+      </label>
+
+      <label class="field">
+        <span>Kart No</span>
+        <input
+          type="text"
+          inputmode="numeric"
+          [ngModel]="cardId()"
+          (ngModelChange)="cardId.set($event)"
+          name="cardId"
+          autocomplete="off"
+        />
+      </label>
+    </div>
+
+    <div class="filter-actions">
+      <button type="submit" class="button">Getir</button>
+      <button type="button" class="button ghost" (click)="clear()">Temizle</button>
+      <button type="button" class="button ghost" (click)="exportCsv()" [disabled]="rows().length === 0">
+        Dışa Aktar
+      </button>
+    </div>
+  </form>
+
+  @if (error(); as message) {
+    <div class="state error">{{ message }}</div>
+  } @else if (loading()) {
+    <div class="state">Yükleniyor…</div>
+  } @else if (fetched() && rows().length === 0) {
+    <div class="state">Kayıt bulunamadı.</div>
+  } @else if (rows().length > 0) {
+    <div class="card table-wrap">
+      @if (isTransaction()) {
+        <table>
+          <thead>
+            <tr>
+              <th>Müşteri No</th>
+              <th class="numeric">Kart No</th>
+              <th class="numeric">İşlem Tutarı</th>
+              <th>İşlem Tarihi</th>
+              <th>Üye</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track $index) {
+              <tr>
+                <td>{{ row.customerNumber }}</td>
+                <td class="numeric">{{ row.cardId }}</td>
+                <td class="numeric">{{ row.amount | number:'1.0-2' }}</td>
+                <td>{{ row.date | date:'dd.MM.yyyy' }}</td>
+                <td>{{ row.merchantName ?? '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <table>
+          <thead>
+            <tr>
+              <th>Müşteri No</th>
+              <th class="numeric">Kart No</th>
+              <th>Kampanya</th>
+              <th>Tarih</th>
+              <th class="numeric">{{ amountHeader() }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track $index) {
+              <tr>
+                <td>{{ row.customerNumber }}</td>
+                <td class="numeric">{{ row.cardId ?? '—' }}</td>
+                <td>{{ row.campaignName }}</td>
+                <td>{{ row.date | date:'dd.MM.yyyy' }}</td>
+                <td class="numeric">{{ row.amount | number:'1.0-2' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  }
+</div>

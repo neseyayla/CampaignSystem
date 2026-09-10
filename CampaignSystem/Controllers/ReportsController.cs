@@ -1,0 +1,56 @@
+using CampaignSystem.DTOs.Reports;
+using CampaignSystem.Services.Reports;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace CampaignSystem.Controllers;
+
+[ApiController]
+[Authorize(Roles = "Admin")]
+[Route("api/reports")]
+public class ReportsController : ControllerBase
+{
+    private readonly IReportService _service;
+
+    public ReportsController(IReportService service)
+    {
+        _service = service;
+    }
+
+    /// <summary>Report rows for the campaigns matching the given filters, for the report table.</summary>
+    [HttpGet("campaigns")]
+    public async Task<IActionResult> GetCampaignSummaries(
+        [FromQuery] int? campaignId,
+        [FromQuery] ClawbackFilter clawback,
+        CancellationToken cancellationToken)
+    {
+        var summaries = await _service.GetCampaignSummariesAsync(campaignId, clawback, cancellationToken);
+
+        return Ok(summaries);
+    }
+
+    /// <summary>A detailed, row-level report (loads / clawbacks / refunds / transactions).</summary>
+    [HttpGet("detail")]
+    public async Task<IActionResult> GetDetailReport(
+        [FromQuery] DetailReportType type,
+        [FromQuery] int? campaignId,
+        [FromQuery] string? customerNumber,
+        [FromQuery] int? cardId,
+        CancellationToken cancellationToken)
+    {
+        var rows = await _service.GetDetailReportAsync(type, campaignId, customerNumber, cardId, cancellationToken);
+
+        return Ok(rows);
+    }
+
+    /// <summary>One campaign's ledger summary (loads, refunds, clawbacks), for the drill-down.</summary>
+    [HttpGet("campaigns/{id:int}/ledger")]
+    public async Task<IActionResult> GetCampaignLedger(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var ledger = await _service.GetCampaignLedgerAsync(id, cancellationToken);
+
+        return Ok(ledger);
+    }
+}

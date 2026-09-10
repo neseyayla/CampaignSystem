@@ -117,6 +117,8 @@ export interface RewardBreakdown {
   rewardPointPerTransaction: number;
   /** The campaign's minimum spend, or null; used to explain a dropped purchase. */
   minimumAmount: number | null;
+  /** Points clawed back for never being redeemed, as a positive figure (0 when none). */
+  unusedClawbackPoints: number;
   lines: RewardBreakdownLine[];
 }
 
