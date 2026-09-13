@@ -326,12 +326,21 @@ public class RewardService(
 
         var point = campaign.RewardPoint ?? 0m;
 
+        // Unused-points clawback is not tied to a purchase, so it has no breakdown line; report its
+        // magnitude once so the screen can show it as its own row and reconcile with the balance.
+        var unusedClawback = await context.CampaignRewards
+            .Where(r => r.CampaignId == campaignId
+                        && r.CustomerId == customerId
+                        && r.RewardType == RewardType.UnusedPointsClawback)
+            .SumAsync(r => (decimal?)r.RewardPoint, cancellationToken) ?? 0m;
+
         return new RewardBreakdownDto
         {
             CampaignId = campaign.Id,
             CampaignName = campaign.Name,
             RewardPointPerTransaction = point,
             MinimumAmount = campaign.MinimumAmount,
+            UnusedClawbackPoints = Math.Abs(unusedClawback),
             Lines = lines
                 .Select(t => BuildBreakdownLine(
                     t, campaign, point, refundsByPurchase.GetValueOrDefault(t.Id, []), merchantNames))

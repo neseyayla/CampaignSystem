@@ -13,6 +13,13 @@
 frontend
 customer-frontend
 
+# Data-generation tooling and its large CSV output (hundreds of MB) — not part of the API
+# image, and copying it makes every build transfer the whole thing as context.
+tools
+
+# Local seed/demo SQL — run by hand, never needed to build the API.
+scripts
+
 # Docker's own files
 Dockerfile
 .dockerignore

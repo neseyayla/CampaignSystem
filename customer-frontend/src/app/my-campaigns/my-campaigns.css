@@ -589,6 +589,25 @@
   color: #d92d20;
 }
 
+/* Unused-points clawback: a summary line under the purchases so they reconcile with the balance. */
+.bd-clawback {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  /* Match the purchase rows above so it doesn't look cramped. */
+  padding: 0.875rem 1.5rem;
+  border-top: 1px solid #f1f4f8;
+  font-size: 0.9375rem;
+  color: var(--ink);
+}
+
+.bd-clawback-amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #d92d20;
+}
+
 /* ── States ───────────────────────────────────── */
 
 .state {

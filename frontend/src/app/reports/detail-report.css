@@ -1,0 +1,181 @@
+.page {
+  padding: 1.5rem;
+  max-width: 1100px;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin: 0 0 1.5rem;
+  letter-spacing: -0.01em;
+}
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border: 1px solid #e6e8ec;
+  border-radius: 3px;
+  background: #fff;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Report type: a bordered radio group like the campaign definition screen. */
+.type-group {
+  border: 1px solid #c9ced6;
+  border-radius: 3px;
+  padding: 0.5rem 0.9rem 0.7rem;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.75rem;
+}
+
+.type-group legend {
+  padding: 0 0.35rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #5b616b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.radio {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  color: #14181f;
+  cursor: pointer;
+}
+
+.radio input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #ffcc00;
+  cursor: pointer;
+}
+
+.fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.25rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1 1 220px;
+}
+
+.field span {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #5b616b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.field select,
+.field input {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #c9ced6;
+  border-radius: 3px;
+  font: inherit;
+  font-size: 0.88rem;
+  background: #fff;
+  color: #14181f;
+}
+
+.field select:focus,
+.field input:focus {
+  outline: none;
+  border-color: #ffcc00;
+  box-shadow: 0 0 0 3px #fff2b3;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.button {
+  padding: 0.55rem 1.2rem;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: #ffcc00;
+  color: #14181f;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button.ghost {
+  background: #fff;
+  color: #3c4149;
+  border-color: #c9ced6;
+  font-weight: 500;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.state {
+  color: #5b616b;
+  padding: 1.25rem 0;
+}
+
+.state.error {
+  color: #b3261e;
+}
+
+.card {
+  border: 1px solid #e6e8ec;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #eef0f3;
+  white-space: nowrap;
+}
+
+thead th {
+  font-weight: 600;
+  color: #5b616b;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #fffbe8;
+  border-bottom: 1px solid #e6e8ec;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:hover td {
+  background: #fffdf5;
+}
+
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
