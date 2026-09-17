@@ -355,8 +355,11 @@ INTERCHANGE_MARGIN: float = 0.015
 # during the campaign (scaled by their latent responsiveness).
 PERSUADABLE_EXTRA_LAMBDA: float = 4.0
 # Sleeping dogs: fraction of a treated sleeping-dog's in-scope baseline purchases that
-# the campaign suppresses (negative uplift).
-SLEEPING_DOG_SUPPRESS: float = 0.4
+# the campaign suppresses (negative uplift). 0.4 → 0.1: the loss scales with a sleeping
+# dog's whole in-scope spend, while a persuadable only adds a few purchases, so at 0.4 the
+# 10% of sleeping dogs outweighed the 25% of persuadables and campaigns came out net
+# negative overall. At 0.1 most campaigns lift spend and some still lose it.
+SLEEPING_DOG_SUPPRESS: float = 0.1
 
 
 # ── Enrollment (self-selection) ──────────────────────────────────────────────

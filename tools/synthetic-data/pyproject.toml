@@ -9,6 +9,7 @@ dependencies = [
     "scipy>=1.13",
     "faker>=30.0",
     "matplotlib>=3.8",
+    "pyodbc>=5.3.0",
 ]
 
 # This is a runnable tool, not an installable library — uv should not try to build it.

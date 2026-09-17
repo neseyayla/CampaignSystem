@@ -54,6 +54,7 @@ shaped so that loading them later is a plain bulk insert.
 | Enums are stored as bank codes | Gender `E`/`K`, card type `A`/`E`, campaign type `MASS`/`SI`, earning type `K`/`M`; statuses, enrollment basis and reward types as their names; flags as `0`/`1`. |
 | Only SA is spending; IA is a refund | Purchases are `SA` (1); refunds are `IA` (4) with a negative amount and `OriginalTransactionId`. |
 | The seed already owns merchants 1–12 | Generated merchants start at id 1001, with numbers in a `9xxxxxxxx` range. |
+| Real brands belong to the seed | Generated merchants get made-up, category-appropriate shop names ("Yılmaz Petrol", "Çınar Eczanesi"); real brands appear only in the 12 seeded merchants. |
 | A card-based SI campaign enrolls a card | Card-based enrollments carry `CardId`, one row per card; customer-based ones leave it empty. |
 | An SI campaign needs `EnrollmentBasis` | Set to `CampaignPeriod`; empty for MASS. |
 | Campaign scope lives in junction tables | Written as `campaign_segments`, `campaign_merchants` (a category campaign lists that category's merchants) and `campaign_transaction_codes` (SA for every campaign). |
@@ -148,6 +149,7 @@ uv run python views.py --rows 20     # print more rows per view
 config.py            run controls + DGP parameters + reference data (mirrors the DB seed)
 main.py              runs the chain in dependency order, writes the CSVs, prints the check
 views.py             joins the CSVs into labelled wide tables -> output/views/
+load.py              loads the table files into a development database
 generators/
   customers.py       segments, gender + latent traits (segment-centred basket)
   cards.py           cards per customer, product by segment
@@ -159,10 +161,35 @@ generators/
   refunds.py         İade transactions
 ```
 
+## Loading into a database
+
+The data goes into its own database, **CampaignSystem_Dev**, on the same Docker SQL
+Server as the presentation database. The presentation database, CampaignSystem, is never
+touched — `load.py` refuses it by name.
+
+```bash
+uv run python load.py            # creates CampaignSystem_Dev if needed, then loads
+uv run python load.py --reset    # after regenerating: empty the database, load again
+```
+
+A missing database is created with the application's own migrations (`dotnet ef`, see the
+repository README), so its schema and lookup rows are exactly the app's. A database that
+already holds customers is refused unless `--reset` is given.
+
+The loader also creates the sign-ins, all with password `123456`: an admin
+(`90000001`) for the staff app, and one customer per segment for the customer app — it
+prints their numbers at the end.
+
+To run the application against it, use the development override. A plain
+`docker compose up` keeps using the presentation database:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+```
+
 ## Not modelled yet
 
 - NA (nakit avans), OD (borç ödeme) and PS (puan harcama) transactions — the application
   has no example yet of how their amounts and merchants are recorded, so they are left out
   rather than guessed
 - product criteria (CAMPAIGN_PRODUCT) and the unused-points clawback
-- loading the CSVs into SQL Server — the next step
