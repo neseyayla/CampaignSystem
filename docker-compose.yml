@@ -56,6 +56,10 @@ services:
       ConnectionStrings__DefaultConnection: "Server=db,1433;Database=CampaignSystem;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=False"
       # The app refuses to start without this; at least 32 characters.
       Jwt__SigningKey: "${JWT_SIGNING_KEY}"
+      # AI campaign advisor. Unlike the signing key this one is optional: left empty, only
+      # POST /api/campaign-advisor refuses and everything else runs, so a developer without
+      # an Anthropic key can still bring the stack up.
+      Advisor__ApiKey: "${ADVISOR_API_KEY:-}"
     ports:
       - "5284:8080"                      # reach the API on http://localhost:5284
 

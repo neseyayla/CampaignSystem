@@ -1,0 +1,22 @@
+# Development override: the same stack, pointed at the CampaignSystem_Dev database instead of
+# the presentation database. The synthetic data (tools/synthetic-data) is loaded there.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#
+# A plain "docker compose up" is unchanged and keeps using CampaignSystem, so the presentation
+# data is never touched. Both databases live on the same SQL Server container.
+
+services:
+  db:
+    healthcheck:
+      # Healthy only once CampaignSystem_Dev is ONLINE as well (or does not exist yet — on a
+      # first start the API creates it). After a restart SQL Server answers queries before it
+      # has finished recovering a large database; an API starting in that gap cannot open
+      # CampaignSystem_Dev, takes it for missing, tries to create it and crashes.
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -b -Q \"IF DB_ID('CampaignSystem_Dev') IS NOT NULL AND DATABASEPROPERTYEX('CampaignSystem_Dev', 'Status') <> 'ONLINE' RAISERROR('CampaignSystem_Dev is not online yet', 16, 1)\" || exit 1"]
+      # Recovery of the development database can take minutes after an unclean stop.
+      retries: 60
+
+  api:
+    environment:
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=CampaignSystem_Dev;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=False"

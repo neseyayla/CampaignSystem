@@ -1,0 +1,9 @@
+# uv virtual environment
+.venv/
+
+# Generated data — never committed; regenerated from a seed
+output/
+
+# Python bytecode
+__pycache__/
+*.pyc
