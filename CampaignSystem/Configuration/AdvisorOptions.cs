@@ -32,4 +32,11 @@ public class AdvisorOptions
     /// without concluding from running up an unbounded bill.
     /// </summary>
     public int MaxToolIterations { get; set; } = 8;
+
+    /// <summary>
+    /// A segment × category cell with fewer buying customers than this has its ratios withheld
+    /// in the segment breakdown. Below it a share or an index is noise, and a cell that small
+    /// starts describing individual customers rather than a segment.
+    /// </summary>
+    public int SegmentMinCellCustomers { get; set; } = 20;
 }

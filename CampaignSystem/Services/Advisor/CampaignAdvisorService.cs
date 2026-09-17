@@ -25,6 +25,7 @@ public class CampaignAdvisorService(
     AnthropicClient client,
     CampaignDbContext context,
     ICampaignRecommendationService recommendations,
+    ISegmentAnalysisService segmentAnalysis,
     IOptions<AdvisorOptions> options,
     ILogger<CampaignAdvisorService> logger) : ICampaignAdvisorService
 {
@@ -38,9 +39,10 @@ public class CampaignAdvisorService(
     };
 
     /// <summary>
-    /// The rules that keep the model inside what the data can actually support. Points 2 and 4
-    /// are the important ones: they name the two things this system cannot yet measure, so the
-    /// model says "not available" instead of producing a plausible number for them.
+    /// The rules that keep the model inside what the data can actually support. Point 2 names
+    /// what this system cannot measure yet, so the model says "not available" instead of
+    /// producing a plausible number; point 4 explains the segment figures so they are read as
+    /// what they are; point 7 keeps several ideas from being one idea said three ways.
     /// </summary>
     private const string SystemPrompt = """
         Sen bir bankanın kampanya yönetim sisteminde çalışan, iş birimine kampanya fikri sunan
@@ -59,16 +61,29 @@ public class CampaignAdvisorService(
         3. Bir kırılım araçlarda yoksa "bu veri sistemde yok" de ve orada dur. Tahminle
            doldurma.
 
-        4. ÖNEMLİ KISIT: öneri motoru şu an banka geneli çalışır. Segment bazlı kategori
-           kırılımı HENÜZ YOK. Bir segment sorulduğunda segmenti çözebilir, büyüklüğünü
-           söyleyebilirsin; ama o segmente özel harcama dağılımı veremezsin. Bunu açıkça
-           belirt ve genel motorun ne söylediğini ayrı ayrı aktar.
+        4. Bir segment sorulduğunda önce resolve_segment ile segmenti bul, sonra
+           get_segment_category_breakdown ile o segmentin kategori harcamalarını al.
+           - Index: segmentin o kategoriye ayırdığı payın banka ortalamasına oranı. 2,0 iki
+             kat fazla, 0,5 yarısı kadar demek.
+           - Penetration: segment müşterilerinin yüzde kaçının o kategoride alışveriş
+             yaptığı.
+           - EnoughData=false olan kategoride alışveriş yapan müşteri sayısı yetersizdir; o
+             kategori için oran ya da tutar söyleme.
+           get_campaign_suggestions banka genelidir: bir kategoride aktif kampanya olup
+           olmadığını ve genel trendi görmek için kullan, rakamlarını segment rakamı gibi
+           aktarma.
 
         5. Türkçe, sade ve iş birimine hitap eden bir dille yaz. Madde madde, kısa.
 
         6. Bir kampanya fikri sunarken hem lehte gerekçeyi hem varsa aleyhte gerekçeyi ver.
            Kapsama boşluğu (o kategoride aktif kampanya olmaması) lehte güçlü bir sinyaldir;
            harcamanın düşüş trendinde olması aleyhte bir sinyaldir.
+
+        7. Birden fazla fikir sunacaksan farklı açılardan seç, aynı fikri üç kez söyleme:
+           segmentin zaten yoğun olduğu bir kategori (yüksek Index — mevcut harcamayı
+           korumak), segmentte zayıf ama müşterilerinin bir kısmının yine de alışveriş yaptığı
+           bir kategori (düşük Index, makul Penetration — büyütmek) ve harcaması artan bir
+           kategori (yükselen TrendRatio — doğru zamanda yakalamak).
         """;
 
     private static readonly Tool[] AdvisorTools =
@@ -95,13 +110,43 @@ public class CampaignAdvisorService(
         },
         new Tool
         {
+            Name = "get_segment_category_breakdown",
+            Description =
+                "Bir segmentin son dönem kart harcamasını merchant kategorisi bazında verir ve " +
+                "banka geneliyle karşılaştırır. Her kategori için: segmentin net harcaması, " +
+                "segment içindeki payı (ShareOfSegment), banka genelindeki payı (ShareOfBank), " +
+                "Index (segment payı / banka payı), Penetration (segment müşterilerinin ne kadarı " +
+                "o kategoride alışveriş yaptı), ortalama fiş ve TrendRatio (dönemin son yarısı / " +
+                "önceki yarısı). Az müşterili kategorilerde EnoughData=false olur ve oranlar " +
+                "gizlenir. Harcama yalnızca satış ve iadelerden hesaplanır; nakit avans ve borç " +
+                "ödeme sayılmaz. segmentId'yi önce resolve_segment ile bul.",
+            InputSchema = new()
+            {
+                Properties = new Dictionary<string, JsonElement>
+                {
+                    ["segmentId"] = JsonSerializer.SerializeToElement(new
+                    {
+                        type = "integer",
+                        description = "resolve_segment'in döndürdüğü segment Id'si."
+                    }),
+                    ["lookbackDays"] = JsonSerializer.SerializeToElement(new
+                    {
+                        type = "integer",
+                        description = "Geçmişe bakış penceresi, gün. 14-365 arası, varsayılan 90."
+                    })
+                },
+                Required = ["segmentId"]
+            }
+        },
+        new Tool
+        {
             Name = "get_campaign_suggestions",
             Description =
                 "Kampanya öneri motorunu çalıştırır: son dönem kart harcamalarına bakarak hangi " +
                 "merchant kategorisinde kampanya açmaya değdiğini sıralar. Her satır net harcama, " +
                 "trend oranı, sezonsal ağırlık ve o kategoriyi zaten hedefleyen aktif kampanya " +
-                "olup olmadığını içerir. BANKA GENELİ çalışır — segment kırılımı vermez. " +
-                "Tüm parametreler isteğe bağlıdır.",
+                "olup olmadığını içerir. BANKA GENELİ çalışır — segment kırılımı için " +
+                "get_segment_category_breakdown kullan. Tüm parametreler isteğe bağlıdır.",
             InputSchema = new()
             {
                 Properties = new Dictionary<string, JsonElement>
@@ -261,6 +306,7 @@ public class CampaignAdvisorService(
             return name switch
             {
                 "resolve_segment" => await ResolveSegmentAsync(ReadString(input, "name"), cancellationToken),
+                "get_segment_category_breakdown" => await BreakDownSegmentAsync(input, cancellationToken),
                 "get_campaign_suggestions" => await SuggestCampaignsAsync(input, cancellationToken),
                 _ => Serialise(new { error = $"Bilinmeyen araç: {name}" })
             };
@@ -309,6 +355,25 @@ public class CampaignAdvisorService(
                 note = "Eşleşme bulunamadı. Sistemdeki segmentlerin tamamı aşağıdadır.",
                 available = segments
             });
+    }
+
+    private async Task<string> BreakDownSegmentAsync(
+        IReadOnlyDictionary<string, JsonElement> input,
+        CancellationToken cancellationToken)
+    {
+        var segmentId = ReadInt(input, "segmentId");
+
+        if (segmentId is null)
+        {
+            return Serialise(new { error = "segmentId gerekli; önce resolve_segment çağır." });
+        }
+
+        var result = await segmentAnalysis.GetCategoryBreakdownAsync(
+            segmentId.Value, ReadInt(input, "lookbackDays"), cancellationToken);
+
+        return result.Status == ResultStatus.Success
+            ? Serialise(result.Value!)
+            : Serialise(new { error = $"Segment {segmentId} bulunamadı." });
     }
 
     /// <summary>

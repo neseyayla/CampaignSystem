@@ -204,6 +204,8 @@ builder.Services.AddSingleton(serviceProvider =>
 
 builder.Services.AddScoped<CampaignSystem.Services.Advisor.ICampaignAdvisorService,
     CampaignSystem.Services.Advisor.CampaignAdvisorService>();
+builder.Services.AddScoped<CampaignSystem.Services.Advisor.ISegmentAnalysisService,
+    CampaignSystem.Services.Advisor.SegmentAnalysisService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<CampaignSystem.Services.Reports.IReportService, CampaignSystem.Services.Reports.ReportService>();
 
