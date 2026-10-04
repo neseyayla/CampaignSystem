@@ -37,8 +37,8 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
 
-  { path: 'reports', component: Report, title: 'Kampanya Raporu', canActivate: [authGuard] },
-  { path: 'reports/detail', component: DetailReport, title: 'Detaylı Rapor', canActivate: [authGuard] },
+  { path: 'reports', component: Report, title: 'Kampanya Analizi', canActivate: [authGuard] },
+  { path: 'reports/detail', component: DetailReport, title: 'Kampanya Raporu', canActivate: [authGuard] },
 
   // Anything unrecognised goes to the campaign list rather than a blank page.
   { path: '**', redirectTo: 'campaigns' }
